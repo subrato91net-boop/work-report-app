@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Jobs — {{ name }}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
+    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:10}
+    .topbar-left{display:flex;align-items:center;gap:10px}
+    .avatar{width:32px;height:32px;background:#e6f1fb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#185fa5}
+    .tname{font-size:14px;font-weight:500}
+    .logout{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#73726c;text-decoration:none}
+    .nav-tabs{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;position:sticky;top:52px;z-index:9}
+    .nav-tab{padding:12px 18px;font-size:13px;color:#73726c;text-decoration:none;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
+    .nav-tab:hover{color:#1a1a18}
+    .nav-tab.active{color:#185fa5;border-bottom-color:#185fa5}
+    .wrap{max-width:760px;margin:1.5rem auto;padding:0 1rem}
+    .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+    .hdr-title{font-size:16px;font-weight:600}
+    .rec-count{font-size:12px;color:#73726c}
+    .job-card{background:#fff;border:1px solid #e0dfd8;border-radius:14px;padding:1.4rem;margin-bottom:1rem}
+    .job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:.9rem}
+    .job-title{font-size:15px;font-weight:600}
+    .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap}
+    .badge-open{background:#e6f1fb;color:#0c447c}
+    .badge-progress{background:#faeeda;color:#633806}
+    .badge-done{background:#eaf3de;color:#27500a}
+    .badge-other{background:#f1efe8;color:#5f5e5a}
+    .job-desc{font-size:13.5px;color:#3a3a36;line-height:1.55;margin-bottom:1rem;white-space:pre-wrap}
+    .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;font-size:12.5px}
+    .meta-item{display:flex;flex-direction:column;gap:2px}
+    .meta-label{font-size:10.5px;color:#999;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+    .meta-val{color:#1a1a18}
+    .empty{padding:3rem 1rem;text-align:center;color:#73726c;background:#fff;border:1px solid #e0dfd8;border-radius:14px}
+    @media(max-width:480px){.meta-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="avatar">{{ name[:2].upper() }}</div>
+    <div class="tname">{{ name }}</div>
+  </div>
+  <a href="/logout" class="logout">Logout</a>
+</div>
+<div class="nav-tabs">
+  <a href="/form" class="nav-tab">📋 Work Report</a>
+  <a href="/my-jobs" class="nav-tab active">📌 My Jobs</a>
+</div>
+
+<div class="wrap">
+  <div class="hdr">
+    <div class="hdr-title">📌 Jobs assigned to you</div>
+    <div class="rec-count">{{ record_count }} job{{ 's' if record_count != 1 }}</div>
+  </div>
+
+  {% if jobs %}
+    {% for j in jobs %}
+    {% set s = (j['status'] or '')|lower %}
+    <div class="job-card">
+      <div class="job-top">
+        <div class="job-title">{{ j['job_title'] }}</div>
+        <span class="badge {% if s=='open' %}badge-open{% elif s in ['in progress','progress'] %}badge-progress{% elif s=='done' or s=='completed' %}badge-done{% else %}badge-other{% endif %}">
+          {{ j['status'] }}
+        </span>
+      </div>
+      {% if j['job_description'] %}<div class="job-desc">{{ j['job_description'] }}</div>{% endif %}
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Supervisor</span><span class="meta-val">{{ j['supervisor_name'] }}</span></div>
+        <div class="meta-item"><span class="meta-label">Company</span><span class="meta-val">{{ j['company'] or '—' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Location</span><span class="meta-val">{{ j['location'] or '—' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Assigned by</span><span class="meta-val">{{ j['assigned_by'] }}</span></div>
+        <div class="meta-item"><span class="meta-label">Start date</span><span class="meta-val">{{ j['start_date'] or '—' }}</span></div>
+        <div class="meta-item"><span class="meta-label">End date</span><span class="meta-val">{{ j['end_date'] or '—' }}</span></div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">📭 No jobs assigned to you yet.</div>
+  {% endif %}
+</div>
+</body>
+</html>

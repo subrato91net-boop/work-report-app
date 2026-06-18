@@ -8,6 +8,23 @@ WHAT'S DIFFERENT FROM V2
 - Data is permanently stored — never lost on restart
 - Works perfectly on Render free plan
 - Real BioTime attendance data
+- No Google Sheets / Google credentials anywhere — pure PostgreSQL
+
+NEW IN THIS UPDATE
+- Manager → "Assign Jobs" tab:
+    Assign a job to any employee, with supervisor, job title,
+    description, location, company, start/end date, and status.
+    All assigned jobs are listed and filterable by employee/status.
+- Employee → "My Jobs" tab:
+    Employees can VIEW (read-only) every job assigned to them —
+    job title, description, supervisor, company, location, dates, status.
+    Employees cannot edit assigned jobs; only the manager assigns/manages them.
+- Employee → Work Report form:
+    "Job details" is now a large textarea (the main field).
+    "Remarks" is now a small, optional field.
+    Employees now pick their Supervisor from a dropdown when
+    submitting a daily report; the supervisor's name is saved with
+    the report and shown to the manager in the Work Reports table.
 
 ═══════════════════════════════════════════════
   DEPLOY TO RENDER — STEP BY STEP
@@ -40,6 +57,10 @@ STEP 4 — Redeploy on Render
   → Wait 2-3 minutes
   → Your app is live with permanent database!
 
+NOTE: If you're upgrading an existing Render deployment (database
+already has data), this app automatically adds the new supervisor
+columns and the jobs table on startup — no manual SQL needed.
+
 ═══════════════════════════════════════════════
   LOGIN CREDENTIALS
 ═══════════════════════════════════════════════
@@ -59,6 +80,16 @@ EMPLOYEES
   Username : pritam    Password : 2002123456
 
 ═══════════════════════════════════════════════
+  ROUTES
+═══════════════════════════════════════════════
+
+  /form          Employee — submit daily work report (with supervisor)
+  /my-jobs       Employee — view jobs assigned to them (read-only)
+  /manager       Manager  — view/filter all work reports
+  /assign-job    Manager  — assign new jobs + view/filter all assigned jobs
+  /attendance    Manager  — BioTime attendance dashboard
+
+═══════════════════════════════════════════════
   FILES
 ═══════════════════════════════════════════════
 
@@ -67,7 +98,9 @@ EMPLOYEES
   Procfile            For Render: web: gunicorn app:app
   templates/
     login.html
-    form.html
-    manager.html
-    attendance.html
+    form.html          Employee report form (job details + remarks + supervisor)
+    my_jobs.html        Employee — view assigned jobs (read-only)
+    manager.html        Manager — work reports table
+    assign_job.html      Manager — assign jobs + all-jobs table
+    attendance.html      Manager — attendance dashboard
 ═══════════════════════════════════════════════

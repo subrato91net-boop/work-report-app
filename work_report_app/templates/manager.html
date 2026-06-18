@@ -65,11 +65,6 @@
   <a href="/attendance" class="nav-tab">🕐 Attendance</a>
 </div>
 <div class="main">
-  {% if error %}
-  <div style="background:#fcebeb;border:1px solid #f09595;border-radius:8px;padding:10px 14px;font-size:13px;color:#791f1f;margin-bottom:1.2rem">
-    ⚠️ Google Sheets error: {{ error }} — Check your SPREADSHEET_ID and credentials.
-  </div>
-  {% endif %}
   <div class="stats">
     <div class="stat"><div class="stat-label">Total reports</div><div class="stat-val blue">{{ total }}</div></div>
     <div class="stat"><div class="stat-label">Completed</div><div class="stat-val green">{{ completed }}</div></div>
@@ -115,7 +110,7 @@
     <div class="tbl-scroll">
       {% if reports %}
       <table>
-        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Summary</th><th>Remarks</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Summary</th><th>Remarks</th><th>Supervisor</th><th>Status</th></tr></thead>
         <tbody>
         {% for r in reports %}
         {% set s = r['status']|lower %}
@@ -130,147 +125,7 @@
           <td>{{ r['location'] or '—' }}</td>
           <td><div class="sum-cell" title="{{ r['summary'] }}">{{ r['summary'] }}</div></td>
           <td><div class="sum-cell" title="{{ r['remarks'] }}">{{ r['remarks'] or '—' }}</div></td>
-          <td><span class="badge {% if s in ['done','completed'] %}badge-done{% elif s=='pending' %}badge-pending{% else %}badge-partial{% endif %}">
-            {% if s in ['done','completed'] %}✅ Done{% elif s=='pending' %}⏳ Pending{% else %}🔄 Partial{% endif %}
-          </span></td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">🔍 No records found. Try clearing the filters.</div>
-      {% endif %}
-    </div>
-  </div>
-</div>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manager — Work Reports</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
-    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
-    .topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
-    .topbar-right{display:flex;gap:8px}
-    .btn-sm{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#1a1a18;text-decoration:none;font-family:inherit}
-    .btn-sm:hover{background:#f5f5f0}
-    .nav-tabs{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex}
-    .nav-tab{padding:12px 18px;font-size:13px;color:#73726c;text-decoration:none;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
-    .nav-tab:hover{color:#1a1a18}
-    .nav-tab.active{color:#185fa5;border-bottom-color:#185fa5}
-    .main{max-width:1300px;margin:0 auto;padding:1.5rem}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:1.4rem}
-    .stat{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem}
-    .stat-label{font-size:12px;color:#73726c;margin-bottom:4px}
-    .stat-val{font-size:28px;font-weight:600}
-    .blue{color:#185fa5}.green{color:#3b6d11}.amber{color:#854f0b}.purple{color:#534ab7}
-    .filters{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
-    .fg{display:flex;flex-direction:column;gap:4px}
-    .fg label{font-size:12px;color:#73726c;font-weight:500}
-    .fg input,.fg select{padding:7px 10px;font-size:13px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-family:inherit;color:#1a1a18;outline:none;min-width:130px}
-    .btn-filter{padding:7px 16px;border:none;border-radius:7px;background:#1a1a18;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;align-self:flex-end}
-    .btn-clear{padding:7px 14px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-size:13px;cursor:pointer;font-family:inherit;color:#73726c;align-self:flex-end;text-decoration:none}
-    .table-card{background:#fff;border:1px solid #e0dfd8;border-radius:10px;overflow:hidden}
-    .table-hdr{padding:12px 16px;border-bottom:1px solid #eeeee8;display:flex;align-items:center;justify-content:space-between}
-    .table-hdr-title{font-size:13px;font-weight:500}
-    .rec-count{font-size:12px;color:#73726c}
-    .tbl-scroll{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    thead tr{background:#f9f9f6}
-    th{padding:9px 12px;text-align:left;font-size:11px;color:#73726c;border-bottom:1px solid #eeeee8;font-weight:500;white-space:nowrap}
-    td{padding:9px 12px;border-bottom:1px solid #f0f0ea;vertical-align:middle}
-    tr:last-child td{border-bottom:none}
-    tr:hover td{background:#fafaf7}
-    .badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500}
-    .badge-done{background:#eaf3de;color:#27500a}
-    .badge-pending{background:#faeeda;color:#633806}
-    .badge-partial{background:#e6f1fb;color:#0c447c}
-    .wtype{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:#f1efe8;color:#5f5e5a}
-    .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e6f1fb;color:#185fa5;font-size:10px;font-weight:600;margin-right:6px}
-    .emp-cell{display:flex;align-items:center}
-    .sum-cell{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .empty{padding:3rem;text-align:center;color:#73726c}
-    .co-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:500;background:#f0f0ea;color:#73726c}
-  </style>
-</head>
-<body>
-<div class="topbar">
-  <div class="topbar-title">📊 Work Report System V3</div>
-  <div class="topbar-right">
-    <a href="/export/reports" class="btn-sm">⬇ Export CSV</a>
-    <a href="/logout" class="btn-sm">Logout</a>
-  </div>
-</div>
-<div class="nav-tabs">
-  <a href="/manager"    class="nav-tab active">📋 Work Reports</a>
-  <a href="/attendance" class="nav-tab">🕐 Attendance</a>
-</div>
-<div class="main">
-  <div class="stats">
-    <div class="stat"><div class="stat-label">Total reports</div><div class="stat-val blue">{{ total }}</div></div>
-    <div class="stat"><div class="stat-label">Completed</div><div class="stat-val green">{{ completed }}</div></div>
-    <div class="stat"><div class="stat-label">Pending</div><div class="stat-val amber">{{ pending }}</div></div>
-    <div class="stat"><div class="stat-label">Partial</div><div class="stat-val purple">{{ partial }}</div></div>
-    <div class="stat"><div class="stat-label">Active today</div><div class="stat-val blue">{{ today_ct }}</div></div>
-  </div>
-  <form method="GET" action="/manager">
-    <div class="filters">
-      <div class="fg"><label>Employee</label>
-        <select name="emp">
-          <option value="">All employees</option>
-          {% for e in emp_list %}<option {% if filters.emp==e %}selected{% endif %}>{{ e }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="fg"><label>Work type</label>
-        <select name="wtype">
-          <option value="">All types</option>
-          {% for t in ['Site visit','Service call','Support visit','In-house','Work from home'] %}
-          <option {% if filters.wtype==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="fg"><label>Status</label>
-        <select name="status">
-          <option value="">All</option>
-          <option value="completed" {% if filters.status=='completed' %}selected{% endif %}>Completed</option>
-          <option value="pending"   {% if filters.status=='pending'   %}selected{% endif %}>Pending</option>
-          <option value="partial"   {% if filters.status=='partial'   %}selected{% endif %}>Partial</option>
-        </select>
-      </div>
-      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
-      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
-      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, location..." value="{{ filters.search }}"></div>
-      <button class="btn-filter" type="submit">Apply</button>
-      <a class="btn-clear" href="/manager">✕ Clear</a>
-    </div>
-  </form>
-  <div class="table-card">
-    <div class="table-hdr">
-      <div class="table-hdr-title">All work reports</div>
-      <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</div>
-    </div>
-    <div class="tbl-scroll">
-      {% if reports %}
-      <table>
-        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Summary</th><th>Remarks</th><th>Status</th></tr></thead>
-        <tbody>
-        {% for r in reports %}
-        {% set s = r['status']|lower %}
-        <tr>
-          <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
-          <td style="color:#999;font-size:12px;white-space:nowrap">{{ r['timestamp'] }}</td>
-          <td><div class="emp-cell"><span class="avatar">{{ r['emp_name'][:2].upper() }}</span>{{ r['emp_name'] }}</div></td>
-          <td><span class="co-pill">{{ r['company'] }}</span></td>
-          <td style="white-space:nowrap">{{ r['date'] }}</td>
-          <td><span class="wtype">{{ r['work_type'] }}</span></td>
-          <td>{{ r['client_name'] or '—' }}</td>
-          <td>{{ r['location'] or '—' }}</td>
-          <td><div class="sum-cell" title="{{ r['summary'] }}">{{ r['summary'] }}</div></td>
-          <td><div class="sum-cell" title="{{ r['remarks'] }}">{{ r['remarks'] or '—' }}</div></td>
+          <td>{{ r['supervisor_name'] or '—' }}</td>
           <td><span class="badge {% if s in ['done','completed'] %}badge-done{% elif s=='pending' %}badge-pending{% else %}badge-partial{% endif %}">
             {% if s in ['done','completed'] %}✅ Done{% elif s=='pending' %}⏳ Pending{% else %}🔄 Partial{% endif %}
           </span></td>

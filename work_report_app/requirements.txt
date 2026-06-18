@@ -1,5 +1,4 @@
 flask
 gunicorn
 requests
-gspread
-google-auth
+psycopg2-binary
