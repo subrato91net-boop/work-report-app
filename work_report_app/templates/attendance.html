@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance — Manager View</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
+    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+    .topbar-title{font-size:15px;font-weight:600}
+    .topbar-right{display:flex;gap:8px;align-items:center}
+    .live-dot{width:8px;height:8px;background:#3b6d11;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .live-label{font-size:12px;color:#3b6d11;font-weight:500}
+    .btn-sm{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#1a1a18;text-decoration:none;font-family:inherit}
+    .btn-sm:hover{background:#f5f5f0}
+    .nav-tabs{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex}
+    .nav-tab{padding:12px 18px;font-size:13px;color:#73726c;text-decoration:none;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
+    .nav-tab:hover{color:#1a1a18}
+    .nav-tab.active{color:#185fa5;border-bottom-color:#185fa5}
+    .main{max-width:1300px;margin:0 auto;padding:1.5rem}
+    .error-box{background:#fcebeb;border:1px solid #f09595;border-radius:8px;padding:10px 14px;font-size:13px;color:#791f1f;margin-bottom:1.2rem}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:1.4rem}
+    .stat{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem}
+    .stat-label{font-size:12px;color:#73726c;margin-bottom:4px}
+    .stat-val{font-size:28px;font-weight:600}
+    .stat-sub{font-size:11px;color:#aaa;margin-top:2px}
+    .blue{color:#185fa5}.green{color:#3b6d11}.red{color:#8b1f1f}.amber{color:#854f0b}.purple{color:#534ab7}
+    .filters{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+    .fg{display:flex;flex-direction:column;gap:4px}
+    .fg label{font-size:12px;color:#73726c;font-weight:500}
+    .fg input,.fg select{padding:7px 10px;font-size:13px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-family:inherit;color:#1a1a18;outline:none;min-width:130px}
+    .view-toggle{display:flex;border:1px solid #ddddd5;border-radius:7px;overflow:hidden;align-self:flex-end}
+    .vbtn{padding:7px 14px;background:#f9f9f6;border:none;border-right:1px solid #ddddd5;font-size:12px;cursor:pointer;font-family:inherit;color:#73726c;transition:all .15s}
+    .vbtn:last-child{border-right:none}
+    .vbtn.active{background:#1a1a18;color:#fff}
+    .btn-apply{padding:7px 16px;border:none;border-radius:7px;background:#1a1a18;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;align-self:flex-end}
+    .btn-export{padding:7px 14px;border:1px solid #ddddd5;border-radius:7px;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;color:#1a1a18;align-self:flex-end;text-decoration:none}
+    .btn-clear{padding:7px 14px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-size:13px;cursor:pointer;font-family:inherit;color:#73726c;align-self:flex-end;text-decoration:none}
+    /* TABLE */
+    .table-card{background:#fff;border:1px solid #e0dfd8;border-radius:10px;overflow:hidden;margin-bottom:1.2rem}
+    .table-hdr{padding:12px 16px;border-bottom:1px solid #eeeee8;display:flex;align-items:center;justify-content:space-between}
+    .table-hdr-title{font-size:13px;font-weight:500}
+    .rec-count{font-size:12px;color:#73726c}
+    .tbl-scroll{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    thead tr{background:#f9f9f6}
+    th{padding:9px 14px;text-align:left;font-size:11px;color:#73726c;border-bottom:1px solid #eeeee8;font-weight:500;white-space:nowrap}
+    td{padding:10px 14px;border-bottom:1px solid #f0f0ea;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafaf7}
+    .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap}
+    .bp{background:#eaf3de;color:#27500a}
+    .ba{background:#fcebeb;color:#791f1f}
+    .bh{background:#e6f1fb;color:#0c447c}
+    .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e6f1fb;color:#185fa5;font-size:10px;font-weight:600;margin-right:6px;flex-shrink:0}
+    .emp-cell{display:flex;align-items:center}
+    .hours-bar{display:flex;align-items:center;gap:8px}
+    .bar-bg{flex:1;height:6px;background:#f0f0ea;border-radius:3px;min-width:70px}
+    .bar-fill{height:6px;border-radius:3px}
+    .bar-green{background:#3b6d11}
+    .bar-amber{background:#ef9f27}
+    .bar-red{background:#f09595}
+    .hours-text{font-size:12px;color:#73726c;white-space:nowrap;min-width:36px}
+    .co-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:500;background:#f0f0ea;color:#73726c}
+    /* GRID */
+    .grid-card{background:#fff;border:1px solid #e0dfd8;border-radius:10px;overflow:hidden;margin-bottom:1.2rem}
+    .grid-hdr{padding:12px 16px;border-bottom:1px solid #eeeee8;font-size:13px;font-weight:500}
+    .grid-scroll{overflow-x:auto;padding:1rem 1.2rem}
+    .grid-table{border-collapse:collapse;white-space:nowrap}
+    .grid-table th{padding:5px 8px;font-size:11px;color:#73726c;text-align:center;font-weight:500;border-bottom:1px solid #eeeee8}
+    .grid-table td{padding:4px 4px;text-align:center;vertical-align:middle}
+    .grid-table .name-col{text-align:left;padding:4px 12px 4px 4px;font-size:12px;font-weight:500;white-space:nowrap}
+    .dc{width:30px;height:28px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;cursor:default}
+    .dc-p{background:#eaf3de;color:#27500a}
+    .dc-a{background:#fcebeb;color:#791f1f}
+    .dc-h{background:#e6f1fb;color:#0c447c}
+    .dc-x{background:#f5f5f0;color:#ccc}
+    .empty{padding:3rem;text-align:center;color:#73726c}
+    .summary-row{background:#f9f9f9}
+    .summary-row td{font-weight:500;font-size:12px;border-top:1px solid #eeeee8}
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">📊 Work Report System V3</div>
+  <div class="topbar-right">
+    <span class="live-dot"></span><span class="live-label">Live</span>
+    &nbsp;
+    <a href="/export/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}" class="btn-sm">⬇ Export</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="nav-tabs">
+  <a href="/manager"    class="nav-tab">📋 Work Reports</a>
+  <a href="/attendance" class="nav-tab active">🕐 Attendance</a>
+</div>
+<div class="main">
+
+  {% if error %}
+  <div class="error-box">⚠️ API Error: {{ error }} — Check BioTime credentials in app.py</div>
+  {% endif %}
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total employees</div><div class="stat-val blue">{{ stats.total }}</div></div>
+    <div class="stat"><div class="stat-label">Present today</div><div class="stat-val green">{{ stats.present }}</div><div class="stat-sub">incl. half day</div></div>
+    <div class="stat"><div class="stat-label">Absent today</div><div class="stat-val red">{{ stats.absent }}</div></div>
+    <div class="stat"><div class="stat-label">Half day today</div><div class="stat-val purple">{{ stats.half }}</div></div>
+    <div class="stat"><div class="stat-label">Avg hours today</div><div class="stat-val blue">{{ stats.avg_hours }}h</div></div>
+  </div>
+
+  <!-- FILTERS -->
+  <form method="GET" action="/attendance">
+    <div class="filters">
+      <div class="fg"><label>Employee</label>
+        <select name="emp">
+          <option value="">All employees</option>
+          {% for e in emp_list %}<option {% if filters.emp==e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>Status</label>
+        <select name="status">
+          <option value="">All</option>
+          <option {% if filters.status=='Present'  %}selected{% endif %}>Present</option>
+          <option {% if filters.status=='Absent'   %}selected{% endif %}>Absent</option>
+          <option {% if filters.status=='Half Day' %}selected{% endif %}>Half Day</option>
+        </select>
+      </div>
+      <div class="fg"><label>Company</label>
+        <select name="company">
+          <option value="">All companies</option>
+          <option value="imaxsol"             {% if filters.company=='imaxsol'             %}selected{% endif %}>IMAXSOL</option>
+          <option value="CONNEQTORTECHNOLOGY" {% if filters.company=='CONNEQTORTECHNOLOGY' %}selected{% endif %}>CONNEQTOR</option>
+        </select>
+      </div>
+      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+      <div class="fg"><label>View</label>
+        <div class="view-toggle">
+          <button type="submit" name="view" value="daily"   class="vbtn {% if view=='daily'   %}active{% endif %}">Daily</button>
+          <button type="submit" name="view" value="weekly"  class="vbtn {% if view=='weekly'  %}active{% endif %}">Weekly</button>
+          <button type="submit" name="view" value="monthly" class="vbtn {% if view=='monthly' %}active{% endif %}">Monthly</button>
+        </div>
+      </div>
+      <button class="btn-apply" type="submit" name="view" value="{{ view }}">Apply</button>
+      <a class="btn-clear" href="/attendance">✕ Clear</a>
+    </div>
+  </form>
+
+  {% if view == 'daily' %}
+  <!-- ══ DAILY VIEW ══ -->
+  <div class="table-card">
+    <div class="table-hdr">
+      <div class="table-hdr-title">🕐 Daily Attendance — {{ filters.from_d }}{% if filters.from_d != filters.to_d %} to {{ filters.to_d }}{% endif %}</div>
+      <div class="rec-count">{{ record_count }} records</div>
+    </div>
+    <div class="tbl-scroll">
+      {% if records %}
+      <table>
+        <thead><tr><th>#</th><th>Employee</th><th>Company</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Working Hours</th><th>Punches</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for r in records %}
+        <tr>
+          <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
+          <td><div class="emp-cell"><span class="avatar">{{ r.emp_name[:2].upper() }}</span>{{ r.emp_name }}</div></td>
+          <td><span class="co-pill">{{ r.company }}</span></td>
+          <td style="white-space:nowrap;font-size:12px">{{ r.date }}</td>
+          <td style="font-weight:500;color:{% if r.check_in != '—' %}#3b6d11{% else %}#ccc{% endif %}">{{ r.check_in }}</td>
+          <td style="color:{% if r.check_out != '—' %}#1a1a18{% else %}#ccc{% endif %}">{{ r.check_out }}</td>
+          <td>
+            {% if r.hours > 0 %}
+            <div class="hours-bar">
+              <div class="bar-bg"><div class="bar-fill {% if r.hours >= 7 %}bar-green{% elif r.hours >= 4 %}bar-amber{% else %}bar-red{% endif %}" style="width:{{ [r.hours/9*100, 100]|min }}%"></div></div>
+              <span class="hours-text">{{ r.hours }}h</span>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:12px;color:#73726c">{{ r.punch_count }}</td>
+          <td>
+            <span class="badge {% if r.status=='Present' %}bp{% elif r.status=='Absent' %}ba{% else %}bh{% endif %}">
+              {% if r.status=='Present' %}✅{% elif r.status=='Absent' %}❌{% else %}🔄{% endif %} {{ r.status }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">No attendance records found for selected filters.</div>{% endif %}
+    </div>
+  </div>
+
+  {% elif view in ['weekly','monthly'] %}
+  <!-- ══ WEEKLY / MONTHLY GRID VIEW ══ -->
+  <div class="grid-card">
+    <div class="grid-hdr">
+      {% if view=='weekly' %}📅 Weekly{% else %}📆 Monthly{% endif %} Attendance Grid — {{ filters.from_d }} to {{ filters.to_d }}
+    </div>
+    <div class="grid-scroll">
+      <table class="grid-table">
+        <thead>
+          <tr>
+            <th class="name-col">Employee</th>
+            {% for d in date_list %}
+            <th>{{ d[8:] }}<br><span style="font-size:9px;font-weight:400">{{ ['Su','Mo','Tu','We','Th','Fr','Sa'][d|string|strptime('%Y-%m-%d')|weekday] if false else '' }}</span></th>
+            {% endfor %}
+            <th>P</th><th>A</th><th>H</th><th>Hrs</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% set emp_names = records|map(attribute='emp_name')|unique|list %}
+        {% for emp_name in emp_list %}
+          {% set emp_records = records|selectattr('emp_name','eq',emp_name)|list %}
+          {% if emp_records or not filters.emp %}
+          {% set present_ct = emp_records|selectattr('status','eq','Present')|list|length %}
+          {% set absent_ct  = emp_records|selectattr('status','eq','Absent')|list|length %}
+          {% set half_ct    = emp_records|selectattr('status','eq','Half Day')|list|length %}
+          {% set total_hrs  = emp_records|sum(attribute='hours') %}
+          <tr>
+            <td class="name-col"><div class="emp-cell"><span class="avatar">{{ emp_name[:2].upper() }}</span>{{ emp_name.split(' ')[0] }}</div></td>
+            {% for d in date_list %}
+              {% set day_rec = emp_records|selectattr('date','eq',d)|list %}
+              {% if day_rec %}
+                {% set s = day_rec[0].status %}
+                <td><div class="dc {% if s=='Present' %}dc-p{% elif s=='Absent' %}dc-a{% elif s=='Half Day' %}dc-h{% else %}dc-x{% endif %}" title="{{ emp_name }} — {{ d }}: {{ s }} {% if day_rec[0].check_in != '—' %}In:{{ day_rec[0].check_in }}{% endif %}">
+                  {% if s=='Present' %}✓{% elif s=='Absent' %}✗{% elif s=='Half Day' %}H{% else %}—{% endif %}
+                </div></td>
+              {% else %}
+                <td><div class="dc dc-x">—</div></td>
+              {% endif %}
+            {% endfor %}
+            <td><span class="badge bp" style="padding:2px 6px">{{ present_ct }}</span></td>
+            <td><span class="badge ba" style="padding:2px 6px">{{ absent_ct }}</span></td>
+            <td><span class="badge bh" style="padding:2px 6px">{{ half_ct }}</span></td>
+            <td style="font-size:12px;font-weight:500">{{ "%.1f"|format(total_hrs) }}h</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MONTHLY SUMMARY TABLE -->
+  {% if view == 'monthly' %}
+  <div class="table-card">
+    <div class="table-hdr"><div class="table-hdr-title">📊 Monthly Summary per Employee</div></div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Employee</th><th>Company</th><th>Present</th><th>Absent</th><th>Half Day</th><th>Total Hours</th><th>Avg Hrs/Day</th></tr></thead>
+        <tbody>
+        {% for emp_name in emp_list %}
+          {% set emp_records = records|selectattr('emp_name','eq',emp_name)|list %}
+          {% if emp_records %}
+          {% set present_ct = emp_records|selectattr('status','in',['Present','Half Day'])|list|length %}
+          {% set absent_ct  = emp_records|selectattr('status','eq','Absent')|list|length %}
+          {% set half_ct    = emp_records|selectattr('status','eq','Half Day')|list|length %}
+          {% set total_hrs  = emp_records|sum(attribute='hours') %}
+          {% set emp_co     = emp_records[0].company %}
+          <tr>
+            <td><div class="emp-cell"><span class="avatar">{{ emp_name[:2].upper() }}</span>{{ emp_name }}</div></td>
+            <td><span class="co-pill">{{ emp_co }}</span></td>
+            <td><span class="badge bp">{{ present_ct }}</span></td>
+            <td><span class="badge ba">{{ absent_ct }}</span></td>
+            <td><span class="badge bh">{{ half_ct }}</span></td>
+            <td style="font-weight:500">{{ "%.1f"|format(total_hrs) }}h</td>
+            <td style="color:#73726c">{{ "%.1f"|format(total_hrs / present_ct) if present_ct else '—' }}h</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+</div>
+</body>
+</html>
