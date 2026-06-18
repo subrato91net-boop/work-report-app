@@ -1,30 +1,31 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
 from datetime import datetime, timedelta
-import os, csv, io
+import os, csv, io, json
 import requests as req
 
 # ══════════════════════════════════════════
-#  PostgreSQL via psycopg2
+#  Google Sheets via gspread
 # ══════════════════════════════════════════
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import gspread
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
-app.secret_key = "workreport_v3_secret_2026"
+app.secret_key = "workreport_v4_gsheets_2026"
 
 # ══════════════════════════════════════════
-#  DATABASE URL
-#  On Render: set environment variable DATABASE_URL
-#  Locally:   paste your Render PostgreSQL URL below
+#  GOOGLE SHEETS CONFIG
 # ══════════════════════════════════════════
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "YOUR_RENDER_POSTGRESQL_INTERNAL_URL_HERE"
-)
+SPREADSHEET_ID  = os.environ.get("SPREADSHEET_ID", "YOUR_GOOGLE_SHEET_ID_HERE")
+SHEET_NAME      = os.environ.get("SHEET_NAME", "reports")
+JOBS_SHEET_NAME = os.environ.get("JOBS_SHEET_NAME", "assigned_jobs")
+CREDS_JSON_ENV  = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
+CREDS_FILE      = os.path.join(os.path.dirname(__file__), "credentials.json")
 
-# Render gives URL starting with postgres:// — psycopg2 needs postgresql://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+SCOPES = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
 # ══════════════════════════════════════════
 #  BIOTIME API CONFIG
@@ -40,53 +41,206 @@ PUNCH_END_HOUR   = 23
 #  EMPLOYEE LIST
 # ══════════════════════════════════════════
 EMPLOYEES = {
-    "1002": {"name": "Sayed Asif Ismail",   "company": "imaxsol",             "username": "asif",    "password": "1002123456"},
-    "1003": {"name": "Kartick Mondal",       "company": "imaxsol",             "username": "kartick", "password": "1003123456"},
-    "1004": {"name": "Sukumar Mondal",       "company": "imaxsol",             "username": "sukumar", "password": "1004123456"},
-    "1005": {"name": "Ashim Kayal",          "company": "imaxsol",             "username": "ashim",   "password": "1005123456"},
-    "1012": {"name": "Sujata Pahari",        "company": "imaxsol",             "username": "sujata",  "password": "1012123456"},
-    "2001": {"name": "Gourab Kumar Das",     "company": "imaxsol",             "username": "gourab",  "password": "2001123456"},
-    "1013": {"name": "Subrato Halder",       "company": "imaxsol",             "username": "subrato", "password": "1013123456"},
-    "2002": {"name": "Pritam Pal",           "company": "CONNEQTORTECHNOLOGY", "username": "pritam",  "password": "2002123456"},
+    "1002": {"name": "Sayed Asif Ismail",   "company": "imaxsol",             "username": "asif",    "password": "1002123456", "supervisor": "Manager"},
+    "1003": {"name": "Kartick Mondal",       "company": "imaxsol",             "username": "kartick", "password": "1003123456", "supervisor": "Sayed Asif Ismail"},
+    "1004": {"name": "Sukumar Mondal",       "company": "imaxsol",             "username": "sukumar", "password": "1004123456", "supervisor": "Sayed Asif Ismail"},
+    "1005": {"name": "Ashim Kayal",          "company": "imaxsol",             "username": "ashim",   "password": "1005123456", "supervisor": "Sayed Asif Ismail"},
+    "1012": {"name": "Sujata Pahari",        "company": "imaxsol",             "username": "sujata",  "password": "1012123456", "supervisor": "Manager"},
+    "2001": {"name": "Gourab Kumar Das",     "company": "imaxsol",             "username": "gourab",  "password": "2001123456", "supervisor": "Sayed Asif Ismail"},
+    "1013": {"name": "Subrato Halder",       "company": "imaxsol",             "username": "subrato", "password": "1013123456", "supervisor": "Manager"},
+    "2002": {"name": "Pritam Pal",           "company": "CONNEQTORTECHNOLOGY", "username": "pritam",  "password": "2002123456", "supervisor": "Manager"},
 }
 USERNAME_MAP = {v["username"]: k for k, v in EMPLOYEES.items()}
 MANAGERS     = {"manager": {"password": "manager123", "name": "Manager"}}
 
-# ══════════════════════════════════════════
-#  DATABASE HELPERS
-# ══════════════════════════════════════════
-def get_db():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    return conn
+# All possible supervisors (managers + senior employees)
+SUPERVISORS = ["Manager"] + [e["name"] for e in EMPLOYEES.values()]
 
-def init_db():
-    conn = get_db()
-    cur  = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS reports (
-            id          SERIAL PRIMARY KEY,
-            timestamp   TEXT,
-            emp_code    TEXT,
-            emp_name    TEXT,
-            company     TEXT,
-            date        TEXT,
-            work_type   TEXT,
-            client_name TEXT,
-            location    TEXT,
-            summary     TEXT,
-            remarks     TEXT,
-            status      TEXT
+# Column headers
+SHEET_HEADERS = ["id", "timestamp", "emp_code", "emp_name", "company",
+                 "date", "work_type", "client_name", "location", "summary", "remarks", "status", "supervisor"]
+
+JOBS_HEADERS = ["job_id", "created_at", "assigned_to_code", "assigned_to_name", "company",
+                "supervisor", "job_title", "job_description", "location", "start_date", "end_date", "status"]
+
+# ══════════════════════════════════════════
+#  GOOGLE SHEETS HELPERS
+# ══════════════════════════════════════════
+def get_gspread_client():
+    if CREDS_JSON_ENV:
+        creds_info = json.loads(CREDS_JSON_ENV)
+        creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+    elif os.path.exists(CREDS_FILE):
+        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    else:
+        raise RuntimeError(
+            "Google credentials not found. "
+            "Set GOOGLE_CREDENTIALS_JSON env var or place credentials.json next to app.py"
         )
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
+    return gspread.authorize(creds)
+
+def get_worksheet():
+    client = get_gspread_client()
+    sh     = client.open_by_key(SPREADSHEET_ID)
+    try:
+        ws = sh.worksheet(SHEET_NAME)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=SHEET_NAME, rows=1000, cols=20)
+    first = ws.row_values(1)
+    if not first or first[0] != "id":
+        ws.insert_row(SHEET_HEADERS, 1)
+    return ws
+
+def get_jobs_worksheet():
+    client = get_gspread_client()
+    sh     = client.open_by_key(SPREADSHEET_ID)
+    try:
+        ws = sh.worksheet(JOBS_SHEET_NAME)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=JOBS_SHEET_NAME, rows=1000, cols=20)
+    first = ws.row_values(1)
+    if not first or first[0] != "job_id":
+        ws.insert_row(JOBS_HEADERS, 1)
+    return ws
+
+def rows_to_dicts(ws):
+    all_values = ws.get_all_values()
+    if len(all_values) < 2:
+        return []
+    headers = all_values[0]
+    return [dict(zip(headers, row)) for row in all_values[1:]]
+
+def next_id(ws):
+    records = rows_to_dicts(ws)
+    if not records:
+        return 1
+    ids = []
+    for r in records:
+        try:
+            ids.append(int(r.get("id", 0) or r.get("job_id", 0)))
+        except ValueError:
+            pass
+    return (max(ids) + 1) if ids else 1
+
+def insert_report(data: dict):
+    ws  = get_worksheet()
+    nid = next_id(ws)
+    row = [
+        nid,
+        data["timestamp"],
+        data["emp_code"],
+        data["emp_name"],
+        data["company"],
+        data["date"],
+        data["work_type"],
+        data["client_name"],
+        data["location"],
+        data["summary"],
+        data["remarks"],
+        data["status"],
+        data.get("supervisor", ""),
+    ]
+    ws.append_row(row, value_input_option="RAW")
+    return nid
+
+def insert_job(data: dict):
+    ws  = get_jobs_worksheet()
+    records = rows_to_dicts(ws)
+    ids = []
+    for r in records:
+        try:
+            ids.append(int(r.get("job_id", 0)))
+        except ValueError:
+            pass
+    nid = (max(ids) + 1) if ids else 1
+    row = [
+        nid,
+        data["created_at"],
+        data["assigned_to_code"],
+        data["assigned_to_name"],
+        data["company"],
+        data["supervisor"],
+        data["job_title"],
+        data["job_description"],
+        data["location"],
+        data["start_date"],
+        data["end_date"],
+        data["status"],
+    ]
+    ws.append_row(row, value_input_option="RAW")
+    return nid
+
+def get_all_reports(filters=None):
+    ws      = get_worksheet()
+    records = rows_to_dicts(ws)
+    records = list(reversed(records))
+    if not filters:
+        return records
+    result = []
+    for r in records:
+        if filters.get("emp")    and r.get("emp_name", "")  != filters["emp"]:    continue
+        if filters.get("wtype")  and r.get("work_type", "") != filters["wtype"]:  continue
+        if filters.get("status") and r.get("status", "").lower() != filters["status"].lower(): continue
+        if filters.get("from_d") and r.get("date", "") < filters["from_d"]:       continue
+        if filters.get("to_d")   and r.get("date", "") > filters["to_d"]:         continue
+        if filters.get("search"):
+            s = filters["search"].lower()
+            haystack = " ".join([
+                r.get("client_name",""), r.get("location",""),
+                r.get("summary",""),    r.get("remarks","")
+            ]).lower()
+            if s not in haystack:
+                continue
+        result.append(r)
+    return result
+
+def get_all_jobs(filters=None):
+    ws      = get_jobs_worksheet()
+    records = rows_to_dicts(ws)
+    records = list(reversed(records))
+    if not filters:
+        return records
+    result = []
+    for r in records:
+        if filters.get("emp")    and r.get("assigned_to_name", "") != filters["emp"]:  continue
+        if filters.get("status") and r.get("status", "").lower() != filters["status"].lower(): continue
+        if filters.get("from_d") and r.get("start_date", "") < filters["from_d"]:      continue
+        if filters.get("to_d")   and r.get("end_date", "")   > filters["to_d"]:        continue
+        result.append(r)
+    return result
+
+def get_employee_reports(emp_code, limit=7):
+    ws      = get_worksheet()
+    records = rows_to_dicts(ws)
+    filtered = [r for r in reversed(records) if r.get("emp_code") == emp_code]
+    return filtered[:limit]
+
+def get_employee_jobs(emp_code):
+    ws      = get_jobs_worksheet()
+    records = rows_to_dicts(ws)
+    filtered = [r for r in reversed(records) if r.get("assigned_to_code") == emp_code]
+    return filtered
+
+def count_by_status(records, status_values):
+    return sum(1 for r in records if r.get("status","").lower() in [s.lower() for s in status_values])
+
+def update_job_status(job_id, new_status):
+    ws = get_jobs_worksheet()
+    all_values = ws.get_all_values()
+    for i, row in enumerate(all_values):
+        if i == 0:
+            continue
+        if str(row[0]) == str(job_id):
+            # status is column index 11 (0-based) → sheet col 12
+            ws.update_cell(i + 1, 12, new_status)
+            return True
+    return False
 
 # ══════════════════════════════════════════
-#  BIOTIME API — JWT TOKEN (cached)
+#  BIOTIME API
 # ══════════════════════════════════════════
-_biotime_token  = None
-_token_expiry   = None
+_biotime_token = None
+_token_expiry  = None
 
 def get_biotime_token():
     global _biotime_token, _token_expiry
@@ -107,9 +261,6 @@ def get_biotime_token():
         print(f"BioTime auth error: {e}")
     return None
 
-# ══════════════════════════════════════════
-#  BIOTIME — FETCH ALL TRANSACTIONS (paginated)
-# ══════════════════════════════════════════
 def fetch_transactions(date_from, date_to):
     token = get_biotime_token()
     if not token:
@@ -137,9 +288,6 @@ def fetch_transactions(date_from, date_to):
             break
     return all_data
 
-# ══════════════════════════════════════════
-#  PROCESS TRANSACTIONS → ATTENDANCE
-# ══════════════════════════════════════════
 def process_attendance(transactions, date_from, date_to):
     from collections import defaultdict
     punch_map = defaultdict(list)
@@ -152,7 +300,7 @@ def process_attendance(transactions, date_from, date_to):
             dt = datetime.strptime(punch_time[:19], "%Y-%m-%d %H:%M:%S")
             if PUNCH_START_HOUR <= dt.hour <= PUNCH_END_HOUR:
                 punch_map[(emp_code, dt.strftime("%Y-%m-%d"))].append(dt)
-        except:
+        except (ValueError, IndexError):
             continue
 
     records = []
@@ -186,20 +334,18 @@ def process_attendance(transactions, date_from, date_to):
     return sorted(records, key=lambda x: (x["date"], x["emp_name"]), reverse=True)
 
 def get_date_range(date_from, date_to):
-    dates, cur, end = [], datetime.strptime(date_from, "%Y-%m-%d"), datetime.strptime(date_to, "%Y-%m-%d")
+    dates, cur = [], datetime.strptime(date_from, "%Y-%m-%d")
+    end = datetime.strptime(date_to, "%Y-%m-%d")
     while cur <= end:
         dates.append(cur.strftime("%Y-%m-%d"))
         cur += timedelta(days=1)
     return dates
 
-def determine_status(hours):
-    return "Half Day" if 0 < hours < 5 else "Present"
-
 # ══════════════════════════════════════════
 #  HELPERS
 # ══════════════════════════════════════════
-def logged_in():  return "username" in session
-def is_manager(): return session.get("role") == "manager"
+def logged_in():    return "username" in session
+def is_manager():   return session.get("role") == "manager"
 def get_emp_code(): return session.get("emp_code")
 
 # ══════════════════════════════════════════
@@ -223,7 +369,9 @@ def login():
         if emp_code:
             emp = EMPLOYEES[emp_code]
             if emp["password"] == password:
-                session.update({"username":username,"name":emp["name"],"role":"employee","emp_code":emp_code,"company":emp["company"]})
+                session.update({"username":username,"name":emp["name"],"role":"employee",
+                                "emp_code":emp_code,"company":emp["company"],
+                                "supervisor":emp.get("supervisor","")})
                 return redirect(url_for("index"))
         error = "Invalid username or password."
     return render_template("login.html", error=error)
@@ -240,35 +388,54 @@ def logout():
 def employee_form():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
     success = False
-    if request.method == "POST":
-        conn = get_db(); cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO reports
-            (timestamp,emp_code,emp_name,company,date,work_type,client_name,location,summary,remarks,status)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            get_emp_code(), session["name"], session.get("company",""),
-            request.form.get("date"), request.form.get("work_type"),
-            request.form.get("client_name"), request.form.get("location"),
-            request.form.get("summary"), request.form.get("remarks"),
-            request.form.get("status"),
-        ))
-        conn.commit(); cur.close(); conn.close()
-        success = True
+    error   = None
+    emp_code = get_emp_code()
+    emp_info = EMPLOYEES.get(emp_code, {})
+    # Build supervisor list: their own supervisor + Manager always available
+    emp_supervisor = emp_info.get("supervisor", "Manager")
 
-    conn   = get_db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM reports WHERE emp_code=%s ORDER BY timestamp DESC LIMIT 7", (get_emp_code(),))
-    recent = cur.fetchall(); cur.close(); conn.close()
+    if request.method == "POST":
+        try:
+            insert_report({
+                "timestamp":   datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "emp_code":    emp_code,
+                "emp_name":    session["name"],
+                "company":     session.get("company",""),
+                "date":        request.form.get("date"),
+                "work_type":   request.form.get("work_type"),
+                "client_name": request.form.get("client_name",""),
+                "location":    request.form.get("location",""),
+                "summary":     request.form.get("summary",""),
+                "remarks":     request.form.get("remarks",""),
+                "status":      request.form.get("status",""),
+                "supervisor":  request.form.get("supervisor",""),
+            })
+            success = True
+        except Exception as e:
+            error = str(e)
+
+    recent    = get_employee_reports(emp_code)
+    assigned_jobs = []
+    try:
+        assigned_jobs = get_employee_jobs(emp_code)
+    except:
+        pass
 
     today     = datetime.now().strftime("%Y-%m-%d")
     att_today = []
     try:
         txns      = fetch_transactions(today, today)
-        att_today = [a for a in process_attendance(txns, today, today) if a["emp_code"] == get_emp_code()]
-    except: pass
+        att_today = [a for a in process_attendance(txns, today, today) if a["emp_code"] == emp_code]
+    except:
+        pass
 
-    return render_template("form.html", name=session["name"], success=success, recent=recent, att_today=att_today)
+    return render_template("form.html",
+        name=session["name"], success=success,
+        recent=recent, att_today=att_today, error=error,
+        assigned_jobs=assigned_jobs,
+        emp_supervisor=emp_supervisor,
+        supervisors=SUPERVISORS,
+    )
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER WORK REPORTS
@@ -276,41 +443,100 @@ def employee_form():
 @app.route("/manager")
 def manager_view():
     if not logged_in() or not is_manager(): return redirect(url_for("index"))
-    emp    = request.args.get("emp","")
-    wtype  = request.args.get("wtype","")
-    status = request.args.get("status","")
-    from_d = request.args.get("from_d","")
-    to_d   = request.args.get("to_d","")
-    search = request.args.get("search","")
-
-    conn   = get_db(); cur = conn.cursor()
-    query  = "SELECT * FROM reports WHERE 1=1"
-    params = []
-    if emp:    query += " AND emp_name=%s";                              params.append(emp)
-    if wtype:  query += " AND work_type=%s";                             params.append(wtype)
-    if status: query += " AND LOWER(status)=%s";                         params.append(status.lower())
-    if from_d: query += " AND date>=%s";                                 params.append(from_d)
-    if to_d:   query += " AND date<=%s";                                 params.append(to_d)
-    if search:
-        query += " AND (client_name ILIKE %s OR location ILIKE %s OR summary ILIKE %s OR remarks ILIKE %s)"
-        s = f"%{search}%"; params += [s,s,s,s]
-    query += " ORDER BY timestamp DESC"
-    cur.execute(query, params); reports = cur.fetchall()
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    cur.execute("SELECT COUNT(*) FROM reports");                                             total     = cur.fetchone()["count"]
-    cur.execute("SELECT COUNT(*) FROM reports WHERE LOWER(status) IN ('done','completed')"); completed = cur.fetchone()["count"]
-    cur.execute("SELECT COUNT(*) FROM reports WHERE LOWER(status)='pending'");               pending   = cur.fetchone()["count"]
-    cur.execute("SELECT COUNT(*) FROM reports WHERE LOWER(status)='partial'");               partial   = cur.fetchone()["count"]
-    cur.execute("SELECT COUNT(DISTINCT emp_code) FROM reports WHERE date=%s", (today,));     today_ct  = cur.fetchone()["count"]
-    cur.execute("SELECT DISTINCT emp_name FROM reports ORDER BY emp_name");                  emp_list  = [r["emp_name"] for r in cur.fetchall()]
-    cur.close(); conn.close()
+    filters = {
+        "emp":    request.args.get("emp",""),
+        "wtype":  request.args.get("wtype",""),
+        "status": request.args.get("status",""),
+        "from_d": request.args.get("from_d",""),
+        "to_d":   request.args.get("to_d",""),
+        "search": request.args.get("search",""),
+    }
+    error = None
+    reports = []
+    try:
+        reports = get_all_reports(filters)
+        all_rep = get_all_reports()
+        today   = datetime.now().strftime("%Y-%m-%d")
+        total     = len(all_rep)
+        completed = count_by_status(all_rep, ["done","completed"])
+        pending   = count_by_status(all_rep, ["pending"])
+        partial   = count_by_status(all_rep, ["partial"])
+        today_ct  = len({r["emp_code"] for r in all_rep if r.get("date") == today})
+        emp_list  = sorted({r["emp_name"] for r in all_rep if r.get("emp_name")})
+    except Exception as e:
+        error     = str(e)
+        total = completed = pending = partial = today_ct = 0
+        emp_list = []
 
     return render_template("manager.html",
         reports=reports, emp_list=emp_list,
         total=total, completed=completed, pending=pending, partial=partial, today_ct=today_ct,
-        filters={"emp":emp,"wtype":wtype,"status":status,"from_d":from_d,"to_d":to_d,"search":search},
-        record_count=len(reports)
+        filters=filters, record_count=len(reports), error=error,
+        active_tab="reports",
+    )
+
+# ══════════════════════════════════════════
+#  ROUTES — ASSIGN JOB (manager)
+# ══════════════════════════════════════════
+@app.route("/assign-job", methods=["GET","POST"])
+def assign_job():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    success = False
+    error   = None
+    job_filters = {
+        "emp":    request.args.get("emp",""),
+        "status": request.args.get("status",""),
+        "from_d": request.args.get("from_d",""),
+        "to_d":   request.args.get("to_d",""),
+    }
+
+    if request.method == "POST":
+        action = request.form.get("action","")
+        if action == "assign":
+            try:
+                emp_code = request.form.get("assigned_to_code","")
+                emp_info = EMPLOYEES.get(emp_code, {})
+                insert_job({
+                    "created_at":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "assigned_to_code":  emp_code,
+                    "assigned_to_name":  emp_info.get("name",""),
+                    "company":           emp_info.get("company",""),
+                    "supervisor":        request.form.get("supervisor",""),
+                    "job_title":         request.form.get("job_title",""),
+                    "job_description":   request.form.get("job_description",""),
+                    "location":          request.form.get("location",""),
+                    "start_date":        request.form.get("start_date",""),
+                    "end_date":          request.form.get("end_date",""),
+                    "status":            request.form.get("job_status","assigned"),
+                })
+                success = True
+            except Exception as e:
+                error = str(e)
+        elif action == "update_status":
+            try:
+                update_job_status(request.form.get("job_id"), request.form.get("new_status"))
+            except Exception as e:
+                error = str(e)
+            return redirect(url_for("assign_job"))
+
+    jobs = []
+    try:
+        jobs = get_all_jobs(job_filters)
+    except Exception as e:
+        if not error:
+            error = str(e)
+
+    emp_list_all = sorted(EMPLOYEES.items(), key=lambda x: x[1]["name"])
+    job_emp_list = sorted({j["assigned_to_name"] for j in get_all_jobs() if j.get("assigned_to_name")} if not error else [])
+
+    return render_template("assign_job.html",
+        success=success, error=error,
+        employees=EMPLOYEES, emp_list_all=emp_list_all,
+        supervisors=SUPERVISORS,
+        jobs=jobs, job_filters=job_filters,
+        job_emp_list=job_emp_list,
+        record_count=len(jobs),
+        active_tab="assign",
     )
 
 # ══════════════════════════════════════════
@@ -355,7 +581,8 @@ def attendance():
         records=filtered, stats=stats, emp_list=emp_list,
         date_list=date_list, employees=EMPLOYEES,
         filters={"from_d":from_d,"to_d":to_d,"emp":emp_f,"status":status_f,"company":company_f},
-        view=view, error=error, record_count=len(filtered)
+        view=view, error=error, record_count=len(filtered),
+        active_tab="attendance",
     )
 
 # ══════════════════════════════════════════
@@ -364,15 +591,15 @@ def attendance():
 @app.route("/export/reports")
 def export_reports():
     if not logged_in() or not is_manager(): return redirect(url_for("login"))
-    conn = get_db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM reports ORDER BY timestamp DESC")
-    rows = cur.fetchall(); cur.close(); conn.close()
+    rows   = get_all_reports()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID","Timestamp","Emp Code","Emp Name","Company","Date","Work Type","Client","Location","Summary","Remarks","Status"])
+    writer.writerow(["ID","Timestamp","Emp Code","Emp Name","Company","Date",
+                     "Work Type","Client","Location","Summary","Remarks","Status","Supervisor"])
     for r in rows:
-        writer.writerow([r["id"],r["timestamp"],r["emp_code"],r["emp_name"],r["company"],
-                         r["date"],r["work_type"],r["client_name"],r["location"],r["summary"],r["remarks"],r["status"]])
+        writer.writerow([r.get("id"),r.get("timestamp"),r.get("emp_code"),r.get("emp_name"),
+                         r.get("company"),r.get("date"),r.get("work_type"),r.get("client_name"),
+                         r.get("location"),r.get("summary"),r.get("remarks"),r.get("status"),r.get("supervisor","")])
     output.seek(0)
     return Response(output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition":"attachment;filename=work_reports.csv"})
@@ -393,18 +620,28 @@ def export_attendance():
     return Response(output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition":"attachment;filename=attendance.csv"})
 
+@app.route("/export/jobs")
+def export_jobs():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    rows   = get_all_jobs()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Job ID","Created At","Assigned To","Company","Supervisor",
+                     "Job Title","Description","Location","Start Date","End Date","Status"])
+    for r in rows:
+        writer.writerow([r.get("job_id"),r.get("created_at"),r.get("assigned_to_name"),
+                         r.get("company"),r.get("supervisor"),r.get("job_title"),
+                         r.get("job_description"),r.get("location"),
+                         r.get("start_date"),r.get("end_date"),r.get("status")])
+    output.seek(0)
+    return Response(output.getvalue(), mimetype="text/csv",
+        headers={"Content-Disposition":"attachment;filename=assigned_jobs.csv"})
+
 # ══════════════════════════════════════════
 #  STARTUP
 # ══════════════════════════════════════════
-with app.app_context():
-    try:
-        init_db()
-        print("✅ Database tables ready")
-    except Exception as e:
-        print(f"⚠️ DB init error: {e}")
-
 if __name__ == "__main__":
-    print("\n✅  Work Report System V3 (PostgreSQL) is running!")
+    print("\n✅  Work Report System V4 (Google Sheets) is running!")
     print("📌  Open: http://127.0.0.1:5000")
     print("👤  Manager : manager / manager123")
     print("👤  Employee: subrato / 1013123456\n")
