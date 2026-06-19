@@ -1,55 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manager — Work Reports</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
-    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
-    .topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
-    .topbar-right{display:flex;gap:8px}
-    .btn-sm{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#1a1a18;text-decoration:none;font-family:inherit}
-    .btn-sm:hover{background:#f5f5f0}
-    .nav-tabs{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex}
-    .nav-tab{padding:12px 18px;font-size:13px;color:#73726c;text-decoration:none;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
-    .nav-tab:hover{color:#1a1a18}
-    .nav-tab.active{color:#185fa5;border-bottom-color:#185fa5}
-    .main{max-width:1300px;margin:0 auto;padding:1.5rem}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:1.4rem}
-    .stat{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem}
-    .stat-label{font-size:12px;color:#73726c;margin-bottom:4px}
-    .stat-val{font-size:28px;font-weight:600}
-    .blue{color:#185fa5}.green{color:#3b6d11}.amber{color:#854f0b}.purple{color:#534ab7}
-    .filters{background:#fff;border:1px solid #e0dfd8;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
-    .fg{display:flex;flex-direction:column;gap:4px}
-    .fg label{font-size:12px;color:#73726c;font-weight:500}
-    .fg input,.fg select{padding:7px 10px;font-size:13px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-family:inherit;color:#1a1a18;outline:none;min-width:130px}
-    .btn-filter{padding:7px 16px;border:none;border-radius:7px;background:#1a1a18;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;align-self:flex-end}
-    .btn-clear{padding:7px 14px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-size:13px;cursor:pointer;font-family:inherit;color:#73726c;align-self:flex-end;text-decoration:none}
-    .table-card{background:#fff;border:1px solid #e0dfd8;border-radius:10px;overflow:hidden}
-    .table-hdr{padding:12px 16px;border-bottom:1px solid #eeeee8;display:flex;align-items:center;justify-content:space-between}
-    .table-hdr-title{font-size:13px;font-weight:500}
-    .rec-count{font-size:12px;color:#73726c}
-    .tbl-scroll{overflow-x:auto}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    thead tr{background:#f9f9f6}
-    th{padding:9px 12px;text-align:left;font-size:11px;color:#73726c;border-bottom:1px solid #eeeee8;font-weight:500;white-space:nowrap}
-    td{padding:9px 12px;border-bottom:1px solid #f0f0ea;vertical-align:middle}
-    tr:last-child td{border-bottom:none}
-    tr:hover td{background:#fafaf7}
-    .badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500}
-    .badge-done{background:#eaf3de;color:#27500a}
-    .badge-pending{background:#faeeda;color:#633806}
-    .badge-partial{background:#e6f1fb;color:#0c447c}
-    .wtype{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:#f1efe8;color:#5f5e5a}
-    .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e6f1fb;color:#185fa5;font-size:10px;font-weight:600;margin-right:6px}
-    .emp-cell{display:flex;align-items:center}
-    .sum-cell{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .empty{padding:3rem;text-align:center;color:#73726c}
-    .co-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:500;background:#f0f0ea;color:#73726c}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manager — Work Reports</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:11px;margin-bottom:1.3rem}
+  .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .stat-val{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}
+
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+
+  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:10px 12px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+  .badge-done{background:#D9F5E8;color:#0E6B43}
+  .badge-pending{background:#FBE2E2;color:#9A2A2D}
+  .badge-partial{background:#DCE9FF;color:#1A4FA0}
+  .wtype{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;background:#F0EEE6;color:#696B78;font-weight:600}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px}
+  .emp-cell{display:flex;align-items:center}
+  .sum-cell{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500}
+  .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
+
+  @media(min-width:860px){
+    .nav-tabs{display:flex}
+    .bottom-nav{display:none}
+    body{padding-bottom:0}
+  }
+</style>
 </head>
 <body>
 <div class="topbar">
@@ -65,11 +83,6 @@
   <a href="/attendance" class="nav-tab">🕐 Attendance</a>
 </div>
 <div class="main">
-  {% if error %}
-  <div style="background:#fcebeb;border:1px solid #f09595;border-radius:8px;padding:10px 14px;font-size:13px;color:#791f1f;margin-bottom:1.2rem">
-    ⚠️ Google Sheets error: {{ error }} — Check your SPREADSHEET_ID and credentials.
-  </div>
-  {% endif %}
   <div class="stats">
     <div class="stat"><div class="stat-label">Total reports</div><div class="stat-val blue">{{ total }}</div></div>
     <div class="stat"><div class="stat-label">Completed</div><div class="stat-val green">{{ completed }}</div></div>
@@ -115,13 +128,13 @@
     <div class="tbl-scroll">
       {% if reports %}
       <table>
-        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Summary</th><th>Remarks</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Job details</th><th>Remarks</th><th>Supervisor</th><th>Status</th></tr></thead>
         <tbody>
         {% for r in reports %}
         {% set s = r['status']|lower %}
         <tr>
-          <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
-          <td style="color:#999;font-size:12px;white-space:nowrap">{{ r['timestamp'] }}</td>
+          <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
+          <td style="color:#A8A4C4;font-size:12px;white-space:nowrap">{{ r['timestamp'] }}</td>
           <td><div class="emp-cell"><span class="avatar">{{ r['emp_name'][:2].upper() }}</span>{{ r['emp_name'] }}</div></td>
           <td><span class="co-pill">{{ r['company'] }}</span></td>
           <td style="white-space:nowrap">{{ r['date'] }}</td>
@@ -130,6 +143,7 @@
           <td>{{ r['location'] or '—' }}</td>
           <td><div class="sum-cell" title="{{ r['summary'] }}">{{ r['summary'] }}</div></td>
           <td><div class="sum-cell" title="{{ r['remarks'] }}">{{ r['remarks'] or '—' }}</div></td>
+          <td>{{ r['supervisor_name'] or '—' }}</td>
           <td><span class="badge {% if s in ['done','completed'] %}badge-done{% elif s=='pending' %}badge-pending{% else %}badge-partial{% endif %}">
             {% if s in ['done','completed'] %}✅ Done{% elif s=='pending' %}⏳ Pending{% else %}🔄 Partial{% endif %}
           </span></td>
@@ -143,5 +157,11 @@
     </div>
   </div>
 </div>
+
+<nav class="bottom-nav">
+  <a href="/manager" class="bn-item active"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/assign-job" class="bn-item"><span class="bn-ic">📌</span>Assign</a>
+  <a href="/attendance" class="bn-item"><span class="bn-ic">🕐</span>Attendance</a>
+</nav>
 </body>
 </html>
