@@ -635,3 +635,183 @@ if __name__ == "__main__":
     print("👤  Manager : manager / manager123")
     print("👤  Employee: subrato / 1013123456\n")
     app.run(debug=True)
+
+
+# ══════════════════════════════════════════
+#  SALES VISIT REPORT — DB INIT
+# ══════════════════════════════════════════
+def init_sales_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS sales_visits (
+            id                  SERIAL PRIMARY KEY,
+            timestamp           TEXT,
+            visit_date          TEXT,
+            start_time          TEXT,
+            end_time            TEXT,
+            client_name         TEXT,
+            contact_number      TEXT,
+            address             TEXT,
+            type_of_visit       TEXT,
+            discussion_summary  TEXT,
+            products_interested TEXT,
+            visit_outcome       TEXT,
+            next_followup_date  TEXT,
+            salesperson_code    TEXT,
+            salesperson_name    TEXT,
+            remark              TEXT
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_sales_db()
+        print("✅ Sales visit table ready")
+    except Exception as e:
+        print(f"⚠️ Sales DB init error: {e}")
+
+
+# ══════════════════════════════════════════
+#  ROUTES — EMPLOYEE: SALES VISIT REPORT
+# ══════════════════════════════════════════
+@app.route("/sales-visit", methods=["GET", "POST"])
+def sales_visit():
+    if not logged_in() or is_manager():
+        return redirect(url_for("index"))
+
+    success = False
+    if request.method == "POST":
+        sp_code = request.form.get("salesperson_code", "")
+        sp_name = EMPLOYEES.get(sp_code, {}).get("name", "")
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO sales_visits
+            (timestamp, visit_date, start_time, end_time, client_name,
+             contact_number, address, type_of_visit, discussion_summary,
+             products_interested, visit_outcome, next_followup_date,
+             salesperson_code, salesperson_name, remark)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            request.form.get("visit_date"),
+            request.form.get("start_time"),
+            request.form.get("end_time"),
+            request.form.get("client_name"),
+            request.form.get("contact_number"),
+            request.form.get("address"),
+            request.form.get("type_of_visit"),
+            request.form.get("discussion_summary"),
+            request.form.get("products_interested"),
+            request.form.get("visit_outcome"),
+            request.form.get("next_followup_date"),
+            sp_code, sp_name,
+            request.form.get("remark"),
+        ))
+        conn.commit(); cur.close(); conn.close()
+        success = True
+
+    # Fetch this employee's own history
+    code = get_emp_code()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM sales_visits
+        WHERE salesperson_code=%s
+        ORDER BY timestamp DESC
+    """, (code,))
+    history = cur.fetchall(); cur.close(); conn.close()
+
+    salesperson_choices = [
+        {"code": c, "name": i["name"]}
+        for c, i in EMPLOYEES.items()
+    ]
+
+    return render_template(
+        "sales_visit.html",
+        name=session["name"],
+        success=success,
+        history=history,
+        salesperson_choices=salesperson_choices,
+        current_code=code,
+    )
+
+
+# ══════════════════════════════════════════
+#  ROUTES — MANAGER: VIEW SALES VISITS
+# ══════════════════════════════════════════
+@app.route("/manager/sales-visits")
+def manager_sales_visits():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("index"))
+
+    sp_f      = request.args.get("sp", "")
+    outcome_f = request.args.get("outcome", "")
+    vtype_f   = request.args.get("vtype", "")
+    from_d    = request.args.get("from_d", "")
+    to_d      = request.args.get("to_d", "")
+    search    = request.args.get("search", "")
+
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM sales_visits WHERE 1=1"
+    params = []
+    if sp_f:      query += " AND salesperson_name=%s";              params.append(sp_f)
+    if outcome_f: query += " AND visit_outcome=%s";                 params.append(outcome_f)
+    if vtype_f:   query += " AND type_of_visit=%s";                 params.append(vtype_f)
+    if from_d:    query += " AND visit_date>=%s";                   params.append(from_d)
+    if to_d:      query += " AND visit_date<=%s";                   params.append(to_d)
+    if search:
+        query += " AND (client_name ILIKE %s OR address ILIKE %s OR products_interested ILIKE %s OR discussion_summary ILIKE %s)"
+        s = f"%{search}%"; params += [s, s, s, s]
+    query += " ORDER BY timestamp DESC"
+    cur.execute(query, params)
+    visits = cur.fetchall()
+
+    cur.execute("SELECT COUNT(*) FROM sales_visits"); total = cur.fetchone()["count"]
+    cur.execute("SELECT COUNT(*) FROM sales_visits WHERE visit_outcome='Interested'"); interested = cur.fetchone()["count"]
+    cur.execute("SELECT COUNT(*) FROM sales_visits WHERE visit_outcome='Need Follow-up'"); followup = cur.fetchone()["count"]
+    today = datetime.now().strftime("%Y-%m-%d")
+    cur.execute("SELECT COUNT(*) FROM sales_visits WHERE visit_date=%s", (today,)); today_ct = cur.fetchone()["count"]
+    cur.execute("SELECT DISTINCT salesperson_name FROM sales_visits ORDER BY salesperson_name"); sp_list = [r["salesperson_name"] for r in cur.fetchall()]
+    cur.close(); conn.close()
+
+    return render_template(
+        "manager_sales.html",
+        name=session["name"],
+        visits=visits,
+        total=total, interested=interested, followup=followup, today_ct=today_ct,
+        sp_list=sp_list,
+        filters={"sp": sp_f, "outcome": outcome_f, "vtype": vtype_f, "from_d": from_d, "to_d": to_d, "search": search},
+        record_count=len(visits),
+    )
+
+
+# ══════════════════════════════════════════
+#  ROUTES — EXPORT: SALES VISITS CSV
+# ══════════════════════════════════════════
+@app.route("/export/sales-visits")
+def export_sales_visits():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM sales_visits ORDER BY timestamp DESC")
+    rows = cur.fetchall(); cur.close(); conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID","Timestamp","Visit Date","Start Time","End Time","Client Name",
+        "Contact Number","Address","Type of Visit","Discussion Summary",
+        "Products Interested","Visit Outcome","Next Follow-up Date",
+        "Salesperson","Remark"
+    ])
+    for r in rows:
+        writer.writerow([
+            r["id"], r["timestamp"], r["visit_date"], r["start_time"], r["end_time"],
+            r["client_name"], r["contact_number"], r["address"], r["type_of_visit"],
+            r["discussion_summary"], r["products_interested"], r["visit_outcome"],
+            r["next_followup_date"], r["salesperson_name"], r["remark"]
+        ])
+    output.seek(0)
+    return Response(
+        output.getvalue(), mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=sales_visits.csv"}
+    )

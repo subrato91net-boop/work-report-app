@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manager — Sales Visits</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+  .btn-export{background:#1AAE6F;border-color:#1AAE6F;padding:6px 15px}
+
+  /* PAGE TABS */
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;overflow-x:auto}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .main{max-width:1400px;margin:0 auto;padding:1.4rem 1rem}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:11px;margin-bottom:1.3rem}
+  .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .stat-val{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}
+
+  /* FILTERS */
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:130px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+
+  /* TABLE */
+  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1100px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:9px 12px;border-bottom:1px solid #F6F4EF;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF8}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+  .badge-interested{background:#D9F5E8;color:#0E6B43}
+  .badge-followup{background:#DCE9FF;color:#1A4FA0}
+  .badge-new{background:#FFF3D9;color:#7A4A00}
+  .badge-followupv{background:#EEE7FF;color:#5B30D1}
+
+  .empty-state{text-align:center;padding:3.5rem 1rem;color:#A8A4C4}
+  .empty-state .es-ic{font-size:2.5rem;margin-bottom:.8rem}
+  .empty-state p{font-size:13px;font-weight:600}
+
+  .detail-cell{max-width:200px;word-break:break-word}
+  .sub-text{color:#696B78;font-size:11px;margin-top:2px}
+
+  @media(min-width:860px){
+    body{padding-bottom:0}
+    .bottom-nav{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">🤝 Sales Visit Reports</div>
+  <div class="topbar-right">
+    <a href="/export/sales-visits{% if request.query_string %}?{{ request.query_string.decode() }}{% endif %}"
+       class="btn-sm btn-export">⬇ Export CSV</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+
+<!-- MANAGER NAV TABS -->
+<div class="nav-tabs">
+  <a href="/manager"            class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"         class="nav-tab">🗂️ Assign Jobs</a>
+  <a href="/attendance"         class="nav-tab">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab active">🤝 Sales Visits</a>
+</div>
+
+<div class="main">
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total Visits</div><div class="stat-val blue">{{ total }}</div></div>
+    <div class="stat"><div class="stat-label">Interested</div><div class="stat-val green">{{ interested }}</div></div>
+    <div class="stat"><div class="stat-label">Need Follow-up</div><div class="stat-val amber">{{ followup }}</div></div>
+    <div class="stat"><div class="stat-label">Today's Visits</div><div class="stat-val purple">{{ today_ct }}</div></div>
+  </div>
+
+  <!-- FILTERS -->
+  <form method="GET" class="filters">
+    <div class="fg">
+      <label>Salesperson</label>
+      <select name="sp">
+        <option value="">All</option>
+        {% for s in sp_list %}
+        <option value="{{ s }}" {% if filters.sp == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Type of Visit</label>
+      <select name="vtype">
+        <option value="">All</option>
+        <option value="New Visit"  {% if filters.vtype == 'New Visit' %}selected{% endif %}>New Visit</option>
+        <option value="Follow-up"  {% if filters.vtype == 'Follow-up' %}selected{% endif %}>Follow-up</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Visit Outcome</label>
+      <select name="outcome">
+        <option value="">All</option>
+        <option value="Interested"     {% if filters.outcome == 'Interested' %}selected{% endif %}>Interested</option>
+        <option value="Need Follow-up" {% if filters.outcome == 'Need Follow-up' %}selected{% endif %}>Need Follow-up</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>From Date</label>
+      <input type="date" name="from_d" value="{{ filters.from_d }}">
+    </div>
+    <div class="fg">
+      <label>To Date</label>
+      <input type="date" name="to_d" value="{{ filters.to_d }}">
+    </div>
+    <div class="fg">
+      <label>Search</label>
+      <input type="text" name="search" value="{{ filters.search }}" placeholder="Client, product, address…" style="min-width:160px">
+    </div>
+    <button type="submit" class="btn-filter">Apply</button>
+    <a href="/manager/sales-visits" class="btn-clear">Clear</a>
+  </form>
+
+  <!-- TABLE -->
+  <div class="table-card">
+    <div class="table-hdr">
+      <span class="table-hdr-title">All Sales Visit Reports</span>
+      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+    </div>
+    {% if visits %}
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Visit Date</th>
+            <th>Time</th>
+            <th>Salesperson</th>
+            <th>Client / Shop</th>
+            <th>Contact</th>
+            <th>Address</th>
+            <th>Type</th>
+            <th>Discussion Summary</th>
+            <th>Products</th>
+            <th>Outcome</th>
+            <th>Next Follow-up</th>
+            <th>Remark</th>
+            <th>Submitted At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in visits %}
+          <tr>
+            <td style="color:#A8A4C4;font-size:11px">{{ v.id }}</td>
+            <td><strong>{{ v.visit_date }}</strong></td>
+            <td style="white-space:nowrap;color:#696B78;font-size:11.5px">
+              {% if v.start_time %}{{ v.start_time }}{% endif %}
+              {% if v.start_time and v.end_time %} – {% endif %}
+              {% if v.end_time %}{{ v.end_time }}{% endif %}
+              {% if not v.start_time and not v.end_time %}—{% endif %}
+            </td>
+            <td><strong>{{ v.salesperson_name }}</strong></td>
+            <td class="detail-cell"><strong>{{ v.client_name }}</strong></td>
+            <td style="white-space:nowrap">{{ v.contact_number or '—' }}</td>
+            <td class="detail-cell"><div class="sub-text">{{ v.address or '—' }}</div></td>
+            <td>
+              {% if v.type_of_visit == 'New Visit' %}
+                <span class="badge badge-new">New</span>
+              {% elif v.type_of_visit == 'Follow-up' %}
+                <span class="badge badge-followupv">Follow-up</span>
+              {% else %}
+                {{ v.type_of_visit or '—' }}
+              {% endif %}
+            </td>
+            <td class="detail-cell" style="max-width:220px">{{ v.discussion_summary or '—' }}</td>
+            <td class="detail-cell">{{ v.products_interested or '—' }}</td>
+            <td>
+              {% if v.visit_outcome == 'Interested' %}
+                <span class="badge badge-interested">Interested</span>
+              {% elif v.visit_outcome == 'Need Follow-up' %}
+                <span class="badge badge-followup">Need F/U</span>
+              {% else %}
+                {{ v.visit_outcome or '—' }}
+              {% endif %}
+            </td>
+            <td style="white-space:nowrap">{{ v.next_followup_date or '—' }}</td>
+            <td class="detail-cell"><div class="sub-text">{{ v.remark or '—' }}</div></td>
+            <td style="color:#A8A4C4;font-size:11px;white-space:nowrap">{{ v.timestamp[:16] if v.timestamp else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="es-ic">🤝</div>
+      <p>No sales visit reports found.<br>Try adjusting your filters.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div><!-- /main -->
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="bottom-nav">
+  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/assign-job"           class="bn-item"><span class="bn-ic">🗂️</span>Jobs</a>
+  <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
+  <a href="/manager/sales-visits" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>
+</nav>
+
+</body>
+</html>
