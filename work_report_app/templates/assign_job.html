@@ -42,7 +42,6 @@
   textarea{resize:vertical;min-height:80px}
   .required{color:#E5484D}
 
-  /* multi-select chip box */
   .chip-box{border:1.5px solid #E7E4DA;border-radius:10px;padding:9px;background:#F6F4EF;max-height:168px;overflow-y:auto}
   .chip-box.na-active{opacity:.45;pointer-events:none}
   .chip-row{display:flex;align-items:center;gap:9px;padding:6px 5px;border-radius:7px;cursor:pointer;transition:background .12s}
@@ -78,11 +77,46 @@
   .badge-open{background:#DCE9FF;color:#1A4FA0}
   .badge-progress{background:#FFE4CC;color:#9A4B0A}
   .badge-done{background:#D9F5E8;color:#0E6B43}
+  .badge-hold{background:#F5E8FF;color:#6B2FA0}
   .badge-other{background:#F0EEE6;color:#696B78}
   .desc-cell{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .na-text{color:#C7C4B8;font-style:italic}
   .empty{padding:3rem;text-align:center;color:#696B78;font-weight:500}
   .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
+  .report-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#0E6B43;margin-right:4px;vertical-align:middle}
+
+  /* Edit button */
+  .btn-edit{padding:4px 11px;border:1.5px solid #FF7A1A;border-radius:7px;background:#fff;color:#FF7A1A;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s}
+  .btn-edit:hover{background:#FF7A1A;color:#fff}
+
+  /* ── MODAL ── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,0.55);z-index:200;align-items:center;justify-content:center;padding:1rem}
+  .modal-overlay.open{display:flex}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(16,25,58,0.28);display:flex;flex-direction:column}
+  .modal-head{padding:1.2rem 1.4rem 1rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:18px 18px 0 0}
+  .modal-title{font-size:15px;font-weight:800;color:#10193A}
+  .modal-close{width:32px;height:32px;border:none;border-radius:8px;background:#F6F4EF;font-size:18px;cursor:pointer;color:#696B78;display:flex;align-items:center;justify-content:center;line-height:1}
+  .modal-close:hover{background:#E7E4DA}
+  .modal-body{padding:1.2rem 1.4rem;flex:1}
+  .modal-foot{padding:1rem 1.4rem;border-top:1px solid #F0EEE6;display:flex;gap:9px;position:sticky;bottom:0;background:#fff;border-radius:0 0 18px 18px}
+  .btn-save{flex:1;padding:11px;background:#FF7A1A;color:#10193A;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(255,122,26,0.28)}
+  .btn-save:hover{box-shadow:0 8px 24px rgba(255,122,26,0.38)}
+  .btn-cancel{padding:11px 18px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;color:#696B78}
+  .btn-cancel:hover{background:#E7E4DA}
+
+  /* status quick-pick inside modal */
+  .status-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+  .status-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;border:2px solid transparent;transition:all .15s;user-select:none}
+  .sp-open{background:#DCE9FF;color:#1A4FA0}
+  .sp-open.sel,.sp-open:hover{border-color:#1A4FA0}
+  .sp-progress{background:#FFE4CC;color:#9A4B0A}
+  .sp-progress.sel,.sp-progress:hover{border-color:#9A4B0A}
+  .sp-done{background:#D9F5E8;color:#0E6B43}
+  .sp-done.sel,.sp-done:hover{border-color:#0E6B43}
+  .sp-hold{background:#F5E8FF;color:#6B2FA0}
+  .sp-hold.sel,.sp-hold:hover{border-color:#6B2FA0}
+
+  .edited-tag{font-size:10px;color:#A8A4C4;font-weight:500;margin-left:6px}
 
   @media(min-width:980px){
     .main{grid-template-columns:420px 1fr;align-items:start}
@@ -109,10 +143,11 @@
 </div>
 
 <div class="main">
-  <!-- ASSIGN NEW JOB -->
+  <!-- ═══ ASSIGN NEW JOB ═══ -->
   <div class="card">
     <div class="card-title">📌 Assign New Job</div>
     {% if success %}<div class="success">✅ Job assigned successfully!</div>{% endif %}
+    {% if edited %}<div class="success">✏️ Job updated successfully!</div>{% endif %}
     {% if error %}<div class="error">⚠️ {{ error }}</div>{% endif %}
     <form method="POST" action="/assign-job">
       <div class="section-label">Assignees</div>
@@ -191,7 +226,7 @@
     </form>
   </div>
 
-  <!-- ALL ASSIGNED JOBS -->
+  <!-- ═══ ALL ASSIGNED JOBS ═══ -->
   <div class="card">
     <div class="card-title">📋 All Assigned Jobs</div>
     <form method="GET" action="/assign-job">
@@ -220,14 +255,17 @@
       <table>
         <thead><tr>
           <th>#</th><th>Assigned</th><th>Employee(s)</th><th>Supervisor(s)</th><th>Company</th>
-          <th>Job title</th><th>Location</th><th>Start</th><th>End</th><th>Status</th>
+          <th>Job title</th><th>Location</th><th>Start</th><th>End</th><th>Status</th><th>Report</th><th>Edit</th>
         </tr></thead>
         <tbody>
         {% for j in jobs %}
         {% set s = (j['status'] or '')|lower %}
         <tr>
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
-          <td style="color:#A8A4C4;font-size:11.5px;white-space:nowrap">{{ j['created_at'] }}</td>
+          <td style="color:#A8A4C4;font-size:11.5px;white-space:nowrap">
+            {{ j['created_at'] }}
+            {% if j.get('last_edited') %}<span class="edited-tag">edited {{ j['last_edited'][:10] }}</span>{% endif %}
+          </td>
           <td>{% if j['emp_names'] %}{{ j['emp_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
           <td>{% if j['supervisor_names'] %}{{ j['supervisor_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
           <td><span class="co-pill">{{ j['company'] or '—' }}</span></td>
@@ -235,7 +273,19 @@
           <td>{{ j['location'] or '—' }}</td>
           <td style="white-space:nowrap">{{ j['start_date'] or '—' }}</td>
           <td style="white-space:nowrap">{{ j['end_date'] or '—' }}</td>
-          <td><span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% else %}badge-other{% endif %}">{{ j['status'] }}</span></td>
+          <td><span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% elif s=='on hold' %}badge-hold{% else %}badge-other{% endif %}">{{ j['status'] }}</span></td>
+          <td>
+            {% if j.get('service_report') %}
+              <span title="{{ j['service_report'] }}"><span class="report-dot"></span>Yes</span>
+            {% else %}
+              <span style="color:#C7C4B8;font-size:11px">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <button class="btn-edit" onclick="openEdit({{ j['id'] }},
+              {{ j|tojson }},
+              {{ employee_choices|tojson }})">✏️ Edit</button>
+          </td>
         </tr>
         {% endfor %}
         </tbody>
@@ -247,6 +297,93 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════
+     EDIT JOB MODAL
+════════════════════════════════ -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">✏️ Edit Job</div>
+      <button class="modal-close" onclick="closeEdit()" aria-label="Close">✕</button>
+    </div>
+    <form id="editForm" method="POST">
+      <div class="modal-body">
+
+        <!-- STATUS QUICK-PICK -->
+        <div class="section-label">Status</div>
+        <div class="status-pills">
+          <div class="status-pill sp-open"     onclick="setPill(this,'Open')">Open</div>
+          <div class="status-pill sp-progress" onclick="setPill(this,'In Progress')">In Progress</div>
+          <div class="status-pill sp-done"      onclick="setPill(this,'Done')">Done</div>
+          <div class="status-pill sp-hold"      onclick="setPill(this,'On Hold')">On Hold</div>
+        </div>
+        <input type="hidden" name="status" id="editStatus">
+
+        <!-- JOB DETAILS -->
+        <div class="section-label" style="margin-top:1.3rem">Job details</div>
+        <div class="field">
+          <label>Job title <span class="required">*</span></label>
+          <input type="text" name="job_title" id="editTitle" required>
+        </div>
+        <div class="field">
+          <label>Job description</label>
+          <textarea name="job_description" id="editDesc" rows="3"></textarea>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Location</label>
+            <input type="text" name="location" id="editLocation">
+          </div>
+          <div class="field">
+            <label>Company</label>
+            <input type="text" name="company" id="editCompany">
+          </div>
+        </div>
+
+        <!-- DATES -->
+        <div class="section-label">Dates</div>
+        <div class="row2">
+          <div class="field">
+            <label>Start date</label>
+            <input type="date" name="start_date" id="editStart">
+          </div>
+          <div class="field">
+            <label>End date <span class="hint-txt">(extend if needed)</span></label>
+            <input type="date" name="end_date" id="editEnd">
+          </div>
+        </div>
+
+        <!-- ASSIGNEES -->
+        <div class="section-label">Employees</div>
+        <div class="chip-box" id="editEmpBox" style="max-height:140px"></div>
+        <div class="na-row">
+          <input type="checkbox" id="editEmpNA" onchange="toggleEditNA('emp')">
+          <label for="editEmpNA">N/A — no employee</label>
+        </div>
+
+        <div class="section-label" style="margin-top:1rem">Supervisors</div>
+        <div class="chip-box" id="editSupBox" style="max-height:140px"></div>
+        <div class="na-row">
+          <input type="checkbox" id="editSupNA" onchange="toggleEditNA('sup')">
+          <label for="editSupNA">N/A — no supervisor</label>
+        </div>
+
+        <!-- SERVICE REPORT -->
+        <div class="section-label" style="margin-top:1.3rem">Service report</div>
+        <div class="field">
+          <label>Service report / completion notes <span class="hint-txt">(visible to manager only)</span></label>
+          <textarea name="service_report" id="editReport" rows="4" placeholder="Write service notes, completion summary, issues found, materials used…"></textarea>
+        </div>
+
+      </div><!-- /modal-body -->
+      <div class="modal-foot">
+        <button type="button" class="btn-cancel" onclick="closeEdit()">Cancel</button>
+        <button type="submit" class="btn-save">💾 Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <a href="/manager" class="bn-item"><span class="bn-ic">📋</span>Reports</a>
   <a href="/assign-job" class="bn-item active"><span class="bn-ic">📌</span>Assign</a>
@@ -254,24 +391,116 @@
 </nav>
 
 <script>
-  function toggleNA(which) {
-    const naBox  = document.getElementById(which === 'emp' ? 'empNA' : 'supNA');
-    const chipBox = document.getElementById(which === 'emp' ? 'empChipBox' : 'supChipBox');
-    const checks = chipBox.querySelectorAll('input[type=checkbox]');
-    if (naBox.checked) {
-      checks.forEach(c => { c.checked = false; });
-      chipBox.classList.add('na-active');
-    } else {
-      chipBox.classList.remove('na-active');
-    }
-    if (which === 'emp') syncCompany();
+/* ── Assign-new-job helpers ── */
+function toggleNA(which) {
+  const naBox   = document.getElementById(which === 'emp' ? 'empNA' : 'supNA');
+  const chipBox = document.getElementById(which === 'emp' ? 'empChipBox' : 'supChipBox');
+  const checks  = chipBox.querySelectorAll('input[type=checkbox]');
+  if (naBox.checked) {
+    checks.forEach(c => { c.checked = false; });
+    chipBox.classList.add('na-active');
+  } else {
+    chipBox.classList.remove('na-active');
   }
-  function syncCompany() {
-    const checked = document.querySelector('.emp-check:checked');
-    if (checked) {
-      document.getElementById('companyInput').value = checked.getAttribute('data-company') || '';
-    }
+  if (which === 'emp') syncCompany();
+}
+function syncCompany() {
+  const checked = document.querySelector('.emp-check:checked');
+  if (checked) document.getElementById('companyInput').value = checked.getAttribute('data-company') || '';
+}
+
+/* ── Modal helpers ── */
+const overlay = document.getElementById('editOverlay');
+
+function openEdit(jobId, job, allEmps) {
+  /* Set form action */
+  document.getElementById('editForm').action = '/edit-job/' + jobId;
+
+  /* Populate fields */
+  document.getElementById('editTitle').value    = job.job_title    || '';
+  document.getElementById('editDesc').value     = job.job_description || '';
+  document.getElementById('editLocation').value = job.location     || '';
+  document.getElementById('editCompany').value  = job.company      || '';
+  document.getElementById('editStart').value    = job.start_date   || '';
+  document.getElementById('editEnd').value      = job.end_date     || '';
+  document.getElementById('editReport').value   = job.service_report || '';
+
+  /* Status pills */
+  const status = job.status || 'Open';
+  document.getElementById('editStatus').value = status;
+  document.querySelectorAll('.status-pill').forEach(p => {
+    p.classList.toggle('sel', p.textContent.trim() === status);
+  });
+
+  /* Build employee checkboxes */
+  const selEmps = (job.emp_codes || '').split(',').map(s => s.trim()).filter(Boolean);
+  buildCheckboxes('editEmpBox', 'edit_emp_codes', allEmps, selEmps);
+  document.getElementById('editEmpNA').checked = selEmps.length === 0;
+  document.getElementById('editEmpBox').classList.toggle('na-active', selEmps.length === 0);
+
+  /* Build supervisor checkboxes */
+  const selSups = (job.supervisor_codes || '').split(',').map(s => s.trim()).filter(Boolean);
+  buildCheckboxes('editSupBox', 'edit_sup_codes', allEmps, selSups, true);
+  document.getElementById('editSupNA').checked = selSups.length === 0;
+  document.getElementById('editSupBox').classList.toggle('na-active', selSups.length === 0);
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function buildCheckboxes(boxId, inputName, employees, selected, isSup) {
+  const box = document.getElementById(boxId);
+  box.innerHTML = '';
+  const fieldName = isSup ? 'supervisor_codes' : 'emp_codes';
+  employees.forEach(e => {
+    const row   = document.createElement('div');
+    row.className = 'chip-row';
+    const uid   = boxId + '_' + e.code;
+    const chk   = document.createElement('input');
+    chk.type    = 'checkbox';
+    chk.name    = fieldName;
+    chk.value   = e.code;
+    chk.id      = uid;
+    chk.checked = selected.includes(e.code);
+    chk.style.cssText = 'width:16px;height:16px;accent-color:#FF7A1A;margin:0';
+    const lbl   = document.createElement('label');
+    lbl.htmlFor = uid;
+    lbl.textContent = e.name;
+    lbl.style.cssText = 'margin:0;font-weight:600;font-size:13px;cursor:pointer';
+    row.appendChild(chk);
+    row.appendChild(lbl);
+    box.appendChild(row);
+  });
+}
+
+function toggleEditNA(which) {
+  const naBox   = document.getElementById(which === 'emp' ? 'editEmpNA' : 'editSupNA');
+  const chipBox = document.getElementById(which === 'emp' ? 'editEmpBox' : 'editSupBox');
+  const checks  = chipBox.querySelectorAll('input[type=checkbox]');
+  if (naBox.checked) {
+    checks.forEach(c => { c.checked = false; });
+    chipBox.classList.add('na-active');
+  } else {
+    chipBox.classList.remove('na-active');
   }
+}
+
+function setPill(el, value) {
+  document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('editStatus').value = value;
+}
+
+function closeEdit() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* Close modal on overlay click */
+overlay.addEventListener('click', e => { if (e.target === overlay) closeEdit(); });
+
+/* Close on Escape */
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
 </script>
 </body>
 </html>

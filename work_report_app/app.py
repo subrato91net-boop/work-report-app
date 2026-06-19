@@ -116,6 +116,10 @@ def init_db():
         WHERE supervisor_codes IS NULL AND supervisor_code IS NOT NULL
     """) if _column_exists(cur, "jobs", "supervisor_code") else None
 
+    # Add service_report and last_edited columns if upgrading from older schema
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS service_report TEXT")
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS last_edited TEXT")
+
     conn.commit()
     cur.close()
     conn.close()
@@ -473,12 +477,67 @@ def assign_job():
 
     employee_choices = [{"code": c, "name": i["name"], "company": i["company"]} for c, i in EMPLOYEES.items()]
 
+    edited = request.args.get("edited") == "1"
     return render_template("assign_job.html",
-        success=success, error=error,
+        success=success, error=error, edited=edited,
         employee_choices=employee_choices,
         jobs=jobs, record_count=len(jobs),
         filters={"emp": f_emp, "status": f_status}
     )
+
+
+# ══════════════════════════════════════════
+#  ROUTES — MANAGER: EDIT JOB (modal POST)
+# ══════════════════════════════════════════
+@app.route("/edit-job/<int:job_id>", methods=["POST"])
+def edit_job(job_id):
+    if not logged_in() or not is_manager():
+        return jsonify({"ok": False, "error": "Unauthorised"}), 403
+
+    emp_codes = request.form.getlist("emp_codes")
+    sup_codes = request.form.getlist("supervisor_codes")
+    emp_codes = [c for c in emp_codes if c and c != "NA"]
+    sup_codes = [c for c in sup_codes if c and c != "NA"]
+
+    emp_names = [EMPLOYEES[c]["name"] for c in emp_codes if c in EMPLOYEES]
+    sup_names = [EMPLOYEES[c]["name"] for c in sup_codes if c in EMPLOYEES]
+
+    company       = request.form.get("company", "")
+    job_title     = request.form.get("job_title", "")
+    job_desc      = request.form.get("job_description", "")
+    location      = request.form.get("location", "")
+    start_date    = request.form.get("start_date", "")
+    end_date      = request.form.get("end_date", "")
+    status        = request.form.get("status", "Open")
+    service_report= request.form.get("service_report", "")
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE jobs SET
+            emp_codes        = %s,
+            emp_names        = %s,
+            supervisor_codes = %s,
+            supervisor_names = %s,
+            company          = %s,
+            job_title        = %s,
+            job_description  = %s,
+            location         = %s,
+            start_date       = %s,
+            end_date         = %s,
+            status           = %s,
+            service_report   = %s,
+            last_edited      = %s
+        WHERE id = %s
+    """, (
+        ",".join(emp_codes), ", ".join(emp_names),
+        ",".join(sup_codes), ", ".join(sup_names),
+        company, job_title, job_desc, location,
+        start_date, end_date, status, service_report,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        job_id,
+    ))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("assign_job") + "?edited=1")
 
 # ══════════════════════════════════════════
 #  ROUTES — ATTENDANCE TAB
