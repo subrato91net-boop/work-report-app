@@ -282,9 +282,7 @@
             {% endif %}
           </td>
           <td>
-            <button class="btn-edit" onclick="openEdit({{ j['id'] }},
-              {{ j|tojson }},
-              {{ employee_choices|tojson }})">✏️ Edit</button>
+            <button class="btn-edit" onclick="openEdit({{ j['id'] }})">✏️ Edit</button>
           </td>
         </tr>
         {% endfor %}
@@ -391,17 +389,16 @@
 </nav>
 
 <script>
+/* ── All job data stored safely in JS — no inline onclick JSON ── */
+const JOBS_DATA = {{ jobs | tojson }};
+const EMPS_DATA = {{ employee_choices | tojson }};
+
 /* ── Assign-new-job helpers ── */
 function toggleNA(which) {
   const naBox   = document.getElementById(which === 'emp' ? 'empNA' : 'supNA');
   const chipBox = document.getElementById(which === 'emp' ? 'empChipBox' : 'supChipBox');
-  const checks  = chipBox.querySelectorAll('input[type=checkbox]');
-  if (naBox.checked) {
-    checks.forEach(c => { c.checked = false; });
-    chipBox.classList.add('na-active');
-  } else {
-    chipBox.classList.remove('na-active');
-  }
+  chipBox.querySelectorAll('input[type=checkbox]').forEach(c => { if(naBox.checked) c.checked = false; });
+  chipBox.classList.toggle('na-active', naBox.checked);
   if (which === 'emp') syncCompany();
 }
 function syncCompany() {
@@ -409,38 +406,39 @@ function syncCompany() {
   if (checked) document.getElementById('companyInput').value = checked.getAttribute('data-company') || '';
 }
 
-/* ── Modal helpers ── */
+/* ── Modal ── */
 const overlay = document.getElementById('editOverlay');
 
-function openEdit(jobId, job, allEmps) {
-  /* Set form action */
+function openEdit(jobId) {
+  const job = JOBS_DATA.find(j => j.id === jobId);
+  if (!job) { alert('Job not found'); return; }
+
   document.getElementById('editForm').action = '/edit-job/' + jobId;
 
-  /* Populate fields */
-  document.getElementById('editTitle').value    = job.job_title    || '';
-  document.getElementById('editDesc').value     = job.job_description || '';
-  document.getElementById('editLocation').value = job.location     || '';
-  document.getElementById('editCompany').value  = job.company      || '';
-  document.getElementById('editStart').value    = job.start_date   || '';
-  document.getElementById('editEnd').value      = job.end_date     || '';
-  document.getElementById('editReport').value   = job.service_report || '';
+  document.getElementById('editTitle').value    = job.job_title        || '';
+  document.getElementById('editDesc').value     = job.job_description  || '';
+  document.getElementById('editLocation').value = job.location         || '';
+  document.getElementById('editCompany').value  = job.company          || '';
+  document.getElementById('editStart').value    = job.start_date       || '';
+  document.getElementById('editEnd').value      = job.end_date         || '';
+  document.getElementById('editReport').value   = job.service_report   || '';
 
   /* Status pills */
   const status = job.status || 'Open';
   document.getElementById('editStatus').value = status;
-  document.querySelectorAll('.status-pill').forEach(p => {
-    p.classList.toggle('sel', p.textContent.trim() === status);
-  });
+  document.querySelectorAll('.status-pill').forEach(p =>
+    p.classList.toggle('sel', p.textContent.trim() === status)
+  );
 
-  /* Build employee checkboxes */
+  /* Employees */
   const selEmps = (job.emp_codes || '').split(',').map(s => s.trim()).filter(Boolean);
-  buildCheckboxes('editEmpBox', 'edit_emp_codes', allEmps, selEmps);
+  buildCheckboxes('editEmpBox', 'emp_codes', EMPS_DATA, selEmps, false);
   document.getElementById('editEmpNA').checked = selEmps.length === 0;
   document.getElementById('editEmpBox').classList.toggle('na-active', selEmps.length === 0);
 
-  /* Build supervisor checkboxes */
+  /* Supervisors */
   const selSups = (job.supervisor_codes || '').split(',').map(s => s.trim()).filter(Boolean);
-  buildCheckboxes('editSupBox', 'edit_sup_codes', allEmps, selSups, true);
+  buildCheckboxes('editSupBox', 'supervisor_codes', EMPS_DATA, selSups, true);
   document.getElementById('editSupNA').checked = selSups.length === 0;
   document.getElementById('editSupBox').classList.toggle('na-active', selSups.length === 0);
 
@@ -448,25 +446,27 @@ function openEdit(jobId, job, allEmps) {
   document.body.style.overflow = 'hidden';
 }
 
-function buildCheckboxes(boxId, inputName, employees, selected, isSup) {
+function buildCheckboxes(boxId, fieldName, employees, selected) {
   const box = document.getElementById(boxId);
   box.innerHTML = '';
-  const fieldName = isSup ? 'supervisor_codes' : 'emp_codes';
   employees.forEach(e => {
-    const row   = document.createElement('div');
+    const row = document.createElement('div');
     row.className = 'chip-row';
-    const uid   = boxId + '_' + e.code;
-    const chk   = document.createElement('input');
+    const uid = boxId + '_' + e.code;
+
+    const chk = document.createElement('input');
     chk.type    = 'checkbox';
     chk.name    = fieldName;
     chk.value   = e.code;
     chk.id      = uid;
     chk.checked = selected.includes(e.code);
     chk.style.cssText = 'width:16px;height:16px;accent-color:#FF7A1A;margin:0';
-    const lbl   = document.createElement('label');
-    lbl.htmlFor = uid;
+
+    const lbl = document.createElement('label');
+    lbl.htmlFor     = uid;
     lbl.textContent = e.name;
     lbl.style.cssText = 'margin:0;font-weight:600;font-size:13px;cursor:pointer';
+
     row.appendChild(chk);
     row.appendChild(lbl);
     box.appendChild(row);
@@ -476,13 +476,8 @@ function buildCheckboxes(boxId, inputName, employees, selected, isSup) {
 function toggleEditNA(which) {
   const naBox   = document.getElementById(which === 'emp' ? 'editEmpNA' : 'editSupNA');
   const chipBox = document.getElementById(which === 'emp' ? 'editEmpBox' : 'editSupBox');
-  const checks  = chipBox.querySelectorAll('input[type=checkbox]');
-  if (naBox.checked) {
-    checks.forEach(c => { c.checked = false; });
-    chipBox.classList.add('na-active');
-  } else {
-    chipBox.classList.remove('na-active');
-  }
+  chipBox.querySelectorAll('input[type=checkbox]').forEach(c => { if(naBox.checked) c.checked = false; });
+  chipBox.classList.toggle('na-active', naBox.checked);
 }
 
 function setPill(el, value) {
@@ -496,10 +491,7 @@ function closeEdit() {
   document.body.style.overflow = '';
 }
 
-/* Close modal on overlay click */
 overlay.addEventListener('click', e => { if (e.target === overlay) closeEdit(); });
-
-/* Close on Escape */
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
 </script>
 </body>
