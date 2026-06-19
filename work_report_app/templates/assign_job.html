@@ -1,277 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Assign Jobs — Manager</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
-
-  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
-  .topbar-right{display:flex;gap:8px}
-  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
-  .btn-sm:hover{background:rgba(255,255,255,0.14)}
-
-  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none}
-  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s}
-  .nav-tab:hover{color:#10193A}
-  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
-
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
-  .bn-item .bn-ic{font-size:18px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem;display:grid;grid-template-columns:1fr;gap:1.2rem}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.4rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15px;font-weight:800;margin-bottom:1.2rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:7px;color:#10193A}
-
-  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.07em;margin:1.15rem 0 .65rem;display:flex;align-items:center;gap:6px}
-  .section-label:first-child{margin-top:0}
-  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
-
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-  .field{margin-bottom:12px}
-  label{display:block;font-size:12.5px;color:#10193A;font-weight:700;margin-bottom:6px}
-  .hint-txt{font-size:11px;color:#A8A4C4;font-weight:500;margin-left:5px;text-transform:none;letter-spacing:0}
-  input,select,textarea{width:100%;padding:9px 12px;font-size:13.5px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:9px;outline:none;font-family:inherit}
-  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
-  textarea{resize:vertical;min-height:80px}
-  .required{color:#E5484D}
-
-  /* multi-select chip box */
-  .chip-box{border:1.5px solid #E7E4DA;border-radius:10px;padding:9px;background:#F6F4EF;max-height:168px;overflow-y:auto}
-  .chip-box.na-active{opacity:.45;pointer-events:none}
-  .chip-row{display:flex;align-items:center;gap:9px;padding:6px 5px;border-radius:7px;cursor:pointer;transition:background .12s}
-  .chip-row:hover{background:#EFEDE3}
-  .chip-row input[type=checkbox]{width:16px;height:16px;accent-color:#FF7A1A;margin:0}
-  .chip-row label{margin:0;font-weight:600;font-size:13px;cursor:pointer}
-  .na-row{display:flex;align-items:center;gap:9px;padding:7px 5px;margin-top:4px;border-top:1px dashed #DAD6CA}
-  .na-row input[type=checkbox]{width:16px;height:16px;accent-color:#696B78;margin:0}
-  .na-row label{margin:0;font-weight:700;font-size:12.5px;color:#696B78;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}
-
-  .submit-btn{width:100%;padding:12px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.5rem;box-shadow:0 8px 20px rgba(255,122,26,0.3)}
-  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:9px;padding:11px 13px;font-size:13px;margin-bottom:1.1rem;font-weight:600}
-  .error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3;border-radius:9px;padding:11px 13px;font-size:13px;margin-bottom:1.1rem;font-weight:600}
-
-  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;align-items:flex-end}
-  .fg{display:flex;flex-direction:column;gap:4px}
-  .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg select,.fg input{padding:8px 10px;font-size:12.5px;min-width:140px}
-  .btn-filter{padding:8px 15px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
-  .btn-clear{padding:8px 13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
-
-  .table-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
-  .rec-count{font-size:12px;color:#696B78;font-weight:600}
-  .tbl-scroll{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  thead tr{background:#F6F4EF}
-  th{padding:9px 10px;text-align:left;font-size:10px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
-  td{padding:10px 10px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
-  tr:last-child td{border-bottom:none}
-  tr:hover td{background:#FAFAF7}
-  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.02em}
-  .badge-open{background:#DCE9FF;color:#1A4FA0}
-  .badge-progress{background:#FFE4CC;color:#9A4B0A}
-  .badge-done{background:#D9F5E8;color:#0E6B43}
-  .badge-other{background:#F0EEE6;color:#696B78}
-  .desc-cell{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .na-text{color:#C7C4B8;font-style:italic}
-  .empty{padding:3rem;text-align:center;color:#696B78;font-weight:500}
-  .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
-
-  @media(min-width:980px){
-    .main{grid-template-columns:420px 1fr;align-items:start}
-  }
-  @media(min-width:860px){
-    .nav-tabs{display:flex}
-    .bottom-nav{display:none}
-    body{padding-bottom:0}
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assign Job — Manager</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
+    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+    .topbar-title{font-size:15px;font-weight:600}
+    .topbar-right{display:flex;gap:8px}
+    .btn-sm{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#1a1a18;text-decoration:none;font-family:inherit}
+    .btn-sm:hover{background:#f5f5f0}
+    .nav-tabs{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex}
+    .nav-tab{padding:12px 18px;font-size:13px;color:#73726c;text-decoration:none;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
+    .nav-tab:hover{color:#1a1a18}
+    .nav-tab.active{color:#185fa5;border-bottom-color:#185fa5}
+    .main{max-width:1300px;margin:0 auto;padding:1.5rem;display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:start}
+    @media(max-width:900px){.main{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid #e0dfd8;border-radius:12px;overflow:hidden}
+    .card-hdr{padding:14px 18px;border-bottom:1px solid #eeeee8;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+    .card-body{padding:18px}
+    .field{margin-bottom:14px}
+    .field:last-child{margin-bottom:0}
+    label{display:block;font-size:12px;font-weight:600;color:#5a5a56;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+    input,select,textarea{width:100%;padding:9px 12px;font-size:13px;color:#1a1a18;background:#f9f9f6;border:1px solid #ddddd5;border-radius:8px;outline:none;font-family:inherit;transition:border-color .15s}
+    input:focus,select:focus,textarea:focus{border-color:#378add;box-shadow:0 0 0 3px rgba(55,138,221,.1);background:#fff}
+    textarea{resize:vertical}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .btn-submit{width:100%;padding:11px;background:#1a1a18;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px}
+    .btn-submit:hover{background:#333}
+    .alert-ok{background:#eaf3de;color:#27500a;border:1px solid #97c459;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+    .alert-err{background:#fcebeb;color:#791f1f;border:1px solid #f09595;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px}
+    /* Job list table */
+    .filters{padding:14px 18px;border-bottom:1px solid #eeeee8;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:#f9f9f6}
+    .fg{display:flex;flex-direction:column;gap:4px}
+    .fg label{font-size:11px;color:#73726c;font-weight:500;text-transform:none;letter-spacing:0}
+    .fg select,.fg input{min-width:120px;font-size:12px;padding:6px 10px}
+    .btn-filter{padding:6px 14px;border:none;border-radius:7px;background:#1a1a18;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-end}
+    .btn-clear{padding:6px 12px;border:1px solid #ddddd5;border-radius:7px;background:#f9f9f6;font-size:12px;cursor:pointer;font-family:inherit;color:#73726c;align-self:flex-end;text-decoration:none}
+    .tbl-scroll{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead tr{background:#f9f9f6}
+    th{padding:9px 12px;text-align:left;font-size:11px;color:#73726c;border-bottom:1px solid #eeeee8;font-weight:500;white-space:nowrap}
+    td{padding:9px 12px;border-bottom:1px solid #f0f0ea;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafaf7}
+    .badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap}
+    .badge-assigned{background:#e6f1fb;color:#0c447c}
+    .badge-inprogress{background:#faeeda;color:#633806}
+    .badge-completed{background:#eaf3de;color:#27500a}
+    .badge-onhold{background:#f0f0ea;color:#5f5e5a}
+    .badge-cancelled{background:#fcebeb;color:#791f1f}
+    .avatar{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#e6f1fb;color:#185fa5;font-size:10px;font-weight:600;margin-right:6px;flex-shrink:0}
+    .emp-cell{display:flex;align-items:center}
+    .co-pill{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:500;background:#f0f0ea;color:#73726c}
+    .desc-cell{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .empty{padding:3rem;text-align:center;color:#73726c;font-size:13px}
+    .tbl-hdr{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eeeee8}
+    .tbl-hdr-title{font-size:13px;font-weight:500}
+    .rec-count{font-size:12px;color:#73726c}
+    .status-sel{font-size:11px;padding:3px 7px;border:1px solid #ddddd5;border-radius:5px;background:#f9f9f6;cursor:pointer}
+    .req{color:#e24b4a}
+    .section-lbl{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.07em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid #eeeee8}
+  </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="topbar-title">📊 Work Report System V3</div>
+  <div class="topbar-title">📊 Work Report System V4</div>
   <div class="topbar-right">
-    <a href="/export/reports" class="btn-sm">⬇ Export CSV</a>
+    <a href="/export/jobs" class="btn-sm">⬇ Export Jobs</a>
     <a href="/logout" class="btn-sm">Logout</a>
   </div>
 </div>
 <div class="nav-tabs">
-  <a href="/manager"     class="nav-tab">📋 Work Reports</a>
-  <a href="/assign-job"  class="nav-tab active">📌 Assign Jobs</a>
-  <a href="/attendance"  class="nav-tab">🕐 Attendance</a>
+  <a href="/manager"    class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job" class="nav-tab active">📌 Assign Jobs</a>
+  <a href="/attendance" class="nav-tab">🕐 Attendance</a>
 </div>
 
 <div class="main">
-  <!-- ASSIGN NEW JOB -->
+  <!-- LEFT: ASSIGN FORM -->
   <div class="card">
-    <div class="card-title">📌 Assign New Job</div>
-    {% if success %}<div class="success">✅ Job assigned successfully!</div>{% endif %}
-    {% if error %}<div class="error">⚠️ {{ error }}</div>{% endif %}
-    <form method="POST" action="/assign-job">
-      <div class="section-label">Assignees</div>
+    <div class="card-hdr">📌 Assign New Job</div>
+    <div class="card-body">
+      {% if success %}<div class="alert-ok">✅ Job assigned successfully!</div>{% endif %}
+      {% if error %}<div class="alert-err">⚠️ Error: {{ error }}</div>{% endif %}
 
-      <div class="field">
-        <label>Employees <span class="hint-txt">(select one or more, or mark N/A)</span></label>
-        <div class="chip-box" id="empChipBox">
-          {% for e in employee_choices %}
-          <div class="chip-row">
-            <input type="checkbox" name="emp_codes" value="{{ e.code }}" id="emp_{{ e.code }}" class="emp-check" data-company="{{ e.company }}" onchange="syncCompany()">
-            <label for="emp_{{ e.code }}">{{ e.name }}</label>
-          </div>
-          {% endfor %}
-        </div>
-        <div class="na-row">
-          <input type="checkbox" id="empNA" onchange="toggleNA('emp')">
-          <label for="empNA">N/A — no employee assigned</label>
-        </div>
-      </div>
+      <form method="POST" action="/assign-job">
+        <input type="hidden" name="action" value="assign">
 
-      <div class="field">
-        <label>Supervisors <span class="hint-txt">(select one or more, or mark N/A)</span></label>
-        <div class="chip-box" id="supChipBox">
-          {% for e in employee_choices %}
-          <div class="chip-row">
-            <input type="checkbox" name="supervisor_codes" value="{{ e.code }}" id="sup_{{ e.code }}" class="sup-check">
-            <label for="sup_{{ e.code }}">{{ e.name }}</label>
-          </div>
-          {% endfor %}
-        </div>
-        <div class="na-row">
-          <input type="checkbox" id="supNA" onchange="toggleNA('sup')">
-          <label for="supNA">N/A — no supervisor assigned</label>
-        </div>
-      </div>
-
-      <div class="section-label">Job details</div>
-      <div class="field">
-        <label>Job title <span class="required">*</span></label>
-        <input type="text" name="job_title" placeholder="e.g. Install CCTV at client site" required>
-      </div>
-      <div class="field">
-        <label>Job description <span class="required">*</span></label>
-        <textarea name="job_description" placeholder="Describe the job in detail..." required></textarea>
-      </div>
-      <div class="row2">
+        <div class="section-lbl">Employee</div>
         <div class="field">
-          <label>Location</label>
-          <input type="text" name="location" placeholder="Site / address">
-        </div>
-        <div class="field">
-          <label>Company</label>
-          <input type="text" name="company" id="companyInput" placeholder="Company / client">
-        </div>
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label>Start date</label>
-          <input type="date" name="start_date">
-        </div>
-        <div class="field">
-          <label>End date</label>
-          <input type="date" name="end_date">
-        </div>
-      </div>
-      <div class="field">
-        <label>Status</label>
-        <select name="status">
-          <option value="Open" selected>Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Done">Done</option>
-          <option value="On Hold">On Hold</option>
-        </select>
-      </div>
-      <button type="submit" class="submit-btn">Assign Job →</button>
-    </form>
-  </div>
-
-  <!-- ALL ASSIGNED JOBS -->
-  <div class="card">
-    <div class="card-title">📋 All Assigned Jobs</div>
-    <form method="GET" action="/assign-job">
-      <div class="filters">
-        <div class="fg"><label>Employee / Supervisor</label>
-          <input type="text" name="emp" placeholder="Search by name..." value="{{ filters.emp }}">
-        </div>
-        <div class="fg"><label>Status</label>
-          <select name="status">
-            <option value="">All</option>
-            <option value="Open"        {% if filters.status=='Open' %}selected{% endif %}>Open</option>
-            <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
-            <option value="Done"        {% if filters.status=='Done' %}selected{% endif %}>Done</option>
-            <option value="On Hold"     {% if filters.status=='On Hold' %}selected{% endif %}>On Hold</option>
+          <label>Assign To <span class="req">*</span></label>
+          <select name="assigned_to_code" required onchange="autoFillCompany(this)">
+            <option value="">Select employee...</option>
+            {% for code, emp in emp_list_all %}
+            <option value="{{ code }}" data-company="{{ emp.company }}">{{ emp.name }} ({{ emp.company }})</option>
+            {% endfor %}
           </select>
         </div>
-        <button class="btn-filter" type="submit">Apply</button>
-        <a class="btn-clear" href="/assign-job">✕ Clear</a>
+        <div class="field">
+          <label>Supervisor <span class="req">*</span></label>
+          <select name="supervisor" required>
+            <option value="">Select supervisor...</option>
+            {% for s in supervisors %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="section-lbl">Job Details</div>
+        <div class="field">
+          <label>Job Title <span class="req">*</span></label>
+          <input type="text" name="job_title" placeholder="e.g. Install CCTV at client site" required>
+        </div>
+        <div class="field">
+          <label>Job Description <span class="req">*</span></label>
+          <textarea name="job_description" rows="4" placeholder="Detailed description of the job, tasks involved, tools required, client expectations..." required></textarea>
+        </div>
+        <div class="field">
+          <label>Location</label>
+          <input type="text" name="location" placeholder="Address, area or site name">
+        </div>
+
+        <div class="section-lbl">Schedule</div>
+        <div class="row2">
+          <div class="field">
+            <label>Start Date <span class="req">*</span></label>
+            <input type="date" name="start_date" required>
+          </div>
+          <div class="field">
+            <label>End Date <span class="req">*</span></label>
+            <input type="date" name="end_date" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select name="job_status">
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="on_hold">On Hold</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-submit">Assign Job →</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- RIGHT: JOB LIST -->
+  <div class="card">
+    <div class="tbl-hdr">
+      <div class="tbl-hdr-title">All Assigned Jobs</div>
+      <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</div>
+    </div>
+    <form method="GET" action="/assign-job">
+      <div class="filters">
+        <div class="fg">
+          <label>Employee</label>
+          <select name="emp">
+            <option value="">All</option>
+            {% for e in job_emp_list %}<option {% if job_filters.emp==e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="fg">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All</option>
+            <option value="assigned"    {% if job_filters.status=='assigned'    %}selected{% endif %}>Assigned</option>
+            <option value="in_progress" {% if job_filters.status=='in_progress' %}selected{% endif %}>In Progress</option>
+            <option value="completed"   {% if job_filters.status=='completed'   %}selected{% endif %}>Completed</option>
+            <option value="on_hold"     {% if job_filters.status=='on_hold'     %}selected{% endif %}>On Hold</option>
+            <option value="cancelled"   {% if job_filters.status=='cancelled'   %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+        <div class="fg"><label>From</label><input type="date" name="from_d" value="{{ job_filters.from_d }}"></div>
+        <div class="fg"><label>To</label><input type="date" name="to_d" value="{{ job_filters.to_d }}"></div>
+        <button class="btn-filter" type="submit">Filter</button>
+        <a class="btn-clear" href="/assign-job">✕</a>
       </div>
     </form>
-    <div class="table-hdr">
-      <div class="rec-count">{{ record_count }} job{{ 's' if record_count != 1 }}</div>
-    </div>
     <div class="tbl-scroll">
       {% if jobs %}
       <table>
-        <thead><tr>
-          <th>#</th><th>Assigned</th><th>Employee(s)</th><th>Supervisor(s)</th><th>Company</th>
-          <th>Job title</th><th>Location</th><th>Start</th><th>End</th><th>Status</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th>#</th><th>Assigned To</th><th>Supervisor</th><th>Job Title</th>
+            <th>Description</th><th>Location</th><th>Start</th><th>End</th>
+            <th>Company</th><th>Status</th>
+          </tr>
+        </thead>
         <tbody>
         {% for j in jobs %}
-        {% set s = (j['status'] or '')|lower %}
+        {% set st = j['status']|lower %}
         <tr>
-          <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
-          <td style="color:#A8A4C4;font-size:11.5px;white-space:nowrap">{{ j['created_at'] }}</td>
-          <td>{% if j['emp_names'] %}{{ j['emp_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
-          <td>{% if j['supervisor_names'] %}{{ j['supervisor_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
+          <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
+          <td>
+            <div class="emp-cell">
+              <span class="avatar">{{ j['assigned_to_name'][:2].upper() if j['assigned_to_name'] else '?' }}</span>
+              {{ j['assigned_to_name'] or '—' }}
+            </div>
+          </td>
+          <td style="font-size:12px;color:#555">{{ j['supervisor'] or '—' }}</td>
+          <td style="font-weight:500;white-space:nowrap">{{ j['job_title'] or '—' }}</td>
+          <td><div class="desc-cell" title="{{ j['job_description'] }}">{{ j['job_description'] or '—' }}</div></td>
+          <td style="font-size:12px">{{ j['location'] or '—' }}</td>
+          <td style="white-space:nowrap;font-size:12px">{{ j['start_date'] or '—' }}</td>
+          <td style="white-space:nowrap;font-size:12px">{{ j['end_date'] or '—' }}</td>
           <td><span class="co-pill">{{ j['company'] or '—' }}</span></td>
-          <td><div class="desc-cell" title="{{ j['job_description'] }}">{{ j['job_title'] }}</div></td>
-          <td>{{ j['location'] or '—' }}</td>
-          <td style="white-space:nowrap">{{ j['start_date'] or '—' }}</td>
-          <td style="white-space:nowrap">{{ j['end_date'] or '—' }}</td>
-          <td><span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% else %}badge-other{% endif %}">{{ j['status'] }}</span></td>
+          <td>
+            <form method="POST" action="/assign-job" style="display:inline">
+              <input type="hidden" name="action" value="update_status">
+              <input type="hidden" name="job_id" value="{{ j['job_id'] }}">
+              <select name="new_status" class="status-sel" onchange="this.form.submit()">
+                <option value="assigned"    {% if st=='assigned'    %}selected{% endif %}>📋 Assigned</option>
+                <option value="in_progress" {% if st=='in_progress' %}selected{% endif %}>🔄 In Progress</option>
+                <option value="completed"   {% if st=='completed'   %}selected{% endif %}>✅ Completed</option>
+                <option value="on_hold"     {% if st=='on_hold'     %}selected{% endif %}>⏸ On Hold</option>
+                <option value="cancelled"   {% if st=='cancelled'   %}selected{% endif %}>❌ Cancelled</option>
+              </select>
+            </form>
+          </td>
         </tr>
         {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <div class="empty">🔍 No jobs assigned yet.</div>
+      <div class="empty">📭 No jobs found. Assign one using the form on the left.</div>
       {% endif %}
     </div>
   </div>
 </div>
 
-<nav class="bottom-nav">
-  <a href="/manager" class="bn-item"><span class="bn-ic">📋</span>Reports</a>
-  <a href="/assign-job" class="bn-item active"><span class="bn-ic">📌</span>Assign</a>
-  <a href="/attendance" class="bn-item"><span class="bn-ic">🕐</span>Attendance</a>
-</nav>
-
 <script>
-  function toggleNA(which) {
-    const naBox  = document.getElementById(which === 'emp' ? 'empNA' : 'supNA');
-    const chipBox = document.getElementById(which === 'emp' ? 'empChipBox' : 'supChipBox');
-    const checks = chipBox.querySelectorAll('input[type=checkbox]');
-    if (naBox.checked) {
-      checks.forEach(c => { c.checked = false; });
-      chipBox.classList.add('na-active');
-    } else {
-      chipBox.classList.remove('na-active');
-    }
-    if (which === 'emp') syncCompany();
-  }
-  function syncCompany() {
-    const checked = document.querySelector('.emp-check:checked');
-    if (checked) {
-      document.getElementById('companyInput').value = checked.getAttribute('data-company') || '';
-    }
-  }
+function autoFillCompany(sel) {
+  // no-op — company auto-set in Python from emp_code
+}
+// Set default dates
+document.querySelector('input[name="start_date"]').value = new Date().toISOString().split('T')[0];
+const end = new Date(); end.setDate(end.getDate()+7);
+document.querySelector('input[name="end_date"]').value = end.toISOString().split('T')[0];
 </script>
 </body>
 </html>

@@ -1,111 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daily Report — {{ name }}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
-
-  /* ---------- TOPBAR ---------- */
-  .topbar{
-    background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;
-    height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15);
-  }
-  .topbar-left{display:flex;align-items:center;gap:10px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
-  .tname{font-size:14px;font-weight:700;color:#fff}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
-  .logout:hover{background:rgba(255,255,255,0.14)}
-
-  /* ---------- DESKTOP TOP NAV (hidden on mobile) ---------- */
-  .nav-tabs-desktop{display:none}
-
-  /* ---------- MOBILE BOTTOM NAV ---------- */
-  .bottom-nav{
-    position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;
-    box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);
-  }
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10.5px;font-weight:700;letter-spacing:.02em}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .wrap{max-width:640px;margin:1.4rem auto;padding:0 1rem}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.6rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15.5px;font-weight:800;margin-bottom:1.3rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:8px;color:#10193A}
-
-  .att-strip{display:flex;gap:10px;margin-bottom:0;flex-wrap:wrap}
-  .att-box{flex:1;min-width:110px;background:#F6F4EF;border:1px solid #E7E4DA;border-radius:12px;padding:.85rem .9rem;text-align:center}
-  .att-label{font-size:10.5px;color:#696B78;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .att-val{font-size:18px;font-weight:800;color:#10193A;font-variant-numeric:tabular-nums}
-  .att-val.green{color:#1AAE6F}
-
-  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:1.3rem 0 .65rem;display:flex;align-items:center;gap:6px}
-  .section-label:first-of-type{margin-top:0}
-  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
-
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .field{margin-bottom:13px}
-  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:6px}
-  input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
-  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
-  textarea{resize:vertical;min-height:72px}
-
-  .status-row{display:flex;gap:8px;margin-bottom:1.3rem}
-  .status-btn{flex:1;padding:11px 6px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:12.5px;cursor:pointer;color:#696B78;font-family:inherit;font-weight:700;transition:all .15s}
-  .status-btn.done{background:#D9F5E8;border-color:#1AAE6F;color:#0E6B43}
-  .status-btn.pending{background:#FBE2E2;border-color:#E5484D;color:#9A2A2D}
-  .status-btn.partial{background:#DCE9FF;border-color:#2D7FF9;color:#1A4FA0}
-
-  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s, box-shadow .15s}
-  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
-  .submit-btn:active{transform:scale(.98)}
-
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:1.2rem;font-weight:600}
-  .required{color:#E5484D}
-
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th{padding:8px 10px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
-  td{padding:9px 10px;border-bottom:1px solid #F6F4EF}
-  tr:last-child td{border-bottom:none}
-  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
-  .badge-present{background:#D9F5E8;color:#0E6B43}
-  .badge-absent{background:#FBE2E2;color:#9A2A2D}
-  .badge-half{background:#DCE9FF;color:#1A4FA0}
-
-  @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{flex-direction:column}}
-
-  /* ---------- DESKTOP LAYOUT ---------- */
-  @media(min-width:860px){
-    body{padding-bottom:0}
-    .bottom-nav{display:none}
-    .nav-tabs-desktop{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19}
-    .nd-tab{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s}
-    .nd-tab:hover{color:#10193A}
-    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
-    .wrap{max-width:760px;margin:2rem auto}
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Report — {{ name }}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a18;min-height:100vh;padding-bottom:3rem}
+    .topbar{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:10}
+    .topbar-left{display:flex;align-items:center;gap:10px}
+    .avatar{width:32px;height:32px;background:#e6f1fb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#185fa5}
+    .tname{font-size:14px;font-weight:500}
+    .logout{padding:5px 12px;border:1px solid #ddddd5;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;color:#73726c;text-decoration:none}
+    .wrap{max-width:680px;margin:1.5rem auto;padding:0 1rem}
+    .card{background:#fff;border:1px solid #e0dfd8;border-radius:14px;padding:1.8rem;margin-bottom:1rem}
+    .card-title{font-size:16px;font-weight:600;margin-bottom:1.4rem;padding-bottom:1rem;border-bottom:1px solid #eeeee8;display:flex;align-items:center;gap:8px}
+    /* Attendance strip */
+    .att-strip{display:flex;gap:12px;margin-bottom:1.4rem;flex-wrap:wrap}
+    .att-box{flex:1;min-width:120px;background:#f9f9f6;border:1px solid #e0dfd8;border-radius:10px;padding:.8rem 1rem;text-align:center}
+    .att-label{font-size:11px;color:#73726c;margin-bottom:4px}
+    .att-val{font-size:18px;font-weight:600;color:#185fa5}
+    .att-val.green{color:#3b6d11}
+    /* Form */
+    .section-label{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.07em;margin:1.2rem 0 .6rem}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{margin-bottom:12px}
+    label{display:block;font-size:13px;color:#5a5a56;font-weight:500;margin-bottom:5px}
+    input,select,textarea{width:100%;padding:9px 12px;font-size:14px;color:#1a1a18;background:#f9f9f6;border:1px solid #ddddd5;border-radius:8px;outline:none;font-family:inherit;transition:border-color .15s}
+    input:focus,select:focus,textarea:focus{border-color:#378add;box-shadow:0 0 0 3px rgba(55,138,221,0.12);background:#fff}
+    textarea{resize:vertical}
+    .textarea-big{min-height:110px}
+    .textarea-small{min-height:54px}
+    .status-row{display:flex;gap:8px;margin-bottom:1.2rem}
+    .status-btn{flex:1;padding:9px;border:1px solid #ddddd5;border-radius:8px;background:#f9f9f6;font-size:13px;cursor:pointer;color:#73726c;font-family:inherit;transition:all .15s}
+    .status-btn.done{background:#eaf3de;border-color:#97c459;color:#27500a;font-weight:600}
+    .status-btn.pending{background:#faeeda;border-color:#ef9f27;color:#633806;font-weight:600}
+    .status-btn.partial{background:#e6f1fb;border-color:#85b7eb;color:#0c447c;font-weight:600}
+    .submit-btn{width:100%;padding:11px;background:#1a1a18;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+    .submit-btn:hover{background:#333}
+    .success{background:#eaf3de;color:#27500a;border:1px solid #97c459;border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:1.2rem}
+    .required{color:#e24b4a}
+    /* Recent reports table */
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{padding:7px 10px;text-align:left;font-size:11px;color:#73726c;border-bottom:1px solid #eeeee8;font-weight:500}
+    td{padding:8px 10px;border-bottom:1px solid #f0f0ea;vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+    .badge-present{background:#eaf3de;color:#27500a}
+    .badge-absent{background:#fcebeb;color:#791f1f}
+    .badge-half{background:#e6f1fb;color:#0c447c}
+    /* Assigned jobs card */
+    .job-list{display:flex;flex-direction:column;gap:10px}
+    .job-item{border:1px solid #e0dfd8;border-radius:10px;padding:14px 16px;background:#f9f9f6}
+    .job-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
+    .job-title{font-size:14px;font-weight:600;color:#1a1a18}
+    .job-badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;flex-shrink:0}
+    .job-badge-assigned{background:#e6f1fb;color:#0c447c}
+    .job-badge-in_progress{background:#faeeda;color:#633806}
+    .job-badge-completed{background:#eaf3de;color:#27500a}
+    .job-badge-on_hold{background:#f0f0ea;color:#5f5e5a}
+    .job-badge-cancelled{background:#fcebeb;color:#791f1f}
+    .job-desc{font-size:13px;color:#444;margin-bottom:8px;line-height:1.5}
+    .job-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#73726c}
+    .job-meta span{display:flex;align-items:center;gap:4px}
+    .no-jobs{text-align:center;color:#999;padding:1.5rem;font-size:13px}
+    @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{flex-direction:column}}
+  </style>
 </head>
 <body>
 <div class="topbar">
   <div class="topbar-left">
     <div class="avatar">{{ name[:2].upper() }}</div>
-    <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
+    <div class="tname">{{ name }}</div>
   </div>
   <a href="/logout" class="logout">Logout</a>
 </div>
 
-<div class="nav-tabs-desktop">
-  <a href="/form" class="nd-tab active">📋 Work Report</a>
-  <a href="/my-jobs" class="nd-tab">📌 My Jobs</a>
-</div>
-
 <div class="wrap">
 
+  <!-- TODAY'S ATTENDANCE -->
   {% if att_today %}
   {% set a = att_today[0] %}
   <div class="card">
@@ -117,28 +90,75 @@
       <div class="att-box">
         <div class="att-label">Status</div>
         <div class="att-val">
-          <span class="badge {% if a.status == 'Present' %}badge-present{% elif a.status == 'Absent' %}badge-absent{% else %}badge-half{% endif %}">{{ a.status }}</span>
+          <span class="badge {% if a.status=='Present' %}badge-present{% elif a.status=='Absent' %}badge-absent{% else %}badge-half{% endif %}">{{ a.status }}</span>
         </div>
       </div>
     </div>
   </div>
   {% endif %}
 
+  <!-- ASSIGNED JOBS -->
+  <div class="card">
+    <div class="card-title">📌 My Assigned Jobs</div>
+    {% if assigned_jobs %}
+    <div class="job-list">
+      {% for j in assigned_jobs %}
+      {% set st = j['status']|lower|replace(' ','_') %}
+      <div class="job-item">
+        <div class="job-item-top">
+          <div class="job-title">{{ j['job_title'] or 'Untitled Job' }}</div>
+          <span class="job-badge job-badge-{{ st }}">
+            {% if st=='assigned' %}📋 Assigned
+            {% elif st=='in_progress' %}🔄 In Progress
+            {% elif st=='completed' %}✅ Completed
+            {% elif st=='on_hold' %}⏸ On Hold
+            {% else %}❌ Cancelled{% endif %}
+          </span>
+        </div>
+        {% if j['job_description'] %}
+        <div class="job-desc">{{ j['job_description'] }}</div>
+        {% endif %}
+        <div class="job-meta">
+          {% if j['location'] %}<span>📍 {{ j['location'] }}</span>{% endif %}
+          {% if j['start_date'] %}<span>🗓 {{ j['start_date'] }} → {{ j['end_date'] or '?' }}</span>{% endif %}
+          {% if j['supervisor'] %}<span>👤 Supervisor: {{ j['supervisor'] }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-jobs">📭 No jobs assigned yet</div>
+    {% endif %}
+  </div>
+
+  <!-- WORK REPORT FORM -->
   <div class="card">
     <div class="card-title">📋 Daily Work Report</div>
     {% if success %}<div class="success">✅ Report submitted successfully!</div>{% endif %}
+    {% if error %}<div style="background:#fcebeb;color:#791f1f;border:1px solid #f09595;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:1rem">⚠️ {{ error }}</div>{% endif %}
+
     <form method="POST">
       <input type="hidden" name="status" id="statusInput" value="">
+
       <div class="section-label">Employee details</div>
       <div class="row2">
         <div class="field">
           <label>Your name</label>
-          <input type="text" value="{{ name }}" disabled style="background:#F0EEE6;color:#696B78">
+          <input type="text" value="{{ name }}" disabled style="background:#f0f0ea;color:#73726c">
         </div>
         <div class="field">
           <label>Date <span class="required">*</span></label>
           <input type="date" name="date" id="date" required>
         </div>
+      </div>
+      <div class="field">
+        <label>Supervisor <span class="required">*</span></label>
+        <select name="supervisor" required>
+          <option value="">Select supervisor...</option>
+          {% for s in supervisors %}
+          <option value="{{ s }}" {% if s == emp_supervisor %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
       </div>
 
       <div class="section-label">Work details</div>
@@ -163,22 +183,19 @@
         <label>Location</label>
         <input type="text" name="location" placeholder="Address, area, Office or Home">
       </div>
+
+      <div class="section-label">Job details</div>
       <div class="field">
-        <label>Supervisor <span class="required">*</span></label>
-        <select name="supervisor_code" required>
-          <option value="">Select supervisor...</option>
-          {% for s in supervisor_choices %}
-          <option value="{{ s.code }}">{{ s.name }}</option>
-          {% endfor %}
-        </select>
+        <label>Work summary <span class="required">*</span></label>
+        <input type="text" name="summary" placeholder="Brief one-line summary of the work done today" required>
       </div>
       <div class="field">
-        <label>Job details <span class="required">*</span></label>
-        <textarea name="summary" placeholder="Describe the work done today in detail..." style="min-height:160px" required></textarea>
+        <label>Job details <span class="required">*</span> <span style="font-size:12px;color:#999;font-weight:400">— describe fully what was done</span></label>
+        <textarea name="job_details" class="textarea-big" placeholder="Describe all tasks completed today in detail. Include client interactions, work performed, equipment used, issues encountered, progress made, next steps...&#10;&#10;Be as detailed as possible for accurate record keeping." required></textarea>
       </div>
       <div class="field">
-        <label>Remarks / notes</label>
-        <textarea name="remarks" placeholder="Extra notes (optional)" style="min-height:48px"></textarea>
+        <label>Remarks <span style="font-size:12px;color:#999;font-weight:400">— short notes</span></label>
+        <textarea name="remarks" class="textarea-small" placeholder="Quick notes, follow-ups or flags..."></textarea>
       </div>
 
       <div class="section-label">Job status <span class="required">*</span></div>
@@ -191,11 +208,12 @@
     </form>
   </div>
 
+  <!-- RECENT REPORTS -->
   {% if recent %}
   <div class="card">
     <div class="card-title">📅 Your last {{ recent|length }} reports</div>
     <table>
-      <thead><tr><th>Date</th><th>Work type</th><th>Job details</th><th>Supervisor</th><th>Status</th></tr></thead>
+      <thead><tr><th>Date</th><th>Work type</th><th>Summary</th><th>Status</th></tr></thead>
       <tbody>
       {% for r in recent %}
       {% set s = r['status']|lower %}
@@ -203,7 +221,6 @@
         <td>{{ r['date'] }}</td>
         <td>{{ r['work_type'] }}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r['summary'] }}</td>
-        <td>{{ r['supervisor_name'] or '—' }}</td>
         <td><span class="badge {% if s in ['done','completed'] %}badge-present{% elif s=='pending' %}badge-absent{% else %}badge-half{% endif %}">{{ r['status']|title }}</span></td>
       </tr>
       {% endfor %}
@@ -213,12 +230,6 @@
   {% endif %}
 
 </div>
-
-<nav class="bottom-nav">
-  <a href="/form" class="bn-item active"><span class="bn-ic">📋</span>Work Report</a>
-  <a href="/my-jobs" class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>
-</nav>
-
 <script>
   document.getElementById('date').value = new Date().toISOString().split('T')[0];
   let sel = '';

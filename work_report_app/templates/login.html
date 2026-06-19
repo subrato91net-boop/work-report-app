@@ -1,53 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — Work Report System</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    background:#10193A;
-    background-image:
-      radial-gradient(circle at 15% 20%, rgba(255,122,26,0.18), transparent 40%),
-      radial-gradient(circle at 85% 80%, rgba(45,127,249,0.18), transparent 40%);
-    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.25rem;color:#14141A;
-  }
-  .card{
-    background:#FFFFFF;border-radius:20px;padding:2.6rem 2.2rem;width:100%;max-width:400px;
-    box-shadow:0 24px 60px rgba(8,12,32,0.35);position:relative;overflow:hidden;
-  }
-  .card::before{
-    content:"";position:absolute;top:0;left:0;right:0;height:6px;
-    background:linear-gradient(90deg,#FF7A1A,#2D7FF9);
-  }
-  .icon{
-    width:56px;height:56px;background:#10193A;border-radius:14px;display:flex;align-items:center;
-    justify-content:center;font-size:26px;margin:0 auto 1.3rem;color:#FF7A1A;
-    box-shadow:0 8px 20px rgba(16,25,58,0.3);
-  }
-  h1{font-size:21px;font-weight:800;text-align:center;color:#10193A;margin-bottom:4px;letter-spacing:-.01em}
-  .sub{font-size:12.5px;color:#696B78;text-align:center;margin-bottom:1.9rem;font-weight:500}
-  label{display:block;font-size:12.5px;color:#10193A;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
-  input{
-    width:100%;padding:11px 13px;font-size:14.5px;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;
-    font-family:inherit;background:#F6F4EF;margin-bottom:14px;transition:border-color .15s,box-shadow .15s,background .15s;
-  }
-  input:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.14);background:#fff}
-  .btn{
-    width:100%;padding:13px;background:#10193A;color:#fff;border:none;border-radius:10px;font-size:14.5px;
-    font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s;letter-spacing:.01em;
-  }
-  .btn:hover{background:#1A2654}
-  .btn:active{transform:scale(.98)}
-  .error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3;border-radius:9px;padding:10px 13px;font-size:13px;margin-bottom:14px;font-weight:600}
-  .hint{background:#F6F4EF;border-radius:10px;padding:12px 14px;font-size:12px;color:#696B78;margin-top:16px;line-height:1.7;border:1px solid #E7E4DA}
-  .hint strong{color:#10193A}
-  @media(min-width:700px){
-    .card{max-width:430px;padding:3rem 2.6rem}
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Work Report System</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+    .card{background:#fff;border:1px solid #e0dfd8;border-radius:16px;padding:2.4rem 2rem;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,0.06)}
+    .icon{width:54px;height:54px;background:#e6f1fb;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 1.2rem}
+    h1{font-size:20px;font-weight:600;text-align:center;color:#1a1a18;margin-bottom:4px}
+    .sub{font-size:13px;color:#73726c;text-align:center;margin-bottom:1.8rem}
+    label{display:block;font-size:13px;color:#5a5a56;font-weight:500;margin-bottom:5px}
+    input{width:100%;padding:10px 12px;font-size:14px;border:1px solid #ddddd5;border-radius:8px;outline:none;font-family:inherit;background:#f9f9f6;margin-bottom:14px;transition:border-color .15s,box-shadow .15s}
+    input:focus{border-color:#378add;box-shadow:0 0 0 3px rgba(55,138,221,0.12);background:#fff}
+    .btn{width:100%;padding:11px;background:#1a1a18;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+    .btn:hover{background:#333}
+    .error{background:#fcebeb;color:#791f1f;border:1px solid #f09595;border-radius:7px;padding:9px 12px;font-size:13px;margin-bottom:14px}
+    .hint{background:#f0f0ea;border-radius:8px;padding:10px 12px;font-size:12px;color:#73726c;margin-top:14px;line-height:1.6}
+  </style>
 </head>
 <body>
 <div class="card">

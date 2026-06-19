@@ -1,130 +1,97 @@
-NEW IN THIS UPDATE (v3.2)
-- Job assignment is now fully flexible:
-    Manager can assign a job to multiple employees AND/OR multiple
-    supervisors in one go. Either side can be left as "N/A" — a job
-    can go to employees only, supervisors only, or both.
-    Anyone listed as an employee OR a supervisor on a job can see it
-    under "My Jobs" (read-only). The page tags whether you're viewing
-    as Employee, Supervisor, or Both on each job card.
-- Brand new visual design across every page:
-    Deep navy + signal-amber color system, card-based layout,
-    "job ticket" style status badges, fully responsive —
-    bottom tab bar on mobile, top tab bar + wider tables on desktop.
-- WhatsApp notifications and AI report suggestions were requested but
-  not included in this build (they need your own WhatsApp Business API
-  account and AI API key respectively — ask whenever you're ready to
-  set those up and they can be added next).
+═══════════════════════════════════════════════════════════════
+  Work Report System V4 — Google Sheets Backend
+═══════════════════════════════════════════════════════════════
 
-PREVIOUSLY ADDED (v3.1)
-- Manager → "Assign Jobs" tab, Employee → "My Jobs" tab
-- Employee report form: big "Job details" field, small "Remarks" field,
-  required Supervisor dropdown shown to the manager in Work Reports
+Same UI as V3 (PostgreSQL), but all work reports are stored in
+and read from a Google Sheet instead of a PostgreSQL database.
+Attendance is still fetched live from BioTime API.
 
-═══════════════════════════════════════════════
-  WORK REPORT SYSTEM V3 — PostgreSQL Version
-  Imax Solution & Conneqtor Technology
-═══════════════════════════════════════════════
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 1 — Create a Google Service Account
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to https://console.cloud.google.com
+2. Create a new project (or use an existing one)
+3. Enable the "Google Sheets API" and "Google Drive API"
+4. Go to IAM & Admin → Service Accounts → Create Service Account
+5. Give it a name (e.g. "work-report-bot")
+6. Click "Create and Continue" → Skip optional steps → Done
+7. Click the new service account → Keys tab → Add Key → JSON
+8. A credentials.json file will download
 
-WHAT'S DIFFERENT FROM V2
-- Uses PostgreSQL instead of SQLite
-- Data is permanently stored — never lost on restart
-- Works perfectly on Render free plan
-- Real BioTime attendance data
-- No Google Sheets / Google credentials anywhere — pure PostgreSQL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 2 — Create and Share your Google Sheet
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to https://sheets.google.com and create a new spreadsheet
+2. Name the first sheet tab exactly: reports
+3. Copy the Spreadsheet ID from the URL:
+     https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+4. Share the spreadsheet with the service account email
+   (found in credentials.json under "client_email")
+   — give it "Editor" access
 
-NEW IN THIS UPDATE
-- Manager → "Assign Jobs" tab:
-    Assign a job to any employee, with supervisor, job title,
-    description, location, company, start/end date, and status.
-    All assigned jobs are listed and filterable by employee/status.
-- Employee → "My Jobs" tab:
-    Employees can VIEW (read-only) every job assigned to them —
-    job title, description, supervisor, company, location, dates, status.
-    Employees cannot edit assigned jobs; only the manager assigns/manages them.
-- Employee → Work Report form:
-    "Job details" is now a large textarea (the main field).
-    "Remarks" is now a small, optional field.
-    Employees now pick their Supervisor from a dropdown when
-    submitting a daily report; the supervisor's name is saved with
-    the report and shown to the manager in the Work Reports table.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 3A — Run Locally
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Place credentials.json in the same folder as app.py
+2. Install dependencies:
+     pip install -r requirements.txt
+3. Set environment variable:
+     export SPREADSHEET_ID="your-sheet-id-here"
+4. Run:
+     python app.py
+5. Open: http://127.0.0.1:5000
 
-═══════════════════════════════════════════════
-  DEPLOY TO RENDER — STEP BY STEP
-═══════════════════════════════════════════════
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 3B — Deploy on Render
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Push this folder to a GitHub repository
+2. Create a new Web Service on Render → connect the repo
+3. Build command:  pip install -r requirements.txt
+   Start command:  gunicorn app:app
+4. Add these Environment Variables in Render dashboard:
 
-STEP 1 — Create PostgreSQL database on Render
-  → Render dashboard → New + → PostgreSQL
-  → Name: work-report-db
-  → Region: Oregon (US West)  ← same as your app
-  → Plan: Free
-  → Click Create Database
-  → Wait 1-2 minutes
-  → Click on the database → copy "Internal Database URL"
+   SPREADSHEET_ID          → your-sheet-id-here
+   GOOGLE_CREDENTIALS_JSON → (paste the entire contents of
+                              credentials.json as one line)
 
-STEP 2 — Set Environment Variable in your Web Service
-  → Go to your work-report-app service on Render
-  → Click Environment (left sidebar)
-  → Click Add Environment Variable
-  → Key:   DATABASE_URL
-  → Value: (paste the Internal Database URL you copied)
-  → Click Save Changes
+   NOTE: To paste JSON as env var, open credentials.json in a
+   text editor, select all, copy, and paste directly into the
+   Render env var value field. Render handles multiline values.
 
-STEP 3 — Upload these V3 files to GitLab
-  → Replace all old files with these new ones
-  → Commit and push
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  LOGIN CREDENTIALS (unchanged from V3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Manager:   manager    / manager123
+  Asif:      asif       / 1002123456
+  Kartick:   kartick    / 1003123456
+  Sukumar:   sukumar    / 1004123456
+  Ashim:     ashim      / 1005123456
+  Sujata:    sujata     / 1012123456
+  Gourab:    gourab     / 2001123456
+  Subrato:   subrato    / 1013123456
+  Pritam:    pritam     / 2002123456
 
-STEP 4 — Redeploy on Render
-  → Render will auto-detect the GitLab change
-  → OR click Manual Deploy
-  → Wait 2-3 minutes
-  → Your app is live with permanent database!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  GOOGLE SHEET STRUCTURE (auto-created on first run)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Sheet tab name: reports
+  Columns (row 1 headers, created automatically):
+    id | timestamp | emp_code | emp_name | company |
+    date | work_type | client_name | location |
+    summary | remarks | status
 
-NOTE: If you're upgrading an existing Render deployment (database
-already has data), this app automatically adds the new supervisor
-columns and the jobs table (with multi-assignee columns) on startup
-— no manual SQL needed. Old single-assignee job rows, if any existed
-from a previous version, are migrated automatically too.
+  Each employee form submission adds one new row.
+  You can view, filter, and edit the sheet directly in Google
+  Sheets at any time — the app reads live from the sheet.
 
-═══════════════════════════════════════════════
-  LOGIN CREDENTIALS
-═══════════════════════════════════════════════
-
-MANAGER
-  Username : manager
-  Password : manager123
-
-EMPLOYEES
-  Username : asif      Password : 1002123456
-  Username : kartick   Password : 1003123456
-  Username : sukumar   Password : 1004123456
-  Username : ashim     Password : 1005123456
-  Username : sujata    Password : 1012123456
-  Username : gourab    Password : 2001123456
-  Username : subrato   Password : 1013123456
-  Username : pritam    Password : 2002123456
-
-═══════════════════════════════════════════════
-  ROUTES
-═══════════════════════════════════════════════
-
-  /form          Employee — submit daily work report (with supervisor)
-  /my-jobs       Employee — view jobs assigned to them (read-only)
-  /manager       Manager  — view/filter all work reports
-  /assign-job    Manager  — assign new jobs + view/filter all assigned jobs
-  /attendance    Manager  — BioTime attendance dashboard
-
-═══════════════════════════════════════════════
-  FILES
-═══════════════════════════════════════════════
-
-  app.py              Main app + PostgreSQL + BioTime API
-  requirements.txt    flask, gunicorn, requests, psycopg2-binary
-  Procfile            For Render: web: gunicorn app:app
-  templates/
-    login.html
-    form.html          Employee report form (job details + remarks + supervisor)
-    my_jobs.html        Employee — view assigned jobs (read-only)
-    manager.html        Manager — work reports table
-    assign_job.html      Manager — assign jobs + all-jobs table
-    attendance.html      Manager — attendance dashboard
-═══════════════════════════════════════════════
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT CHANGED FROM V3 (PostgreSQL → Google Sheets)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Replaced psycopg2 with gspread + google-auth
+  ✅ Removed DATABASE_URL / PostgreSQL setup
+  ✅ Added SPREADSHEET_ID + GOOGLE_CREDENTIALS_JSON env vars
+  ✅ All DB queries replaced with Sheet read/write helpers
+  ✅ Auto-creates sheet headers on first run
+  ✅ All HTML templates are IDENTICAL to V3
+  ✅ BioTime attendance integration unchanged
+  ✅ CSV export unchanged
