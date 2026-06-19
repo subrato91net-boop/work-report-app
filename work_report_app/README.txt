@@ -1,3 +1,25 @@
+NEW IN THIS UPDATE (v3.2)
+- Job assignment is now fully flexible:
+    Manager can assign a job to multiple employees AND/OR multiple
+    supervisors in one go. Either side can be left as "N/A" — a job
+    can go to employees only, supervisors only, or both.
+    Anyone listed as an employee OR a supervisor on a job can see it
+    under "My Jobs" (read-only). The page tags whether you're viewing
+    as Employee, Supervisor, or Both on each job card.
+- Brand new visual design across every page:
+    Deep navy + signal-amber color system, card-based layout,
+    "job ticket" style status badges, fully responsive —
+    bottom tab bar on mobile, top tab bar + wider tables on desktop.
+- WhatsApp notifications and AI report suggestions were requested but
+  not included in this build (they need your own WhatsApp Business API
+  account and AI API key respectively — ask whenever you're ready to
+  set those up and they can be added next).
+
+PREVIOUSLY ADDED (v3.1)
+- Manager → "Assign Jobs" tab, Employee → "My Jobs" tab
+- Employee report form: big "Job details" field, small "Remarks" field,
+  required Supervisor dropdown shown to the manager in Work Reports
+
 ═══════════════════════════════════════════════
   WORK REPORT SYSTEM V3 — PostgreSQL Version
   Imax Solution & Conneqtor Technology
@@ -59,7 +81,9 @@ STEP 4 — Redeploy on Render
 
 NOTE: If you're upgrading an existing Render deployment (database
 already has data), this app automatically adds the new supervisor
-columns and the jobs table on startup — no manual SQL needed.
+columns and the jobs table (with multi-assignee columns) on startup
+— no manual SQL needed. Old single-assignee job rows, if any existed
+from a previous version, are migrated automatically too.
 
 ═══════════════════════════════════════════════
   LOGIN CREDENTIALS

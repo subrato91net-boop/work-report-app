@@ -89,10 +89,10 @@ def init_db():
             id              SERIAL PRIMARY KEY,
             created_at      TEXT,
             assigned_by     TEXT,
-            emp_code        TEXT,
-            emp_name        TEXT,
-            supervisor_code TEXT,
-            supervisor_name TEXT,
+            emp_codes       TEXT,
+            emp_names       TEXT,
+            supervisor_codes TEXT,
+            supervisor_names TEXT,
             company         TEXT,
             job_title       TEXT,
             job_description TEXT,
@@ -102,9 +102,30 @@ def init_db():
             status          TEXT DEFAULT 'Open'
         )
     """)
+    # Migrate from old single-assignee schema if present
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS emp_codes TEXT")
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS emp_names TEXT")
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS supervisor_codes TEXT")
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS supervisor_names TEXT")
+    cur.execute("""
+        UPDATE jobs SET emp_codes = emp_code, emp_names = emp_name
+        WHERE emp_codes IS NULL AND emp_code IS NOT NULL
+    """) if _column_exists(cur, "jobs", "emp_code") else None
+    cur.execute("""
+        UPDATE jobs SET supervisor_codes = supervisor_code, supervisor_names = supervisor_name
+        WHERE supervisor_codes IS NULL AND supervisor_code IS NOT NULL
+    """) if _column_exists(cur, "jobs", "supervisor_code") else None
+
     conn.commit()
     cur.close()
     conn.close()
+
+def _column_exists(cur, table, column):
+    cur.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name=%s AND column_name=%s
+    """, (table, column))
+    return cur.fetchone() is not None
 
 # ══════════════════════════════════════════
 #  BIOTIME API — JWT TOKEN (cached)
@@ -226,6 +247,19 @@ def logged_in():  return "username" in session
 def is_manager(): return session.get("role") == "manager"
 def get_emp_code(): return session.get("emp_code")
 
+def codes_to_names(codes_str):
+    """'1002,1003' -> 'Sayed Asif Ismail, Kartick Mondal'"""
+    if not codes_str:
+        return ""
+    codes = [c.strip() for c in codes_str.split(",") if c.strip()]
+    names = [EMPLOYEES[c]["name"] for c in codes if c in EMPLOYEES]
+    return ", ".join(names)
+
+def parse_codes(codes_str):
+    if not codes_str:
+        return []
+    return [c.strip() for c in codes_str.split(",") if c.strip()]
+
 # ══════════════════════════════════════════
 #  ROUTES — AUTH
 # ══════════════════════════════════════════
@@ -309,10 +343,25 @@ def employee_form():
 @app.route("/my-jobs")
 def my_jobs():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
+    code = get_emp_code()
     conn = get_db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM jobs WHERE emp_code=%s ORDER BY created_at DESC", (get_emp_code(),))
+    cur.execute("""
+        SELECT * FROM jobs
+        WHERE (',' || emp_codes || ',') LIKE %s
+           OR (',' || supervisor_codes || ',') LIKE %s
+        ORDER BY created_at DESC
+    """, (f"%,{code},%", f"%,{code},%"))
     jobs = cur.fetchall(); cur.close(); conn.close()
-    return render_template("my_jobs.html", name=session["name"], jobs=jobs, record_count=len(jobs))
+
+    # tag whether the viewer is on this job as employee, supervisor, or both
+    enriched = []
+    for j in jobs:
+        is_emp = code in parse_codes(j.get("emp_codes"))
+        is_sup = code in parse_codes(j.get("supervisor_codes"))
+        role = "Both" if (is_emp and is_sup) else ("Supervisor" if is_sup else "Employee")
+        enriched.append({**j, "viewer_role": role})
+
+    return render_template("my_jobs.html", name=session["name"], jobs=enriched, record_count=len(enriched))
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER WORK REPORTS
@@ -367,28 +416,37 @@ def assign_job():
     error   = None
 
     if request.method == "POST":
-        emp_code = request.form.get("emp_code", "")
-        sup_code = request.form.get("supervisor_code", "")
-        emp_info = EMPLOYEES.get(emp_code)
-        sup_info = EMPLOYEES.get(sup_code)
+        emp_codes = request.form.getlist("emp_codes")     # multi-select, may be empty / contain "NA"
+        sup_codes = request.form.getlist("supervisor_codes")
 
-        if not emp_info:
-            error = "Please select a valid employee."
-        elif not sup_info:
-            error = "Please select a valid supervisor."
+        emp_codes = [c for c in emp_codes if c and c != "NA"]
+        sup_codes = [c for c in sup_codes if c and c != "NA"]
+
+        if not emp_codes and not sup_codes:
+            error = "Select at least one employee or supervisor (or choose N/A for the one you skip)."
         else:
+            emp_names = [EMPLOYEES[c]["name"] for c in emp_codes if c in EMPLOYEES]
+            sup_names = [EMPLOYEES[c]["name"] for c in sup_codes if c in EMPLOYEES]
+
+            # default company: first matched employee/supervisor's company, if not typed manually
+            default_company = ""
+            if emp_codes and emp_codes[0] in EMPLOYEES:
+                default_company = EMPLOYEES[emp_codes[0]]["company"]
+            elif sup_codes and sup_codes[0] in EMPLOYEES:
+                default_company = EMPLOYEES[sup_codes[0]]["company"]
+
             conn = get_db(); cur = conn.cursor()
             cur.execute("""
                 INSERT INTO jobs
-                (created_at, assigned_by, emp_code, emp_name, supervisor_code, supervisor_name,
+                (created_at, assigned_by, emp_codes, emp_names, supervisor_codes, supervisor_names,
                  company, job_title, job_description, location, start_date, end_date, status)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 session.get("name", "Manager"),
-                emp_code, emp_info["name"],
-                sup_code, sup_info["name"],
-                request.form.get("company") or emp_info.get("company", ""),
+                ",".join(emp_codes), ", ".join(emp_names),
+                ",".join(sup_codes), ", ".join(sup_names),
+                request.form.get("company") or default_company,
                 request.form.get("job_title"),
                 request.form.get("job_description"),
                 request.form.get("location"),
@@ -406,7 +464,7 @@ def assign_job():
     conn  = get_db(); cur = conn.cursor()
     query = "SELECT * FROM jobs WHERE 1=1"
     params = []
-    if f_emp:    query += " AND emp_name=%s";   params.append(f_emp)
+    if f_emp:    query += " AND (emp_names ILIKE %s OR supervisor_names ILIKE %s)"; params += [f"%{f_emp}%", f"%{f_emp}%"]
     if f_status: query += " AND status=%s";     params.append(f_status)
     query += " ORDER BY created_at DESC"
     cur.execute(query, params)
