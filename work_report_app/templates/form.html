@@ -76,6 +76,17 @@
   .badge-absent{background:#FBE2E2;color:#9A2A2D}
   .badge-half{background:#DCE9FF;color:#1A4FA0}
 
+  /* ---------- FILTER BAR ---------- */
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  @media(max-width:480px){.fg input,.fg select{min-width:100%}.fg{width:100%}}
+
   @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{flex-direction:column}}
 
   /* ---------- DESKTOP LAYOUT ---------- */
@@ -192,9 +203,36 @@
     </form>
   </div>
 
-  {% if recent %}
   <div class="card">
-    <div class="card-title">📅 Your last {{ recent|length }} reports</div>
+    <div class="card-title">📅 My Work Reports</div>
+    <form method="GET" action="/form">
+      <div class="filters">
+        <div class="fg"><label>Work type</label>
+          <select name="wtype">
+            <option value="">All types</option>
+            {% for t in ['Site visit','Service call','Support visit','In-house','Work from home'] %}
+            <option {% if filters.wtype==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="fg"><label>Status</label>
+          <select name="status">
+            <option value="">All</option>
+            <option value="completed" {% if filters.status=='completed' %}selected{% endif %}>Completed</option>
+            <option value="pending"   {% if filters.status=='pending'   %}selected{% endif %}>Pending</option>
+            <option value="partial"   {% if filters.status=='partial'   %}selected{% endif %}>Partial</option>
+          </select>
+        </div>
+        <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+        <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+        <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, location..." value="{{ filters.search }}"></div>
+        <button class="btn-filter" type="submit">Apply</button>
+        <a class="btn-clear" href="/form">✕ Clear</a>
+      </div>
+    </form>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem">
+      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+    </div>
+    {% if recent %}
     <table>
       <thead><tr><th>Date</th><th>Work type</th><th>Job details</th><th>Supervisor</th><th>Status</th></tr></thead>
       <tbody>
@@ -210,8 +248,10 @@
       {% endfor %}
       </tbody>
     </table>
+    {% else %}
+    <div style="text-align:center;padding:2.5rem 1rem;color:#A8A4C4;font-weight:600;font-size:13px">🔍 No reports found. Try clearing the filters.</div>
+    {% endif %}
   </div>
-  {% endif %}
 
 </div>
 

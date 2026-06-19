@@ -75,6 +75,16 @@
   .empty-state .es-ic{font-size:2.5rem;margin-bottom:.8rem}
   .empty-state p{font-size:13px;font-weight:600}
 
+  /* ---------- FILTER BAR ---------- */
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+  @media(max-width:540px){.fg input,.fg select{min-width:100%}.fg{width:100%}}
+
   @media(max-width:540px){.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
   @media(min-width:860px){
     body{padding-bottom:0}
@@ -201,10 +211,34 @@
   </div>
 
   <!-- HISTORY TABLE -->
+  <form method="GET" action="/sales-visit">
+    <div class="filters">
+      <div class="fg"><label>Type of Visit</label>
+        <select name="vtype">
+          <option value="">All types</option>
+          <option value="New Visit" {% if filters.vtype=='New Visit' %}selected{% endif %}>New Visit</option>
+          <option value="Follow-up" {% if filters.vtype=='Follow-up' %}selected{% endif %}>Follow-up</option>
+        </select>
+      </div>
+      <div class="fg"><label>Outcome</label>
+        <select name="outcome">
+          <option value="">All</option>
+          <option value="Interested" {% if filters.outcome=='Interested' %}selected{% endif %}>Interested</option>
+          <option value="Need Follow-up" {% if filters.outcome=='Need Follow-up' %}selected{% endif %}>Need Follow-up</option>
+        </select>
+      </div>
+      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, address, products..." value="{{ filters.search }}"></div>
+      <button class="btn-filter" type="submit">Apply</button>
+      <a class="btn-clear" href="/sales-visit">✕ Clear</a>
+    </div>
+  </form>
+
   <div class="table-card">
     <div class="table-hdr">
       <span class="table-hdr-title">📂 My Visit History</span>
-      <span class="rec-count">{{ history|length }} record{{ 's' if history|length != 1 }}</span>
+      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
     </div>
     {% if history %}
     <div class="tbl-scroll">
@@ -254,7 +288,11 @@
     {% else %}
     <div class="empty-state">
       <div class="es-ic">🤝</div>
+      {% if filters.vtype or filters.outcome or filters.from_d or filters.to_d or filters.search %}
+      <p>No visit reports match your filters.<br>Try clearing them.</p>
+      {% else %}
       <p>No visit reports yet.<br>Submit your first one above!</p>
+      {% endif %}
     </div>
     {% endif %}
   </div>

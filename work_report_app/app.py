@@ -321,9 +321,27 @@ def employee_form():
         conn.commit(); cur.close(); conn.close()
         success = True
 
+    # filters for "my reports" history (own reports only)
+    f_wtype  = request.args.get("wtype", "")
+    f_status = request.args.get("status", "")
+    f_from   = request.args.get("from_d", "")
+    f_to     = request.args.get("to_d", "")
+    f_search = request.args.get("search", "")
+
     conn   = get_db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM reports WHERE emp_code=%s ORDER BY timestamp DESC LIMIT 7", (get_emp_code(),))
-    recent = cur.fetchall(); cur.close(); conn.close()
+    query  = "SELECT * FROM reports WHERE emp_code=%s"
+    params = [get_emp_code()]
+    if f_wtype:  query += " AND work_type=%s";        params.append(f_wtype)
+    if f_status: query += " AND LOWER(status)=%s";    params.append(f_status.lower())
+    if f_from:   query += " AND date>=%s";             params.append(f_from)
+    if f_to:     query += " AND date<=%s";             params.append(f_to)
+    if f_search:
+        query += " AND (client_name ILIKE %s OR location ILIKE %s OR summary ILIKE %s OR remarks ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY timestamp DESC"
+    cur.execute(query, params)
+    recent = cur.fetchall()
+    cur.close(); conn.close()
 
     today     = datetime.now().strftime("%Y-%m-%d")
     att_today = []
@@ -339,7 +357,9 @@ def employee_form():
     ]
 
     return render_template("form.html", name=session["name"], success=success, recent=recent,
-                            att_today=att_today, supervisor_choices=supervisor_choices)
+                            att_today=att_today, supervisor_choices=supervisor_choices,
+                            record_count=len(recent),
+                            filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
 #  ROUTES — EMPLOYEE: VIEW ASSIGNED JOBS
@@ -711,15 +731,29 @@ def sales_visit():
         conn.commit(); cur.close(); conn.close()
         success = True
 
+    # filters for "my visit history" (own visits only)
+    f_vtype   = request.args.get("vtype", "")
+    f_outcome = request.args.get("outcome", "")
+    f_from    = request.args.get("from_d", "")
+    f_to      = request.args.get("to_d", "")
+    f_search  = request.args.get("search", "")
+
     # Fetch this employee's own history
-    code = get_emp_code()
-    conn = get_db(); cur = conn.cursor()
-    cur.execute("""
-        SELECT * FROM sales_visits
-        WHERE salesperson_code=%s
-        ORDER BY timestamp DESC
-    """, (code,))
-    history = cur.fetchall(); cur.close(); conn.close()
+    code   = get_emp_code()
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM sales_visits WHERE salesperson_code=%s"
+    params = [code]
+    if f_vtype:   query += " AND type_of_visit=%s";   params.append(f_vtype)
+    if f_outcome: query += " AND visit_outcome=%s";   params.append(f_outcome)
+    if f_from:    query += " AND visit_date>=%s";     params.append(f_from)
+    if f_to:      query += " AND visit_date<=%s";     params.append(f_to)
+    if f_search:
+        query += " AND (client_name ILIKE %s OR address ILIKE %s OR products_interested ILIKE %s OR discussion_summary ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY timestamp DESC"
+    cur.execute(query, params)
+    history = cur.fetchall()
+    cur.close(); conn.close()
 
     salesperson_choices = [
         {"code": c, "name": i["name"]}
@@ -731,8 +765,10 @@ def sales_visit():
         name=session["name"],
         success=success,
         history=history,
+        record_count=len(history),
         salesperson_choices=salesperson_choices,
         current_code=code,
+        filters={"vtype": f_vtype, "outcome": f_outcome, "from_d": f_from, "to_d": f_to, "search": f_search},
     )
 
 
