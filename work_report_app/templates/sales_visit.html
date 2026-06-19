@@ -17,9 +17,9 @@
   .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
   .logout:hover{background:rgba(255,255,255,0.14)}
 
-  /* TABS */
-  .page-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;position:sticky;top:56px;z-index:19;overflow-x:auto}
-  .pt{padding:13px 16px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  /* TABS — desktop only, mirrors Work Report / My Jobs pages */
+  .page-tabs{display:none}
+  .pt{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
   .pt:hover{color:#10193A}
   .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
 
@@ -79,6 +79,7 @@
   @media(min-width:860px){
     body{padding-bottom:0}
     .bottom-nav{display:none}
+    .page-tabs{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19}
     .wrap{max-width:800px;margin:2rem auto}
   }
 </style>
@@ -96,8 +97,8 @@
 <!-- PAGE TABS -->
 <div class="page-tabs">
   <a href="/form" class="pt">📋 Work Report</a>
-  <a href="/my-jobs" class="pt">🗂️ My Jobs</a>
-  <a href="/sales-visit" class="pt active">🤝 Sales Visit</a>
+  <a href="/my-jobs" class="pt">📌 My Jobs</a>
+  <a href="/sales-visit" class="pt active">🤝 Sales Report</a>
 </div>
 
 <div class="wrap">
@@ -263,7 +264,7 @@
 <!-- MOBILE BOTTOM NAV -->
 <nav class="bottom-nav">
   <a href="/form"        class="bn-item"><span class="bn-ic">📋</span>Report</a>
-  <a href="/my-jobs"     class="bn-item"><span class="bn-ic">🗂️</span>My Jobs</a>
+  <a href="/my-jobs"     class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>
   <a href="/sales-visit" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>
 </nav>
 
