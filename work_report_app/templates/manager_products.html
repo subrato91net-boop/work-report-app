@@ -191,7 +191,8 @@
         {% if b.description %}<div class="brand-desc">{{ b.description }}</div>{% endif %}
       </div>
       <div class="brand-actions">
-        <button class="btn-ghost" onclick="openEditBrand({{ b.id }},'{{ b.name|e }}','{{ b.description|e }}')">✏️</button>
+        <button class="btn-ghost" data-id="{{ b.id }}" data-name="{{ b.name }}" data-description="{{ b.description or '' }}"
+          onclick="openEditBrandFromBtn(this)">✏️</button>
         <form method="POST" action="/manager/products/brand/{{ b.id }}/delete" onsubmit="return confirm('Delete brand and ALL its products?')">
           <button class="btn-danger" type="submit">🗑</button>
         </form>
@@ -236,8 +237,17 @@
             <td>{% if p.category %}<span class="cat-badge">{{ p.category }}</span>{% else %}<span style="color:#C4C0D4">—</span>{% endif %}</td>
             <td style="color:#696B78">{{ p.unit }}</td>
             <td class="price">
-              {% if p.price and p.price > 0 %}₹{{ "{:,.0f}".format(p.price) }}
-              {% else %}<span style="color:#FF7A1A;font-weight:700;font-size:11.5px">⚠ Not set</span>{% endif %}
+              <form method="POST" action="/manager/products/{{ p.id }}/update-price" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">
+                <span style="color:#A8A4C4;font-size:11px">₹</span>
+                <input type="number" name="price" step="0.01" min="0"
+                  value="{{ ('%.2f'|format(p.price)) if p.price else '' }}"
+                  placeholder="0.00"
+                  style="width:70px;padding:4px 6px;font-size:12px;border:1.5px solid #E7E4DA;border-radius:6px;background:#F6F4EF;font-family:inherit;color:#14141A">
+                <button type="submit" class="btn-green" style="font-size:10px;padding:4px 8px">Save</button>
+              </form>
+              {% if not p.price or p.price == 0 %}
+              <div style="color:#FF7A1A;font-weight:700;font-size:9.5px;margin-top:3px">⚠ Not set</div>
+              {% endif %}
             </td>
             <td>
               {% if p.in_stock == 0 %}<span class="stock-out">0</span>
@@ -260,11 +270,12 @@
             <td>
               <div style="display:flex;gap:5px">
                 <button class="btn-orange" style="font-size:11px;padding:4px 10px"
-                  onclick="openEditProduct(
-                    {{ p.id }}, {{ p.brand_id }}, '{{ p.model_code|e }}', '{{ p.name|e }}',
-                    '{{ p.category|e }}', '{{ p.description|e }}', '{{ p.unit }}',
-                    {{ p.price }}, {{ p.in_stock }}, {{ p.min_stock }}
-                  )">✏️ Edit</button>
+                  data-id="{{ p.id }}" data-brand="{{ p.brand_id }}"
+                  data-model="{{ p.model_code }}" data-name="{{ p.name }}"
+                  data-category="{{ p.category or '' }}" data-description="{{ p.description or '' }}"
+                  data-unit="{{ p.unit }}" data-price="{{ p.price or 0 }}"
+                  data-stock="{{ p.in_stock or 0 }}" data-minstock="{{ p.min_stock or 0 }}"
+                  onclick="openEditProductFromBtn(this)">✏️ Edit</button>
                 <form method="POST" action="/manager/products/{{ p.id }}/delete" onsubmit="return confirm('Delete this product?')">
                   <button class="btn-danger" style="font-size:11px;padding:4px 10px" type="submit">🗑</button>
                 </form>
@@ -416,6 +427,10 @@ function openEditBrand(id, name, desc){
   document.getElementById('eb_desc').value = desc
   openModal('editBrandModal')
 }
+function openEditBrandFromBtn(btn){
+  const d = btn.dataset
+  openEditBrand(d.id, d.name, d.description)
+}
 
 function openEditProduct(id, brandId, model, name, cat, desc, unit, price, stock, minstock){
   document.getElementById('editProductForm').action = '/manager/products/'+id+'/edit'
@@ -429,6 +444,10 @@ function openEditProduct(id, brandId, model, name, cat, desc, unit, price, stock
   document.getElementById('ep_stock').value = stock
   document.getElementById('ep_minstock').value = minstock
   openModal('editProductModal')
+}
+function openEditProductFromBtn(btn){
+  const d = btn.dataset
+  openEditProduct(d.id, d.brand, d.model, d.name, d.category, d.description, d.unit, d.price, d.stock, d.minstock)
 }
 </script>
 </body>

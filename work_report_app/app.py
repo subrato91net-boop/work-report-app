@@ -2746,6 +2746,24 @@ def toggle_product(product_id):
     return redirect(url_for("manager_products", flash="Product status toggled.", flash_type="success"))
 
 
+@app.route("/manager/products/<int:product_id>/update-price", methods=["POST"])
+def update_product_price(product_id):
+    """Quick inline price edit straight from the product table row — only touches price,
+    leaves every other field (name, stock, category, etc.) exactly as-is."""
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    raw_price = request.form.get("price", "").strip()
+    try:
+        price = float(raw_price) if raw_price else 0
+    except ValueError:
+        price = 0
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE products SET price=%s, updated_at=%s, updated_by=%s WHERE id=%s",
+                (price, now, session["name"], product_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Price updated.", flash_type="success"))
+
+
 @app.route("/export/products")
 def export_products():
     if not logged_in() or not is_manager(): return redirect(url_for("login"))
