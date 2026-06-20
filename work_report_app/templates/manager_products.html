@@ -235,7 +235,10 @@
             </td>
             <td>{% if p.category %}<span class="cat-badge">{{ p.category }}</span>{% else %}<span style="color:#C4C0D4">—</span>{% endif %}</td>
             <td style="color:#696B78">{{ p.unit }}</td>
-            <td class="price">₹{{ "{:,.0f}".format(p.price) }}</td>
+            <td class="price">
+              {% if p.price and p.price > 0 %}₹{{ "{:,.0f}".format(p.price) }}
+              {% else %}<span style="color:#FF7A1A;font-weight:700;font-size:11.5px">⚠ Not set</span>{% endif %}
+            </td>
             <td>
               {% if p.in_stock == 0 %}<span class="stock-out">0</span>
               {% elif p.in_stock <= p.min_stock %}<span class="stock-low">{{ p.in_stock }}</span>

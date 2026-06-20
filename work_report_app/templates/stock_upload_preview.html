@@ -42,7 +42,7 @@
   tr.unmatched td{opacity:.5;background:#FDFCFB}
 
   .badge-match{background:#D9F5E8;color:#0E6B43;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
-  .badge-new{background:#FBE2E2;color:#9A2A2D;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
+  .badge-new{background:#FFE9D2;color:#9A4B0A;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
   .arrow{color:#7C5CFC;font-weight:800}
   .qty-new{color:#1AAE6F;font-weight:800;font-size:14px}
   .qty-old{color:#A8A4C4;text-decoration:line-through;font-size:12px}
@@ -71,7 +71,7 @@
   <div class="summary-bar">
     <div class="sum-item"><div class="sum-val blue">{{ total }}</div><div class="sum-lbl">Items in PDF</div></div>
     <div class="sum-item"><div class="sum-val green">{{ matched_ct }}</div><div class="sum-lbl">Matched to Products</div></div>
-    <div class="sum-item"><div class="sum-val amber">{{ unmatched_ct }}</div><div class="sum-lbl">Not Found in DB</div></div>
+    <div class="sum-item"><div class="sum-val amber">{{ unmatched_ct }}</div><div class="sum-lbl">New Products to Add</div></div>
     <div style="margin-left:auto;font-size:13px;color:#696B78;font-weight:600">
       📄 File: <strong>{{ filename }}</strong><br>
       ✅ Review below and confirm to update stock quantities
@@ -80,13 +80,13 @@
 
   {% if unmatched_ct > 0 %}
   <div class="warning-box">
-    ⚠️ {{ unmatched_ct }} item(s) from the PDF were not found in the product database. These will be skipped. You can add them manually in the Products section.
+    🆕 {{ unmatched_ct }} item(s) from the PDF were not found in the product database — these look like new products. They're checked below by default and will be <strong>added automatically</strong> to the catalogue with this stock quantity. Price and category will be blank until a manager sets them in Products.
   </div>
   {% endif %}
 
   <form method="POST" action="/manager/stock-upload/confirm">
     <div class="action-bar">
-      <button type="submit" class="btn-confirm">✅ Confirm &amp; Update {{ matched_ct }} Products</button>
+      <button type="submit" class="btn-confirm">✅ Confirm &amp; Apply ({{ matched_ct }} update + {{ unmatched_ct }} new)</button>
       <a href="/manager/stock-upload" class="btn-cancel">✕ Cancel</a>
       <label class="select-all-wrap">
         <input type="checkbox" id="selectAll" checked onchange="toggleAll(this)"> Select / Deselect All
@@ -109,18 +109,18 @@
         </thead>
         <tbody>
           {% for item in items %}
-          <tr class="{{ '' if item.matched else 'unmatched' }}">
+          <tr>
             <td>
               {% if item.matched %}
               <input type="checkbox" name="apply_ids" value="{{ item.product_id }}" checked class="apply-chk" style="width:16px;height:16px;accent-color:#1AAE6F;cursor:pointer">
               {% else %}
-              <span style="color:#C4C0D4;font-size:12px">—</span>
+              <input type="checkbox" name="new_apply_idx" value="{{ item.idx }}" checked class="apply-chk" style="width:16px;height:16px;accent-color:#FF7A1A;cursor:pointer">
               {% endif %}
             </td>
             <td style="font-weight:600;color:#10193A;max-width:280px">{{ item.name }}</td>
             <td style="color:#696B78;font-size:12px">{{ item.brand }}</td>
             <td style="color:#7C5CFC;font-size:12px;font-weight:600">
-              {% if item.matched %}{{ item.db_name }}{% else %}<span style="color:#C4C0D4">Not found</span>{% endif %}
+              {% if item.matched %}{{ item.db_name }}{% else %}<span style="color:#C4C0D4">— new product —</span>{% endif %}
             </td>
             <td>
               {% if item.matched %}<span class="qty-old">{{ item.current_stock }}</span>{% else %}<span style="color:#C4C0D4">—</span>{% endif %}
@@ -129,7 +129,7 @@
             <td style="color:#696B78;font-size:12px">{{ item.unit }}</td>
             <td>
               {% if item.matched %}<span class="badge-match">✓ Will Update</span>
-              {% else %}<span class="badge-new">✗ Skip</span>{% endif %}
+              {% else %}<span class="badge-new">🆕 Will Add as New</span>{% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -138,7 +138,7 @@
     </div>
 
     <div style="margin-top:1.2rem;display:flex;gap:10px">
-      <button type="submit" class="btn-confirm">✅ Confirm &amp; Update {{ matched_ct }} Products</button>
+      <button type="submit" class="btn-confirm">✅ Confirm &amp; Apply ({{ matched_ct }} update + {{ unmatched_ct }} new)</button>
       <a href="/manager/stock-upload" class="btn-cancel">✕ Cancel</a>
     </div>
   </form>

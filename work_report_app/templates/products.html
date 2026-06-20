@@ -117,7 +117,10 @@
               <div class="prod-name">{{ p.name }}</div>
               <div class="model">{{ p.model_code }}</div>
             </td>
-            <td class="price">₹{{ "{:,.0f}".format(p.price) }}</td>
+            <td class="price">
+              {% if p.price and p.price > 0 %}₹{{ "{:,.0f}".format(p.price) }}
+              {% else %}<span style="color:#C4C0D4;font-weight:600;font-size:12px">Price not set</span>{% endif %}
+            </td>
             <td>
               {% if p.in_stock == 0 %}
                 <span class="qty-val qty-out">0</span>

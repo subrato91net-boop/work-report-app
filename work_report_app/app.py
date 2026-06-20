@@ -2931,7 +2931,35 @@ def match_products_to_db(parsed_items):
             "price": matched_product["price"] if matched_product else None,
         })
 
+    # stable index so the preview/confirm steps can reference each row,
+    # even the unmatched ("new product") ones that have no product_id yet
+    for idx, r in enumerate(results):
+        r["idx"] = idx
+
     return results
+
+
+def get_or_create_brand(cur, brand_name, now):
+    """Find a brand by name (case-insensitive); auto-create it if it doesn't exist yet.
+    This is what lets a brand-new brand heading in the PDF (not just a new product)
+    show up correctly without manager setup first."""
+    name = (brand_name or "UNKNOWN").strip().upper() or "UNKNOWN"
+    cur.execute("SELECT id FROM product_brands WHERE UPPER(name)=%s", (name,))
+    row = cur.fetchone()
+    if row:
+        return row["id"]
+    cur.execute("""
+        INSERT INTO product_brands (name, description, created_at, created_by)
+        VALUES (%s, %s, %s, 'system')
+        ON CONFLICT (name) DO NOTHING
+        RETURNING id
+    """, (name, "Auto-created from stock upload", now))
+    row = cur.fetchone()
+    if row:
+        return row["id"]
+    # another row won the race on ON CONFLICT — just re-fetch it
+    cur.execute("SELECT id FROM product_brands WHERE UPPER(name)=%s", (name,))
+    return cur.fetchone()["id"]
 
 
 # ══════════════════════════════════════════
@@ -2992,10 +3020,11 @@ def stock_upload_parse():
 
 @app.route("/manager/stock-upload/confirm", methods=["POST"])
 def stock_upload_confirm():
-    """Apply the stock update to the database."""
+    """Apply the stock update to the database — updates matched products
+    AND creates brand-new product rows for items that weren't found in the DB."""
     if not logged_in() or not is_manager(): return redirect(url_for("login"))
 
-    import json
+    import json, re
     raw = session.get("pending_stock")
     if not raw:
         return redirect(url_for("stock_upload_page", flash="Session expired. Please upload again.", flash_type="error"))
@@ -3005,21 +3034,22 @@ def stock_upload_confirm():
     now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Only apply items that are checked (form checkboxes)
-    apply_ids = set(request.form.getlist("apply_ids"))
+    apply_ids     = set(request.form.getlist("apply_ids"))      # matched products to update
+    new_apply_idx = set(request.form.getlist("new_apply_idx"))  # unmatched rows to create as new products
 
     conn = get_db(); cur = conn.cursor()
 
-    # Create upload record
     matched_items = [i for i in items if i["matched"] and str(i["product_id"]) in apply_ids]
-    new_items     = [i for i in items if not i["matched"]]
+    new_items     = [i for i in items if not i["matched"] and str(i["idx"]) in new_apply_idx]
 
+    # Create upload record
     cur.execute("""
         INSERT INTO stock_uploads (filename, uploaded_at, uploaded_by, total_parsed, total_matched, total_new)
         VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
     """, (filename, now, session["name"], len(items), len(matched_items), len(new_items)))
     upload_id = cur.fetchone()["id"]
 
-    # Apply stock updates
+    # Apply stock updates to existing products
     for item in matched_items:
         cur.execute("UPDATE products SET in_stock=%s, updated_at=%s, updated_by=%s WHERE id=%s",
                     (item["qty"], now, f"PDF Upload: {filename}", item["product_id"]))
@@ -3028,15 +3058,41 @@ def stock_upload_confirm():
             VALUES (%s,%s,%s,%s,%s,%s,'updated',%s)
         """, (upload_id, item["name"], item.get("model_code",""), item["brand"], item["qty"], item["unit"], item["product_id"]))
 
+    # Auto-create brand-new products discovered in the PDF (no price/category yet —
+    # manager fills those in later from the Products screen)
+    for item in new_items:
+        brand_id = get_or_create_brand(cur, item["brand"], now)
+
+        slug = re.sub(r'[^A-Z0-9]+', '-', item["name"].upper()).strip('-')[:40] or "ITEM"
+        model_code = f"{slug}-{upload_id}-{item['idx']}"
+
+        cur.execute("""
+            INSERT INTO products (brand_id, model_code, name, category, description, unit, price,
+                                   in_stock, min_stock, is_active, created_at, created_by)
+            VALUES (%s,%s,%s,NULL,%s,%s,0,%s,0,TRUE,%s,%s)
+            RETURNING id
+        """, (brand_id, model_code, item["name"].strip(),
+              f"Auto-added from stock upload '{filename}'. Price & category not set yet — please review.",
+              item["unit"], item["qty"], now, f"PDF Upload: {filename}"))
+        new_id = cur.fetchone()["id"]
+
+        cur.execute("""
+            INSERT INTO stock_upload_log (upload_id, product_name, model_code, brand, qty_closing, unit, action, product_id)
+            VALUES (%s,%s,%s,%s,%s,%s,'created',%s)
+        """, (upload_id, item["name"], model_code, item["brand"], item["qty"], item["unit"], new_id))
+
     conn.commit(); cur.close(); conn.close()
 
     # Clear session
     session.pop("pending_stock", None)
     session.pop("pending_filename", None)
 
-    return redirect(url_for("stock_upload_page",
-        flash=f"✅ Stock updated for {len(matched_items)} products from '{filename}'.",
-        flash_type="success"))
+    msg = f"✅ {len(matched_items)} product(s) updated"
+    if new_items:
+        msg += f", {len(new_items)} new product(s) added"
+    msg += f" from '{filename}'."
+
+    return redirect(url_for("stock_upload_page", flash=msg, flash_type="success"))
 
 
 @app.route("/manager/stock-upload/<int:upload_id>/log")
