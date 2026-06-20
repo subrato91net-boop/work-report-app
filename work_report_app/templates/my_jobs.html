@@ -55,8 +55,8 @@
   @media(min-width:860px){
     body{padding-bottom:0}
     .bottom-nav{display:none}
-    .nav-tabs-desktop{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19}
-    .nd-tab{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s}
+    .nav-tabs-desktop{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
+    .nd-tab{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
     .nd-tab:hover{color:#10193A}
     .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
     .wrap{max-width:900px;margin:2rem auto}
@@ -75,9 +75,10 @@
 </div>
 
 <div class="nav-tabs-desktop">
-  <a href="/form" class="nd-tab">📋 Work Report</a>
-  <a href="/my-jobs" class="nd-tab active">📌 My Jobs</a>
-  <a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>
+  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab active">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
 </div>
 
 <div class="wrap">
@@ -117,9 +118,10 @@
 </div>
 
 <nav class="bottom-nav">
-  <a href="/form" class="bn-item"><span class="bn-ic">📋</span>Report</a>
-  <a href="/my-jobs" class="bn-item active"><span class="bn-ic">📌</span>My Jobs</a>
-  <a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
+  {% if perms.get('work_report', True) %}<a href="/form" class="bn-item"><span class="bn-ic">📋</span>Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="bn-item active"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
 </nav>
 </body>
 </html>

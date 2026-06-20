@@ -18,8 +18,8 @@
     .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
     .btn-sm:hover{background:rgba(255,255,255,0.14)}
 
-    .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none}
-    .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s}
+    .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none;overflow-x:auto}
+    .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
     .nav-tab:hover{color:#10193A}
     .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
 
@@ -110,9 +110,12 @@
   </div>
 </div>
 <div class="nav-tabs">
-  <a href="/manager"    class="nav-tab">📋 Work Reports</a>
-  <a href="/assign-job" class="nav-tab">📌 Assign Jobs</a>
-  <a href="/attendance" class="nav-tab active">🕐 Attendance</a>
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
+  <a href="/attendance"           class="nav-tab active">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
+  <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
+  <a href="/manager/users"        class="nav-tab">👤 Users</a>
 </div>
 <div class="main">
 
@@ -299,7 +302,10 @@
 <nav class="bottom-nav">
   <a href="/manager" class="bn-item"><span class="bn-ic">📋</span>Reports</a>
   <a href="/assign-job" class="bn-item"><span class="bn-ic">📌</span>Assign</a>
-  <a href="/attendance" class="bn-item active"><span class="bn-ic">🕐</span>Attendance</a>
+  <a href="/attendance" class="bn-item active"><span class="bn-ic">🕐</span>Attend.</a>
+  <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
+  <a href="/manager/ta-reports" class="bn-item"><span class="bn-ic">🧾</span>TA</a>
+  <a href="/manager/users" class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
 </body>
 </html>

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
 from datetime import datetime, timedelta
-import os, csv, io
+import os, csv, io, hashlib, secrets, string
 import requests as req
 
 # ══════════════════════════════════════════
@@ -37,9 +37,13 @@ PUNCH_START_HOUR = 6
 PUNCH_END_HOUR   = 23
 
 # ══════════════════════════════════════════
-#  EMPLOYEE LIST
+#  USER SYSTEM (DB-BACKED, with legacy seed data)
+#  EMPLOYEES / USERNAME_MAP are kept as live globals,
+#  refreshed from the `users` table, so every existing
+#  call site (EMPLOYEES[...], EMPLOYEES.items(), etc.)
+#  keeps working unmodified.
 # ══════════════════════════════════════════
-EMPLOYEES = {
+SEED_EMPLOYEES = {
     "1002": {"name": "Sayed Asif Ismail",   "company": "imaxsol",             "username": "asif",    "password": "1002123456"},
     "1003": {"name": "Kartick Mondal",       "company": "imaxsol",             "username": "kartick", "password": "1003123456"},
     "1004": {"name": "Sukumar Mondal",       "company": "imaxsol",             "username": "sukumar", "password": "1004123456"},
@@ -49,8 +53,96 @@ EMPLOYEES = {
     "1013": {"name": "Subrato Halder",       "company": "imaxsol",             "username": "subrato", "password": "1013123456"},
     "2002": {"name": "Pritam Pal",           "company": "CONNEQTORTECHNOLOGY", "username": "pritam",  "password": "2002123456"},
 }
-USERNAME_MAP = {v["username"]: k for k, v in EMPLOYEES.items()}
-MANAGERS     = {"manager": {"password": "manager123", "name": "Manager"}}
+MANAGERS = {"manager": {"password": "manager123", "name": "Manager"}}
+
+EMPLOYEES    = {}   # populated by refresh_employees() below
+USERNAME_MAP = {}
+
+def hash_password(raw):
+    """Salted SHA-256. Stored as 'salt$hash'."""
+    salt = secrets.token_hex(8)
+    h    = hashlib.sha256((salt + raw).encode()).hexdigest()
+    return f"{salt}${h}"
+
+def verify_password(raw, stored):
+    if not stored or "$" not in stored:
+        return False
+    salt, h = stored.split("$", 1)
+    return hashlib.sha256((salt + raw).encode()).hexdigest() == h
+
+def generate_temp_password(length=10):
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+def init_users_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            emp_code        TEXT PRIMARY KEY,
+            name            TEXT NOT NULL,
+            username        TEXT UNIQUE NOT NULL,
+            password_hash   TEXT NOT NULL,
+            company         TEXT,
+            is_active       BOOLEAN DEFAULT TRUE,
+            can_work_report BOOLEAN DEFAULT TRUE,
+            can_sales_visit BOOLEAN DEFAULT TRUE,
+            can_my_jobs     BOOLEAN DEFAULT TRUE,
+            can_ta          BOOLEAN DEFAULT TRUE,
+            created_at      TEXT,
+            created_by      TEXT
+        )
+    """)
+    # In case upgrading from an even older partial schema
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_work_report BOOLEAN DEFAULT TRUE")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_sales_visit BOOLEAN DEFAULT TRUE")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_my_jobs BOOLEAN DEFAULT TRUE")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_ta BOOLEAN DEFAULT TRUE")
+    conn.commit()
+
+    # One-time seed: only runs if the table is empty, so existing
+    # deployments/logins are never disrupted.
+    cur.execute("SELECT COUNT(*) AS c FROM users")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for code, info in SEED_EMPLOYEES.items():
+            cur.execute("""
+                INSERT INTO users (emp_code, name, username, password_hash, company,
+                                    is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+                                    created_at, created_by)
+                VALUES (%s,%s,%s,%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, %s, 'system-seed')
+                ON CONFLICT (emp_code) DO NOTHING
+            """, (code, info["name"], info["username"], hash_password(info["password"]), info["company"], now))
+        conn.commit()
+        print(f"✅ Seeded {len(SEED_EMPLOYEES)} users into users table")
+
+    cur.close(); conn.close()
+
+def refresh_employees():
+    """Reload the EMPLOYEES / USERNAME_MAP globals from the users table.
+    Keeps the dict-shaped 'EMPLOYEES[code][\"name\"/\"company\"/\"password\"]' contract
+    used throughout the rest of the app, for active users only."""
+    global EMPLOYEES, USERNAME_MAP
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT emp_code, name, username, password_hash, company,
+               is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta
+        FROM users WHERE is_active = TRUE
+    """)
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    new_employees = {}
+    new_username_map = {}
+    for r in rows:
+        new_employees[r["emp_code"]] = {
+            "name": r["name"], "company": r["company"] or "",
+            "username": r["username"], "password_hash": r["password_hash"],
+            "can_work_report": r["can_work_report"], "can_sales_visit": r["can_sales_visit"],
+            "can_my_jobs": r["can_my_jobs"], "can_ta": r["can_ta"],
+        }
+        new_username_map[r["username"]] = r["emp_code"]
+    EMPLOYEES = new_employees
+    USERNAME_MAP = new_username_map
 
 # ══════════════════════════════════════════
 #  DATABASE HELPERS
@@ -251,6 +343,13 @@ def logged_in():  return "username" in session
 def is_manager(): return session.get("role") == "manager"
 def get_emp_code(): return session.get("emp_code")
 
+def has_perm(perm_key):
+    """Manager (super admin) always passes. Employees are gated by their
+    session-cached permission flags, set at login time."""
+    if is_manager():
+        return True
+    return session.get("perms", {}).get(perm_key, True)
+
 def codes_to_names(codes_str):
     """'1002,1003' -> 'Sayed Asif Ismail, Kartick Mondal'"""
     if not codes_str:
@@ -270,7 +369,18 @@ def parse_codes(codes_str):
 @app.route("/")
 def index():
     if not logged_in(): return redirect(url_for("login"))
-    return redirect(url_for("manager_view") if is_manager() else url_for("employee_form"))
+    if is_manager(): return redirect(url_for("manager_view"))
+    # Land the employee on the first feature they actually have access to
+    if has_perm("work_report"): return redirect(url_for("employee_form"))
+    if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
+    if has_perm("my_jobs"):     return redirect(url_for("my_jobs"))
+    if has_perm("ta"):          return redirect(url_for("ta_report"))
+    return redirect(url_for("no_access"))
+
+@app.route("/no-access")
+def no_access():
+    if not logged_in(): return redirect(url_for("login"))
+    return render_template("no_access.html", name=session.get("name", ""))
 
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -281,11 +391,21 @@ def login():
         if username in MANAGERS and MANAGERS[username]["password"] == password:
             session.update({"username":username,"name":MANAGERS[username]["name"],"role":"manager"})
             return redirect(url_for("index"))
+        refresh_employees()
         emp_code = USERNAME_MAP.get(username)
         if emp_code:
             emp = EMPLOYEES[emp_code]
-            if emp["password"] == password:
-                session.update({"username":username,"name":emp["name"],"role":"employee","emp_code":emp_code,"company":emp["company"]})
+            if verify_password(password, emp["password_hash"]):
+                session.update({
+                    "username": username, "name": emp["name"], "role": "employee",
+                    "emp_code": emp_code, "company": emp["company"],
+                    "perms": {
+                        "work_report": emp["can_work_report"],
+                        "sales_visit": emp["can_sales_visit"],
+                        "my_jobs":     emp["can_my_jobs"],
+                        "ta":          emp["can_ta"],
+                    },
+                })
                 return redirect(url_for("index"))
         error = "Invalid username or password."
     return render_template("login.html", error=error)
@@ -301,6 +421,7 @@ def logout():
 @app.route("/form", methods=["GET","POST"])
 def employee_form():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
+    if not has_perm("work_report"): return redirect(url_for("no_access"))
     success = False
     if request.method == "POST":
         sup_code = request.form.get("supervisor_code", "")
@@ -358,7 +479,7 @@ def employee_form():
 
     return render_template("form.html", name=session["name"], success=success, recent=recent,
                             att_today=att_today, supervisor_choices=supervisor_choices,
-                            record_count=len(recent),
+                            record_count=len(recent), perms=session.get("perms", {}),
                             filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
@@ -367,6 +488,7 @@ def employee_form():
 @app.route("/my-jobs")
 def my_jobs():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
+    if not has_perm("my_jobs"): return redirect(url_for("no_access"))
     code = get_emp_code()
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
@@ -385,7 +507,7 @@ def my_jobs():
         role = "Both" if (is_emp and is_sup) else ("Supervisor" if is_sup else "Employee")
         enriched.append({**j, "viewer_role": role})
 
-    return render_template("my_jobs.html", name=session["name"], jobs=enriched, record_count=len(enriched))
+    return render_template("my_jobs.html", name=session["name"], jobs=enriched, record_count=len(enriched), perms=session.get("perms", {}))
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER WORK REPORTS
@@ -640,6 +762,157 @@ def export_attendance():
         headers={"Content-Disposition":"attachment;filename=attendance.csv"})
 
 # ══════════════════════════════════════════
+#  ROUTES — SUPER ADMIN: USER MANAGEMENT
+# ══════════════════════════════════════════
+@app.route("/manager/users")
+def manage_users():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    refresh_employees()
+
+    status_filter = request.args.get("status", "")   # '', 'active', 'inactive'
+    search        = request.args.get("search", "")
+
+    conn  = get_db(); cur = conn.cursor()
+    query = "SELECT * FROM users WHERE 1=1"
+    params = []
+    if status_filter == "active":
+        query += " AND is_active = TRUE"
+    elif status_filter == "inactive":
+        query += " AND is_active = FALSE"
+    if search:
+        query += " AND (name ILIKE %s OR username ILIKE %s OR emp_code ILIKE %s)"
+        s = f"%{search}%"; params += [s, s, s]
+    query += " ORDER BY is_active DESC, name ASC"
+    cur.execute(query, params)
+    users = cur.fetchall()
+
+    cur.execute("SELECT COUNT(*) AS c FROM users")
+    total_count = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE is_active = TRUE")
+    active_count = cur.fetchone()["c"]
+    cur.close(); conn.close()
+
+    return render_template("manage_users.html",
+        users=users, total_count=total_count, active_count=active_count,
+        inactive_count=total_count - active_count,
+        filters={"status": status_filter, "search": search},
+        record_count=len(users),
+        flash=request.args.get("flash", ""),
+        flash_type=request.args.get("flash_type", "success"),
+        temp_password=request.args.get("temp_password", ""),
+        temp_password_for=request.args.get("temp_password_for", ""),
+    )
+
+@app.route("/manager/users/create", methods=["POST"])
+def create_user():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    emp_code = request.form.get("emp_code", "").strip()
+    name     = request.form.get("name", "").strip()
+    username = request.form.get("username", "").strip().lower()
+    company  = request.form.get("company", "").strip()
+    password = request.form.get("password", "").strip()
+    can_work_report = "can_work_report" in request.form
+    can_sales_visit = "can_sales_visit" in request.form
+    can_my_jobs     = "can_my_jobs" in request.form
+    can_ta          = "can_ta" in request.form
+
+    if not emp_code or not name or not username or not password:
+        return redirect(url_for("manage_users", flash="All fields are required to create a user.", flash_type="error"))
+    if len(password) < 6:
+        return redirect(url_for("manage_users", flash="Password must be at least 6 characters.", flash_type="error"))
+
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM users WHERE emp_code=%s OR username=%s", (emp_code, username))
+        if cur.fetchone():
+            cur.close(); conn.close()
+            return redirect(url_for("manage_users", flash="Employee code or username already exists.", flash_type="error"))
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+            INSERT INTO users (emp_code, name, username, password_hash, company,
+                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+                                created_at, created_by)
+            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s, %s,%s)
+        """, (emp_code, name, username, hash_password(password), company,
+              can_work_report, can_sales_visit, can_my_jobs, can_ta, now, session.get("name", "manager")))
+        conn.commit()
+        refresh_employees()
+        return redirect(url_for("manage_users", flash=f"User '{name}' created successfully.", flash_type="success"))
+    except Exception as e:
+        conn.rollback()
+        return redirect(url_for("manage_users", flash=f"Error creating user: {e}", flash_type="error"))
+    finally:
+        cur.close(); conn.close()
+
+@app.route("/manager/users/<emp_code>/reset-password", methods=["POST"])
+def reset_user_password(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    custom_password = request.form.get("new_password", "").strip()
+    new_password = custom_password if custom_password else generate_temp_password()
+    if len(new_password) < 6:
+        return redirect(url_for("manage_users", flash="Password must be at least 6 characters.", flash_type="error"))
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT name FROM users WHERE emp_code=%s", (emp_code,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_users", flash="User not found.", flash_type="error"))
+
+    cur.execute("UPDATE users SET password_hash=%s WHERE emp_code=%s", (hash_password(new_password), emp_code))
+    conn.commit(); cur.close(); conn.close()
+    refresh_employees()
+
+    return redirect(url_for("manage_users",
+        flash=f"Password reset for {row['name']}.", flash_type="success",
+        temp_password=new_password, temp_password_for=row["name"]))
+
+@app.route("/manager/users/<emp_code>/update-permissions", methods=["POST"])
+def update_user_permissions(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    can_work_report = "can_work_report" in request.form
+    can_sales_visit = "can_sales_visit" in request.form
+    can_my_jobs     = "can_my_jobs" in request.form
+    can_ta          = "can_ta" in request.form
+    name            = request.form.get("name", "").strip()
+    company         = request.form.get("company", "").strip()
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s,
+                          name=COALESCE(NULLIF(%s,''), name),
+                          company=COALESCE(NULLIF(%s,''), company)
+        WHERE emp_code=%s
+    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, name, company, emp_code))
+    conn.commit(); cur.close(); conn.close()
+    refresh_employees()
+
+    return redirect(url_for("manage_users", flash="Permissions updated.", flash_type="success"))
+
+@app.route("/manager/users/<emp_code>/toggle-active", methods=["POST"])
+def toggle_user_active(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT name, is_active FROM users WHERE emp_code=%s", (emp_code,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_users", flash="User not found.", flash_type="error"))
+
+    new_status = not row["is_active"]
+    cur.execute("UPDATE users SET is_active=%s WHERE emp_code=%s", (new_status, emp_code))
+    conn.commit(); cur.close(); conn.close()
+    refresh_employees()
+
+    verb = "reactivated" if new_status else "deactivated"
+    return redirect(url_for("manage_users", flash=f"{row['name']} has been {verb}.", flash_type="success"))
+
+# ══════════════════════════════════════════
 #  STARTUP
 # ══════════════════════════════════════════
 with app.app_context():
@@ -648,6 +921,14 @@ with app.app_context():
         print("✅ Database tables ready")
     except Exception as e:
         print(f"⚠️ DB init error: {e}")
+
+with app.app_context():
+    try:
+        init_users_db()
+        refresh_employees()
+        print(f"✅ Users table ready ({len(EMPLOYEES)} active users loaded)")
+    except Exception as e:
+        print(f"⚠️ Users DB init error: {e}")
 
 if __name__ == "__main__":
     print("\n✅  Work Report System V3 (PostgreSQL) is running!")
@@ -699,6 +980,8 @@ with app.app_context():
 def sales_visit():
     if not logged_in() or is_manager():
         return redirect(url_for("index"))
+    if not has_perm("sales_visit"):
+        return redirect(url_for("no_access"))
 
     success = False
     if request.method == "POST":
@@ -768,6 +1051,7 @@ def sales_visit():
         record_count=len(history),
         salesperson_choices=salesperson_choices,
         current_code=code,
+        perms=session.get("perms", {}),
         filters={"vtype": f_vtype, "outcome": f_outcome, "from_d": f_from, "to_d": f_to, "search": f_search},
     )
 
@@ -850,4 +1134,227 @@ def export_sales_visits():
     return Response(
         output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition": "attachment;filename=sales_visits.csv"}
+    )
+
+# ══════════════════════════════════════════
+#  TA (TRAVEL EXPENSES) REPORT — DB INIT
+# ══════════════════════════════════════════
+def init_ta_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ta_reports (
+            id              SERIAL PRIMARY KEY,
+            timestamp       TEXT,
+            emp_code        TEXT,
+            emp_name        TEXT,
+            travel_date     TEXT,
+            from_place      TEXT,
+            to_place        TEXT,
+            travel_by       TEXT,
+            description     TEXT,
+            expense_cost    NUMERIC DEFAULT 0,
+            payment_status  TEXT DEFAULT 'Due',
+            approval_status TEXT DEFAULT 'Not Approved',
+            last_edited     TEXT,
+            last_edited_by  TEXT
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_ta_db()
+        print("✅ TA (travel expenses) table ready")
+    except Exception as e:
+        print(f"⚠️ TA DB init error: {e}")
+
+# ══════════════════════════════════════════
+#  ROUTES — EMPLOYEE: TA (TRAVEL EXPENSES) REPORT
+# ══════════════════════════════════════════
+@app.route("/ta-report", methods=["GET", "POST"])
+def ta_report():
+    if not logged_in() or is_manager():
+        return redirect(url_for("index"))
+    if not has_perm("ta"):
+        return redirect(url_for("no_access"))
+
+    code = get_emp_code()
+    success = False
+
+    if request.method == "POST":
+        travel_date  = request.form.get("travel_date", "").strip()
+        from_place   = request.form.get("from_place", "").strip()
+        to_place     = request.form.get("to_place", "").strip()
+        travel_by    = request.form.get("travel_by", "").strip()
+        description  = request.form.get("description", "").strip()
+        expense_cost = request.form.get("expense_cost", "0").strip()
+        edit_id      = request.form.get("edit_id", "").strip()
+
+        try:
+            expense_cost = float(expense_cost) if expense_cost else 0.0
+        except ValueError:
+            expense_cost = 0.0
+
+        if travel_date and from_place and to_place and travel_by:
+            now  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn = get_db(); cur = conn.cursor()
+            if edit_id:
+                # Employees may only edit their own report's trip details (cols 1-5).
+                # Status columns (6 & 7) are intentionally excluded from this UPDATE.
+                cur.execute("""
+                    UPDATE ta_reports
+                    SET travel_date=%s, from_place=%s, to_place=%s, travel_by=%s,
+                        description=%s, expense_cost=%s, last_edited=%s, last_edited_by=%s
+                    WHERE id=%s AND emp_code=%s
+                """, (travel_date, from_place, to_place, travel_by, description,
+                      expense_cost, now, session["name"], edit_id, code))
+            else:
+                cur.execute("""
+                    INSERT INTO ta_reports
+                        (timestamp, emp_code, emp_name, travel_date, from_place, to_place,
+                         travel_by, description, expense_cost, payment_status, approval_status,
+                         last_edited, last_edited_by)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'Due','Not Approved',%s,%s)
+                """, (now, code, session["name"], travel_date, from_place, to_place,
+                      travel_by, description, expense_cost, now, session["name"]))
+            conn.commit(); cur.close(); conn.close()
+            success = True
+
+    # filters for own TA history
+    f_status   = request.args.get("status", "")
+    f_approval = request.args.get("approval", "")
+    f_from     = request.args.get("from_d", "")
+    f_to       = request.args.get("to_d", "")
+    f_search   = request.args.get("search", "")
+
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM ta_reports WHERE emp_code=%s"
+    params = [code]
+    if f_status:   query += " AND payment_status=%s";   params.append(f_status)
+    if f_approval: query += " AND approval_status=%s";  params.append(f_approval)
+    if f_from:     query += " AND travel_date>=%s";     params.append(f_from)
+    if f_to:       query += " AND travel_date<=%s";     params.append(f_to)
+    if f_search:
+        query += " AND (from_place ILIKE %s OR to_place ILIKE %s OR description ILIKE %s OR travel_by ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY travel_date DESC, id DESC"
+    cur.execute(query, params)
+    reports = cur.fetchall()
+
+    cur.execute("SELECT COALESCE(SUM(expense_cost),0) AS total FROM ta_reports WHERE emp_code=%s", (code,))
+    own_total = float(cur.fetchone()["total"])
+
+    # Total reflecting the currently applied filters (matches what's on screen)
+    filtered_total = sum(float(r["expense_cost"] or 0) for r in reports)
+
+    cur.close(); conn.close()
+
+    return render_template("ta_report.html",
+        name=session["name"], success=success, reports=reports,
+        record_count=len(reports), own_total=own_total, filtered_total=filtered_total,
+        perms=session.get("perms", {}),
+        filters={"status": f_status, "approval": f_approval, "from_d": f_from, "to_d": f_to, "search": f_search})
+
+# ══════════════════════════════════════════
+#  ROUTES — MANAGER: TA (TRAVEL EXPENSES) REPORT
+# ══════════════════════════════════════════
+@app.route("/manager/ta-reports", methods=["GET", "POST"])
+def manager_ta_reports():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    if request.method == "POST":
+        # Manager full edit: trip details (1-5) + status columns (6 & 7)
+        edit_id      = request.form.get("edit_id", "").strip()
+        travel_date  = request.form.get("travel_date", "").strip()
+        from_place   = request.form.get("from_place", "").strip()
+        to_place     = request.form.get("to_place", "").strip()
+        travel_by    = request.form.get("travel_by", "").strip()
+        description  = request.form.get("description", "").strip()
+        expense_cost = request.form.get("expense_cost", "0").strip()
+        payment_status  = request.form.get("payment_status", "Due")
+        approval_status = request.form.get("approval_status", "Not Approved")
+
+        try:
+            expense_cost = float(expense_cost) if expense_cost else 0.0
+        except ValueError:
+            expense_cost = 0.0
+
+        if edit_id:
+            now  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn = get_db(); cur = conn.cursor()
+            cur.execute("""
+                UPDATE ta_reports
+                SET travel_date=%s, from_place=%s, to_place=%s, travel_by=%s, description=%s,
+                    expense_cost=%s, payment_status=%s, approval_status=%s,
+                    last_edited=%s, last_edited_by=%s
+                WHERE id=%s
+            """, (travel_date, from_place, to_place, travel_by, description, expense_cost,
+                  payment_status, approval_status, now, session["name"], edit_id))
+            conn.commit(); cur.close(); conn.close()
+        # Preserve whatever filters were active on the page the edit was submitted from
+        return redirect(url_for("manager_ta_reports", **{k: v for k, v in request.args.items()}))
+
+    emp    = request.args.get("emp", "")
+    status = request.args.get("status", "")
+    approval = request.args.get("approval", "")
+    from_d = request.args.get("from_d", "")
+    to_d   = request.args.get("to_d", "")
+    search = request.args.get("search", "")
+
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM ta_reports WHERE 1=1"
+    params = []
+    if emp:      query += " AND emp_name=%s";          params.append(emp)
+    if status:   query += " AND payment_status=%s";    params.append(status)
+    if approval: query += " AND approval_status=%s";   params.append(approval)
+    if from_d:   query += " AND travel_date>=%s";      params.append(from_d)
+    if to_d:     query += " AND travel_date<=%s";      params.append(to_d)
+    if search:
+        query += " AND (from_place ILIKE %s OR to_place ILIKE %s OR description ILIKE %s OR travel_by ILIKE %s)"
+        s = f"%{search}%"; params += [s, s, s, s]
+    query += " ORDER BY travel_date DESC, id DESC"
+    cur.execute(query, params)
+    reports = cur.fetchall()
+
+    cur.execute("SELECT COALESCE(SUM(expense_cost),0) AS total FROM ta_reports")
+    grand_total = float(cur.fetchone()["total"])
+    cur.execute("SELECT COALESCE(SUM(expense_cost),0) AS total FROM ta_reports WHERE payment_status='Due'")
+    due_total = float(cur.fetchone()["total"])
+    cur.execute("SELECT COALESCE(SUM(expense_cost),0) AS total FROM ta_reports WHERE approval_status='Not Approved'")
+    pending_approval_total = float(cur.fetchone()["total"])
+    cur.execute("SELECT DISTINCT emp_name FROM ta_reports ORDER BY emp_name")
+    emp_list = [r["emp_name"] for r in cur.fetchall()]
+    cur.close(); conn.close()
+
+    filtered_total = sum(float(r["expense_cost"] or 0) for r in reports)
+
+    return render_template("manager_ta.html",
+        reports=reports, emp_list=emp_list, record_count=len(reports),
+        grand_total=grand_total, due_total=due_total, pending_approval_total=pending_approval_total,
+        filtered_total=filtered_total,
+        filters={"emp": emp, "status": status, "approval": approval, "from_d": from_d, "to_d": to_d, "search": search})
+
+@app.route("/export/ta-reports")
+def export_ta_reports():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM ta_reports ORDER BY travel_date DESC, id DESC")
+    rows = cur.fetchall(); cur.close(); conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID","Submitted","Employee","Travel Date","From","To","Travel By",
+        "Description","Expense Cost","Payment Status","Approval Status","Last Edited"
+    ])
+    for r in rows:
+        writer.writerow([
+            r["id"], r["timestamp"], r["emp_name"], r["travel_date"], r["from_place"], r["to_place"],
+            r["travel_by"], r["description"], r["expense_cost"], r["payment_status"],
+            r["approval_status"], r["last_edited"]
+        ])
+    output.seek(0)
+    return Response(
+        output.getvalue(), mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=ta_reports.csv"}
     )

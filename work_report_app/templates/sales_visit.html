@@ -89,7 +89,7 @@
   @media(min-width:860px){
     body{padding-bottom:0}
     .bottom-nav{display:none}
-    .page-tabs{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19}
+    .page-tabs{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
     .wrap{max-width:800px;margin:2rem auto}
   }
 </style>
@@ -106,9 +106,10 @@
 
 <!-- PAGE TABS -->
 <div class="page-tabs">
-  <a href="/form" class="pt">📋 Work Report</a>
-  <a href="/my-jobs" class="pt">📌 My Jobs</a>
-  <a href="/sales-visit" class="pt active">🤝 Sales Report</a>
+  {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt active">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
 </div>
 
 <div class="wrap">
@@ -301,9 +302,10 @@
 
 <!-- MOBILE BOTTOM NAV -->
 <nav class="bottom-nav">
-  <a href="/form"        class="bn-item"><span class="bn-ic">📋</span>Report</a>
-  <a href="/my-jobs"     class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>
-  <a href="/sales-visit" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>
+  {% if perms.get('work_report', True) %}<a href="/form"        class="bn-item"><span class="bn-ic">📋</span>Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs"     class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
 </nav>
 
 </body>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Travel Expense Reports — Manager</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none;overflow-x:auto}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em;min-width:58px}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .main{max-width:1400px;margin:0 auto;padding:1.4rem 1rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px;margin-bottom:1.3rem}
+  .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .stat-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}.red{color:#C7333A}
+
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+
+  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:10px 12px;border-bottom:1px solid #F6F4EF;vertical-align:middle;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  tfoot td{font-weight:800;color:#10193A;border-top:2px solid #E7E4DA;background:#F6F4EF}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px;flex-shrink:0}
+  .emp-cell{display:flex;align-items:center}
+  .sum-cell{max-width:200px;white-space:normal;overflow:hidden;text-overflow:ellipsis}
+  .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500}
+
+  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;border:none;font-family:inherit}
+  .badge-paid{background:#D9F5E8;color:#0E6B43}
+  .badge-due{background:#FBE2E2;color:#9A2A2D}
+  .badge-approved{background:#D9F5E8;color:#0E6B43}
+  .badge-notapproved{background:#F0EEE6;color:#696B78}
+
+  .edit-btn{padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78}
+  .edit-btn:hover{border-color:#10193A;color:#10193A}
+
+  /* MODAL */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,0.55);z-index:200;align-items:center;justify-content:center;padding:1.25rem}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:480px;box-shadow:0 24px 60px rgba(8,12,32,0.35);max-height:90vh;overflow-y:auto}
+  .modal h3{font-size:16px;font-weight:800;color:#10193A;margin-bottom:4px}
+  .modal .sub{font-size:12.5px;color:#696B78;margin-bottom:16px;font-weight:600}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;font-size:13.5px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:#FF7A1A;background:#fff}
+  .field textarea{resize:vertical;min-height:60px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .status-row{background:#FFF7E8;border:1px dashed #FF7A1A;border-radius:10px;padding:12px;margin:14px 0}
+  .status-row .lbl{font-size:11px;color:#9A4B0A;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  .btn-primary{padding:10px 18px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-secondary{padding:10px 16px;border:1.5px solid #E7E4DA;border-radius:9px;background:#fff;color:#696B78;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+
+  @media(min-width:860px){
+    .nav-tabs{display:flex}
+    .bottom-nav{display:none}
+    body{padding-bottom:0}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">🧾 Travel Expense Reports</div>
+  <div class="topbar-right">
+    <a href="/export/ta-reports" class="btn-sm">⬇ Export CSV</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="nav-tabs">
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
+  <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
+  <a href="/manager/ta-reports"   class="nav-tab active">🧾 Travel Expenses</a>
+  <a href="/manager/users"        class="nav-tab">👤 Users</a>
+</div>
+<div class="main">
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total entries</div><div class="stat-val blue">{{ record_count }}</div></div>
+    <div class="stat"><div class="stat-label">Grand total</div><div class="stat-val purple">₹{{ "%.2f"|format(grand_total) }}</div></div>
+    <div class="stat"><div class="stat-label">Due amount</div><div class="stat-val red">₹{{ "%.2f"|format(due_total) }}</div></div>
+    <div class="stat"><div class="stat-label">Pending approval (₹)</div><div class="stat-val amber">₹{{ "%.2f"|format(pending_approval_total) }}</div></div>
+  </div>
+
+  <form method="GET" action="/manager/ta-reports">
+    <div class="filters">
+      <div class="fg"><label>Employee</label>
+        <select name="emp">
+          <option value="">All employees</option>
+          {% for e in emp_list %}<option {% if filters.emp==e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>Payment</label>
+        <select name="status">
+          <option value="">All</option>
+          <option value="Paid" {% if filters.status=='Paid' %}selected{% endif %}>Paid</option>
+          <option value="Due"  {% if filters.status=='Due'  %}selected{% endif %}>Due</option>
+        </select>
+      </div>
+      <div class="fg"><label>Approval</label>
+        <select name="approval">
+          <option value="">All</option>
+          <option value="Approved" {% if filters.approval=='Approved' %}selected{% endif %}>Approved</option>
+          <option value="Not Approved" {% if filters.approval=='Not Approved' %}selected{% endif %}>Not Approved</option>
+        </select>
+      </div>
+      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="From, to, travel by..." value="{{ filters.search }}"></div>
+      <button class="btn-filter" type="submit">Apply</button>
+      <a class="btn-clear" href="/manager/ta-reports">✕ Clear</a>
+    </div>
+  </form>
+
+  <div class="table-card">
+    <div class="table-hdr">
+      <div class="table-hdr-title">All travel expense reports</div>
+      <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }} · ₹{{ "%.2f"|format(filtered_total) }} total</div>
+    </div>
+    <div class="tbl-scroll">
+      {% if reports %}
+      <table>
+        <thead><tr>
+          <th>#</th><th>Employee</th><th>Date</th><th>From</th><th>To</th><th>Travel By</th>
+          <th>Description</th><th>Cost (₹)</th><th>Payment</th><th>Approval</th><th>Edit</th>
+        </tr></thead>
+        <tbody>
+        {% for r in reports %}
+        <tr>
+          <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
+          <td><div class="emp-cell"><span class="avatar">{{ r['emp_name'][:2].upper() }}</span>{{ r['emp_name'] }}</div></td>
+          <td>{{ r['travel_date'] }}</td>
+          <td>{{ r['from_place'] }}</td>
+          <td>{{ r['to_place'] }}</td>
+          <td>{{ r['travel_by'] }}</td>
+          <td><div class="sum-cell" title="{{ r['description'] }}">{{ r['description'] or '—' }}</div></td>
+          <td style="font-weight:700">₹{{ "%.2f"|format(r['expense_cost'] or 0) }}</td>
+          <td><span class="badge {{ 'badge-paid' if r['payment_status']=='Paid' else 'badge-due' }}">{{ r['payment_status'] }}</span></td>
+          <td><span class="badge {{ 'badge-approved' if r['approval_status']=='Approved' else 'badge-notapproved' }}">{{ r['approval_status'] }}</span></td>
+          <td>
+            <button type="button" class="edit-btn" onclick='openEdit({{ {
+                "id": r["id"], "emp_name": r["emp_name"], "travel_date": r["travel_date"],
+                "from_place": r["from_place"], "to_place": r["to_place"], "travel_by": r["travel_by"],
+                "description": r["description"] or "", "expense_cost": r["expense_cost"]|float,
+                "payment_status": r["payment_status"], "approval_status": r["approval_status"]
+              }|tojson }})'>✏️ Edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7" style="text-align:right">Total (filtered)</td>
+            <td>₹{{ "%.2f"|format(filtered_total) }}</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+      {% else %}
+      <div class="empty">🔍 No travel expense records found. Try clearing the filters.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h3>Edit Travel Expense</h3>
+    <div class="sub" id="modalEmpName">—</div>
+    <form method="POST" action="/manager/ta-reports{{ request.query_string.decode() and '?' + request.query_string.decode() or '' }}" id="editForm">
+      <input type="hidden" name="edit_id" id="m_id">
+
+      <div class="row2">
+        <div class="field"><label>Date</label><input type="date" name="travel_date" id="m_date" required></div>
+        <div class="field"><label>Travel By</label><input type="text" name="travel_by" id="m_by" required></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>From</label><input type="text" name="from_place" id="m_from" required></div>
+        <div class="field"><label>To</label><input type="text" name="to_place" id="m_to" required></div>
+      </div>
+      <div class="field"><label>Description</label><textarea name="description" id="m_desc"></textarea></div>
+      <div class="field"><label>Expense Cost (₹)</label><input type="number" step="0.01" min="0" name="expense_cost" id="m_cost" required></div>
+
+      <div class="status-row">
+        <div class="lbl">⚙️ Admin Controls</div>
+        <div class="row2">
+          <div class="field" style="margin-bottom:0">
+            <label>Payment Status</label>
+            <select name="payment_status" id="m_payment">
+              <option value="Due">Due</option>
+              <option value="Paid">Paid</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Approval Status</label>
+            <select name="approval_status" id="m_approval">
+              <option value="Not Approved">Not Approved</option>
+              <option value="Approved">Approved</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="closeEdit()">Cancel</button>
+        <button type="submit" class="btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/assign-job"           class="bn-item"><span class="bn-ic">📌</span>Assign</a>
+  <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
+  <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
+  <a href="/manager/ta-reports"   class="bn-item active"><span class="bn-ic">🧾</span>TA</a>
+  <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
+</nav>
+
+<script>
+function openEdit(r){
+  document.getElementById('m_id').value = r.id;
+  document.getElementById('modalEmpName').textContent = r.emp_name;
+  document.getElementById('m_date').value = r.travel_date;
+  document.getElementById('m_from').value = r.from_place;
+  document.getElementById('m_to').value = r.to_place;
+  document.getElementById('m_by').value = r.travel_by;
+  document.getElementById('m_desc').value = r.description;
+  document.getElementById('m_cost').value = r.expense_cost;
+  document.getElementById('m_payment').value = r.payment_status;
+  document.getElementById('m_approval').value = r.approval_status;
+  document.getElementById('editOverlay').classList.add('open');
+}
+function closeEdit(){
+  document.getElementById('editOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>

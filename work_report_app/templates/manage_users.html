@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Management — Work Report System</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none;overflow-x:auto}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em;min-width:60px}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:11px;margin-bottom:1.3rem}
+  .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .stat-val{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}.red{color:#C7333A}
+
+  .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+  .flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+
+  .pw-reveal{background:#FFF7E8;border:1.5px dashed #FF7A1A;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.1rem}
+  .pw-reveal .pw-label{font-size:11px;color:#9A4B0A;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .pw-reveal .pw-value{font-size:18px;font-weight:800;font-family:'SF Mono',Consolas,monospace;color:#10193A;background:#fff;border:1px solid #E7E4DA;border-radius:8px;padding:8px 12px;display:inline-block;letter-spacing:.03em;user-select:all}
+  .pw-reveal .pw-note{font-size:11.5px;color:#9A4B0A;margin-top:7px;font-weight:600}
+
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+
+  .card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;box-shadow:0 1px 3px rgba(16,25,58,0.04);margin-bottom:1.1rem}
+  .card-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+  .card-hdr-title{font-size:13px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:7px}
+  .chev{font-size:12px;color:#A8A4C4;transition:transform .15s}
+  .chev.open{transform:rotate(180deg)}
+  .card-body{padding:1.1rem 1.2rem;display:none}
+  .card-body.open{display:block}
+
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+  .field label{display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
+  .field input,.field select{width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none}
+  .field input:focus,.field select:focus{border-color:#FF7A1A;background:#fff}
+  .field small{display:block;font-size:10.5px;color:#A8A4C4;margin-top:4px;font-weight:600}
+
+  .perm-row{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px;padding:12px 14px;background:#F6F4EF;border-radius:10px}
+  .perm-chk{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:#10193A;cursor:pointer}
+  .perm-chk input{width:16px;height:16px;accent-color:#FF7A1A;cursor:pointer}
+
+  .btn-primary{padding:10px 20px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-primary:hover{background:#0B1228}
+
+  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:10px 12px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  tr.inactive-row td{opacity:.5}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px;flex-shrink:0}
+  .emp-cell{display:flex;align-items:center;white-space:nowrap}
+  .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
+  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+  .badge-active{background:#D9F5E8;color:#0E6B43}
+  .badge-inactive{background:#FBE2E2;color:#9A2A2D}
+  .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500}
+
+  .perm-toggles{display:flex;gap:6px;flex-wrap:wrap}
+  .ptoggle{display:flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#696B78;background:#F0EEE6;border-radius:6px;padding:3px 7px 3px 5px;cursor:pointer;white-space:nowrap}
+  .ptoggle input{width:13px;height:13px;accent-color:#FF7A1A;cursor:pointer}
+  .ptoggle.on{background:#FFE4CC;color:#9A4B0A}
+
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .a-btn{padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78;white-space:nowrap}
+  .a-btn:hover{border-color:#10193A;color:#10193A}
+  .a-btn.danger{border-color:#F5C2C2;color:#9A2A2D}
+  .a-btn.danger:hover{background:#FBE2E2}
+  .a-btn.safe{border-color:#B3EBD0;color:#0E6B43}
+  .a-btn.safe:hover{background:#D9F5E8}
+
+  .row-form{display:flex;align-items:center}
+
+  @media(min-width:860px){
+    .nav-tabs{display:flex}
+    .bottom-nav{display:none}
+    body{padding-bottom:0}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">👑 Super Admin — User Management</div>
+  <div class="topbar-right">
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="nav-tabs">
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
+  <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
+  <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
+  <a href="/manager/users"        class="nav-tab active">👤 Users</a>
+</div>
+<div class="main">
+
+  {% if flash %}
+  <div class="flash flash-{{ flash_type }}">{{ '✅' if flash_type == 'success' else '⚠️' }} {{ flash }}</div>
+  {% endif %}
+
+  {% if temp_password %}
+  <div class="pw-reveal">
+    <div class="pw-label">🔑 New password for {{ temp_password_for }}</div>
+    <div class="pw-value">{{ temp_password }}</div>
+    <div class="pw-note">⚠️ This is shown only once. Copy it and share it with the employee securely now — it cannot be retrieved again later.</div>
+  </div>
+  {% endif %}
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total users</div><div class="stat-val blue">{{ total_count }}</div></div>
+    <div class="stat"><div class="stat-label">Active</div><div class="stat-val green">{{ active_count }}</div></div>
+    <div class="stat"><div class="stat-label">Inactive</div><div class="stat-val red">{{ inactive_count }}</div></div>
+  </div>
+
+  <!-- CREATE USER (collapsible) -->
+  <div class="card">
+    <div class="card-hdr" onclick="toggleCard()">
+      <div class="card-hdr-title">➕ Create New User</div>
+      <span class="chev" id="createChev">▾</span>
+    </div>
+    <div class="card-body" id="createBody">
+      <form method="POST" action="/manager/users/create">
+        <div class="form-grid">
+          <div class="field">
+            <label>Employee Code</label>
+            <input type="text" name="emp_code" placeholder="e.g. 1014" required>
+            <small>Unique ID, used internally</small>
+          </div>
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" name="name" placeholder="e.g. Priya Sharma" required>
+          </div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" name="username" placeholder="e.g. priya" required>
+            <small>Lowercase, used to login</small>
+          </div>
+          <div class="field">
+            <label>Company</label>
+            <input type="text" name="company" placeholder="e.g. imaxsol">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="text" name="password" placeholder="Min 6 characters" required minlength="6">
+          </div>
+        </div>
+        <div class="perm-row">
+          <label class="perm-chk"><input type="checkbox" name="can_work_report" checked> 📋 Work Report</label>
+          <label class="perm-chk"><input type="checkbox" name="can_sales_visit" checked> 🤝 Sales Visit</label>
+          <label class="perm-chk"><input type="checkbox" name="can_my_jobs" checked> 📌 My Jobs</label>
+          <label class="perm-chk"><input type="checkbox" name="can_ta" checked> 🧾 Travel Expenses</label>
+        </div>
+        <button type="submit" class="btn-primary">Create User</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <form method="GET" action="/manager/users">
+    <div class="filters">
+      <div class="fg"><label>Status</label>
+        <select name="status">
+          <option value="">All</option>
+          <option value="active"   {% if filters.status=='active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if filters.status=='inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
+      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Name, username, code..." value="{{ filters.search }}"></div>
+      <button class="btn-filter" type="submit">Apply</button>
+      <a class="btn-clear" href="/manager/users">✕ Clear</a>
+    </div>
+  </form>
+
+  <!-- USERS TABLE -->
+  <div class="table-card">
+    <div class="table-hdr">
+      <div class="table-hdr-title">All users</div>
+      <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</div>
+    </div>
+    <div class="tbl-scroll">
+      {% if users %}
+      <table>
+        <thead><tr><th>Employee</th><th>Code</th><th>Username</th><th>Company</th><th>Status</th><th>Feature Access</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for u in users %}
+        <tr class="{{ '' if u['is_active'] else 'inactive-row' }}">
+          <td><div class="emp-cell"><span class="avatar">{{ u['name'][:2].upper() }}</span>{{ u['name'] }}</div></td>
+          <td style="color:#A8A4C4">{{ u['emp_code'] }}</td>
+          <td>{{ u['username'] }}</td>
+          <td><span class="co-pill">{{ u['company'] or '—' }}</span></td>
+          <td><span class="badge {{ 'badge-active' if u['is_active'] else 'badge-inactive' }}">{{ 'Active' if u['is_active'] else 'Inactive' }}</span></td>
+          <td>
+            <form method="POST" action="/manager/users/{{ u['emp_code'] }}/update-permissions" class="row-form">
+              <input type="hidden" name="name" value="">
+              <input type="hidden" name="company" value="">
+              <div class="perm-toggles">
+                <label class="ptoggle {{ 'on' if u['can_work_report'] }}">
+                  <input type="checkbox" name="can_work_report" onchange="this.form.requestSubmit()" {% if u['can_work_report'] %}checked{% endif %}> 📋 Work
+                </label>
+                <label class="ptoggle {{ 'on' if u['can_sales_visit'] }}">
+                  <input type="checkbox" name="can_sales_visit" onchange="this.form.requestSubmit()" {% if u['can_sales_visit'] %}checked{% endif %}> 🤝 Sales
+                </label>
+                <label class="ptoggle {{ 'on' if u['can_my_jobs'] }}">
+                  <input type="checkbox" name="can_my_jobs" onchange="this.form.requestSubmit()" {% if u['can_my_jobs'] %}checked{% endif %}> 📌 Jobs
+                </label>
+                <label class="ptoggle {{ 'on' if u['can_ta'] }}">
+                  <input type="checkbox" name="can_ta" onchange="this.form.requestSubmit()" {% if u['can_ta'] %}checked{% endif %}> 🧾 TA
+                </label>
+              </div>
+            </form>
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="a-btn" onclick="openReset('{{ u['emp_code'] }}','{{ u['name']|e }}')" type="button">🔑 Reset Password</button>
+              <form method="POST" action="/manager/users/{{ u['emp_code'] }}/toggle-active" style="display:inline">
+                {% if u['is_active'] %}
+                <button class="a-btn danger" type="submit" onclick="return confirm('Deactivate {{ u['name']|e }}? They will be unable to log in, but their report history is kept.')">🚫 Deactivate</button>
+                {% else %}
+                <button class="a-btn safe" type="submit">✅ Reactivate</button>
+                {% endif %}
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">🔍 No users found. Try clearing the filters.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL (simple inline, no library) -->
+<div id="resetOverlay" style="display:none;position:fixed;inset:0;background:rgba(16,25,58,0.55);z-index:200;align-items:center;justify-content:center;padding:1.25rem">
+  <div style="background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(8,12,32,0.35)">
+    <div style="font-size:15px;font-weight:800;color:#10193A;margin-bottom:4px">Reset Password</div>
+    <div style="font-size:12.5px;color:#696B78;margin-bottom:16px" id="resetUserName">—</div>
+    <form method="POST" id="resetForm">
+      <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em">New password (optional)</label>
+      <input type="text" name="new_password" placeholder="Leave blank to auto-generate" minlength="6"
+             style="width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;margin-bottom:14px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="a-btn" onclick="closeReset()">Cancel</button>
+        <button type="submit" class="btn-primary" style="padding:9px 16px">Reset Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/assign-job"           class="bn-item"><span class="bn-ic">📌</span>Assign</a>
+  <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
+  <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
+  <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
+  <a href="/manager/users"        class="bn-item active"><span class="bn-ic">👤</span>Users</a>
+</nav>
+
+<script>
+  function toggleCard(){
+    document.getElementById('createBody').classList.toggle('open');
+    document.getElementById('createChev').classList.toggle('open');
+  }
+  function openReset(empCode, name){
+    document.getElementById('resetForm').action = '/manager/users/' + empCode + '/reset-password';
+    document.getElementById('resetUserName').textContent = name;
+    document.getElementById('resetOverlay').style.display = 'flex';
+  }
+  function closeReset(){
+    document.getElementById('resetOverlay').style.display = 'none';
+  }
+  {% if temp_password %}
+  // Auto-open the create card if it was a creation flash, harmless otherwise.
+  {% endif %}
+</script>
+</body>
+</html>
