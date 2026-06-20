@@ -1,3 +1,17 @@
+NEW IN THIS UPDATE (v3.4)
+- Installable mobile app (PWA):
+    The app can now be installed to the home screen on phones and
+    desktops, just like a native app — no app store needed.
+    - Android/Chrome: open the site → menu (⋮) → "Install app" /
+      "Add to Home Screen"
+    - iPhone/Safari: open the site → Share button → "Add to Home
+      Screen"
+    Once installed, it opens full-screen (no browser address bar),
+    has its own icon, and shows a friendly "You're offline" page if
+    there's no internet connection instead of a browser error.
+    No backend changes — this is pure frontend (manifest, service
+    worker, icons) so nothing about your data or routes changed.
+
 NEW IN THIS UPDATE (v3.3)
 - Mini CRM — Clients layer:
     Every sales visit's client is now linked to a "company" record.
@@ -146,4 +160,9 @@ EMPLOYEES
     attendance.html      Manager — attendance dashboard
     manager_clients.html       Manager — mini CRM client list
     manager_client_detail.html  Manager — client profile + visit timeline
+  static/
+    manifest.json        PWA manifest (app name, icons, colors)
+    sw.js                 Service worker (offline fallback, asset caching)
+    offline.html           Shown when app is opened with no internet
+    icons/                 App icons in all required sizes (72px–512px)
 ═══════════════════════════════════════════════

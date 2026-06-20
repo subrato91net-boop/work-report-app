@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>Manager — Clients</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -152,5 +159,12 @@
   <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
   <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  });
+}
+</script>
 </body>
 </html>

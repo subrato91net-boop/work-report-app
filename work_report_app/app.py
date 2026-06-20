@@ -681,6 +681,26 @@ def edit_job(job_id):
     conn.commit(); cur.close(); conn.close()
     return redirect(url_for("assign_job") + "?edited=1")
 
+@app.route("/jobs/bulk-status", methods=["POST"])
+def bulk_job_status():
+    if not logged_in() or not is_manager():
+        return jsonify({"ok": False, "error": "Unauthorised"}), 403
+
+    ids = request.form.getlist("selected_ids")
+    ids = [int(i) for i in ids if i.isdigit()]
+    new_status = request.form.get("bulk_status", "")
+
+    valid_statuses = {"Open", "In Progress", "Done", "On Hold"}
+    if ids and new_status in valid_statuses:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("""
+            UPDATE jobs SET status=%s, last_edited=%s
+            WHERE id = ANY(%s)
+        """, (new_status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ids))
+        conn.commit(); cur.close(); conn.close()
+
+    return redirect(url_for("assign_job", **{k: v for k, v in request.args.items()}))
+
 # ══════════════════════════════════════════
 #  ROUTES — ATTENDANCE TAB
 # ══════════════════════════════════════════
@@ -1435,6 +1455,42 @@ def manager_ta_reports():
         grand_total=grand_total, due_total=due_total, pending_approval_total=pending_approval_total,
         filtered_total=filtered_total,
         filters={"emp": emp, "status": status, "approval": approval, "from_d": from_d, "to_d": to_d, "search": search})
+
+@app.route("/manager/ta-reports/bulk-update", methods=["POST"])
+def manager_ta_bulk_update():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    ids = request.form.getlist("selected_ids")
+    ids = [int(i) for i in ids if i.isdigit()]
+    action = request.form.get("bulk_action", "")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if ids and action:
+        conn = get_db(); cur = conn.cursor()
+        if action == "approve":
+            cur.execute("""
+                UPDATE ta_reports SET approval_status='Approved', last_edited=%s, last_edited_by=%s
+                WHERE id = ANY(%s)
+            """, (now, session["name"], ids))
+        elif action == "unapprove":
+            cur.execute("""
+                UPDATE ta_reports SET approval_status='Not Approved', last_edited=%s, last_edited_by=%s
+                WHERE id = ANY(%s)
+            """, (now, session["name"], ids))
+        elif action == "mark_paid":
+            cur.execute("""
+                UPDATE ta_reports SET payment_status='Paid', last_edited=%s, last_edited_by=%s
+                WHERE id = ANY(%s)
+            """, (now, session["name"], ids))
+        elif action == "mark_due":
+            cur.execute("""
+                UPDATE ta_reports SET payment_status='Due', last_edited=%s, last_edited_by=%s
+                WHERE id = ANY(%s)
+            """, (now, session["name"], ids))
+        conn.commit(); cur.close(); conn.close()
+
+    return redirect(url_for("manager_ta_reports", **{k: v for k, v in request.args.items()}))
 
 @app.route("/export/ta-reports")
 def export_ta_reports():

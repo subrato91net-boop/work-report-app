@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>Travel Expense Reports — Manager</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -89,6 +96,14 @@
     .bottom-nav{display:none}
     body{padding-bottom:0}
   }
+  .bulk-bar{display:none;align-items:center;gap:12px;background:#10193A;color:#fff;border-radius:13px;padding:11px 16px;margin-bottom:1.1rem;flex-wrap:wrap;font-size:12.5px;font-weight:700}
+  .bulk-bar.show{display:flex}
+  .bulk-btn{padding:7px 13px;border:none;border-radius:7px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:800}
+  .bulk-approve{background:#1AAE6F;color:#fff}
+  .bulk-unapprove{background:rgba(255,255,255,0.12);color:#fff}
+  .bulk-paid{background:#FF7A1A;color:#fff}
+  .bulk-due{background:rgba(255,255,255,0.12);color:#fff}
+  .bulk-clear{background:transparent;color:#A8A4C4;border:1px solid rgba(255,255,255,0.18)}
 </style>
 </head>
 <body>
@@ -146,6 +161,18 @@
     </div>
   </form>
 
+  <div class="bulk-bar" id="bulkBar">
+    <span id="bulkCount">0 selected</span>
+    <form method="POST" action="/manager/ta-reports/bulk-update{{ request.query_string.decode() and '?' + request.query_string.decode() or '' }}" id="bulkForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="hidden" name="bulk_action" id="bulkAction">
+      <span id="bulkIdsHolder"></span>
+      <button type="button" class="bulk-btn bulk-approve" onclick="submitBulk('approve')">✅ Approve</button>
+      <button type="button" class="bulk-btn bulk-unapprove" onclick="submitBulk('unapprove')">↩ Unapprove</button>
+      <button type="button" class="bulk-btn bulk-paid" onclick="submitBulk('mark_paid')">💰 Mark Paid</button>
+      <button type="button" class="bulk-btn bulk-due" onclick="submitBulk('mark_due')">🕓 Mark Due</button>
+      <button type="button" class="bulk-btn bulk-clear" onclick="clearSelection()">✕ Clear</button>
+    </form>
+  </div>
   <div class="table-card">
     <div class="table-hdr">
       <div class="table-hdr-title">All travel expense reports</div>
@@ -155,12 +182,14 @@
       {% if reports %}
       <table>
         <thead><tr>
+          <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
           <th>#</th><th>Employee</th><th>Date</th><th>From</th><th>To</th><th>Travel By</th>
           <th>Description</th><th>Cost (₹)</th><th>Payment</th><th>Approval</th><th>Edit</th>
         </tr></thead>
         <tbody>
         {% for r in reports %}
         <tr>
+          <td><input type="checkbox" class="row-check" value="{{ r['id'] }}" onclick="updateBulkBar()"></td>
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
           <td><div class="emp-cell"><span class="avatar">{{ r['emp_name'][:2].upper() }}</span>{{ r['emp_name'] }}</div></td>
           <td>{{ r['travel_date'] }}</td>
@@ -184,7 +213,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="7" style="text-align:right">Total (filtered)</td>
+            <td colspan="8" style="text-align:right">Total (filtered)</td>
             <td>₹{{ "%.2f"|format(filtered_total) }}</td>
             <td colspan="3"></td>
           </tr>
@@ -255,6 +284,40 @@
 </nav>
 
 <script>
+function getChecked(){
+  return Array.from(document.querySelectorAll('.row-check:checked')).map(c => c.value);
+}
+function updateBulkBar(){
+  const ids = getChecked();
+  const bar = document.getElementById('bulkBar');
+  document.getElementById('bulkCount').textContent = ids.length + ' selected';
+  bar.classList.toggle('show', ids.length > 0);
+  const selectAll = document.getElementById('selectAll');
+  const allChecks = document.querySelectorAll('.row-check');
+  selectAll.checked = allChecks.length > 0 && ids.length === allChecks.length;
+}
+function toggleAll(box){
+  document.querySelectorAll('.row-check').forEach(c => c.checked = box.checked);
+  updateBulkBar();
+}
+function clearSelection(){
+  document.querySelectorAll('.row-check').forEach(c => c.checked = false);
+  document.getElementById('selectAll').checked = false;
+  updateBulkBar();
+}
+function submitBulk(action){
+  const ids = getChecked();
+  if(ids.length === 0) return;
+  const holder = document.getElementById('bulkIdsHolder');
+  holder.innerHTML = '';
+  ids.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = id;
+    holder.appendChild(inp);
+  });
+  document.getElementById('bulkAction').value = action;
+  document.getElementById('bulkForm').submit();
+}
 function openEdit(r){
   document.getElementById('m_id').value = r.id;
   document.getElementById('modalEmpName').textContent = r.emp_name;
@@ -270,6 +333,13 @@ function openEdit(r){
 }
 function closeEdit(){
   document.getElementById('editOverlay').classList.remove('open');
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  });
 }
 </script>
 </body>
