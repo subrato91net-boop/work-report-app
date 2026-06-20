@@ -128,6 +128,7 @@
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab">🔧 Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
   </div>
 </div>
 
@@ -312,6 +313,7 @@
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="bn-item"><span class="bn-ic">📦</span>Products</a>{% endif %}
 </nav>
 
 <script>
