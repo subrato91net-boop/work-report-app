@@ -85,7 +85,8 @@
   {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
   {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab active">📌 My Jobs</a>{% endif %}
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
 </div>
 
 <div class="wrap">
@@ -129,6 +130,7 @@
   {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="bn-item active"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
 </nav>
 <script>
 if ('serviceWorker' in navigator) {

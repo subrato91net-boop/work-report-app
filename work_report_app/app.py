@@ -518,6 +518,7 @@ def login():
                         "sales_visit": emp["can_sales_visit"],
                         "my_jobs":     emp["can_my_jobs"],
                         "ta":          emp["can_ta"],
+                        "support":     emp.get("can_support", True),
                     },
                 })
                 return redirect(url_for("index"))
@@ -950,6 +951,7 @@ def create_user():
     can_sales_visit = "can_sales_visit" in request.form
     can_my_jobs     = "can_my_jobs" in request.form
     can_ta          = "can_ta" in request.form
+    can_support     = "can_support" in request.form
 
     if not emp_code or not name or not username or not password:
         return redirect(url_for("manage_users", flash="All fields are required to create a user.", flash_type="error"))
@@ -966,11 +968,11 @@ def create_user():
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
             INSERT INTO users (emp_code, name, username, password_hash, company,
-                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support,
                                 created_at, created_by)
-            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s, %s,%s)
+            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s, %s,%s)
         """, (emp_code, name, username, hash_password(password), company,
-              can_work_report, can_sales_visit, can_my_jobs, can_ta, now, session.get("name", "manager")))
+              can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, now, session.get("name", "manager")))
         conn.commit()
         refresh_employees()
         return redirect(url_for("manage_users", flash=f"User '{name}' created successfully.", flash_type="success"))
@@ -1012,16 +1014,17 @@ def update_user_permissions(emp_code):
     can_sales_visit = "can_sales_visit" in request.form
     can_my_jobs     = "can_my_jobs" in request.form
     can_ta          = "can_ta" in request.form
+    can_support     = "can_support" in request.form
     name            = request.form.get("name", "").strip()
     company         = request.form.get("company", "").strip()
 
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
-        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s,
+        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s, can_support=%s,
                           name=COALESCE(NULLIF(%s,''), name),
                           company=COALESCE(NULLIF(%s,''), company)
         WHERE emp_code=%s
-    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, name, company, emp_code))
+    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, name, company, emp_code))
     conn.commit(); cur.close(); conn.close()
     refresh_employees()
 
@@ -1748,3 +1751,297 @@ def manager_client_update(company_id):
     ))
     conn.commit(); cur.close(); conn.close()
     return redirect(url_for("manager_client_detail", company_id=company_id))
+
+
+# ══════════════════════════════════════════
+#  SUPPORT REPORT — DB INIT
+# ══════════════════════════════════════════
+def init_support_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS support_reports (
+            id                  SERIAL PRIMARY KEY,
+            timestamp           TEXT,
+            emp_code            TEXT,
+            emp_name            TEXT,
+            support_date        TEXT,
+            company             TEXT,
+            contact_person      TEXT,
+            address             TEXT,
+            contact_number      TEXT,
+            client_email        TEXT,
+            dealer_type         TEXT,
+            dealer_contact_number TEXT,
+            dealer_contact_person TEXT,
+            issue_description   TEXT,
+            solution_description TEXT,
+            remarks             TEXT,
+            status              TEXT DEFAULT 'Pending'
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS support_devices (
+            id              SERIAL PRIMARY KEY,
+            report_id       INTEGER NOT NULL REFERENCES support_reports(id) ON DELETE CASCADE,
+            device_model    TEXT,
+            device_serial   TEXT
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_support_db()
+        print("✅ Support report tables ready")
+    except Exception as e:
+        print(f"⚠️ Support DB init error: {e}")
+
+
+# ══════════════════════════════════════════
+#  SUPPORT — add can_support column to users
+# ══════════════════════════════════════════
+def migrate_support_permission():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_support BOOLEAN DEFAULT TRUE")
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        migrate_support_permission()
+        print("✅ Support permission column ready")
+    except Exception as e:
+        print(f"⚠️ Support permission migration error: {e}")
+
+
+# patch refresh_employees to include can_support
+_orig_refresh = refresh_employees
+def refresh_employees():
+    global EMPLOYEES, USERNAME_MAP
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT emp_code, name, username, password_hash, company,
+               is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+               COALESCE(can_support, TRUE) AS can_support
+        FROM users WHERE is_active = TRUE
+    """)
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    new_employees = {}
+    new_username_map = {}
+    for r in rows:
+        new_employees[r["emp_code"]] = {
+            "name": r["name"], "company": r["company"] or "",
+            "username": r["username"], "password_hash": r["password_hash"],
+            "can_work_report": r["can_work_report"], "can_sales_visit": r["can_sales_visit"],
+            "can_my_jobs": r["can_my_jobs"], "can_ta": r["can_ta"],
+            "can_support": r["can_support"],
+        }
+        new_username_map[r["username"]] = r["emp_code"]
+    EMPLOYEES = new_employees
+    USERNAME_MAP = new_username_map
+
+with app.app_context():
+    try:
+        refresh_employees()
+        print(f"✅ Employees refreshed with support perm ({len(EMPLOYEES)} users)")
+    except Exception as e:
+        print(f"⚠️ Refresh error: {e}")
+
+
+# patch login to include can_support in session perms
+_orig_index = app.view_functions.get("index")
+
+# Override index to handle support perm redirect
+@app.route("/", endpoint="index_override")
+def index_override():
+    if not logged_in(): return redirect(url_for("login"))
+    if is_manager(): return redirect(url_for("dashboard"))
+    if has_perm("work_report"): return redirect(url_for("employee_form"))
+    if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
+    if has_perm("my_jobs"):     return redirect(url_for("my_jobs"))
+    if has_perm("ta"):          return redirect(url_for("ta_report"))
+    if has_perm("support"):     return redirect(url_for("support_report"))
+    return redirect(url_for("no_access"))
+
+
+# ══════════════════════════════════════════
+#  ROUTES — EMPLOYEE: SUPPORT REPORT
+# ══════════════════════════════════════════
+@app.route("/support-report", methods=["GET", "POST"])
+def support_report():
+    if not logged_in() or is_manager():
+        return redirect(url_for("login"))
+    if not has_perm("support"):
+        return redirect(url_for("no_access"))
+
+    code    = get_emp_code()
+    success = False
+
+    if request.method == "POST":
+        # collect device rows (multiple)
+        models  = request.form.getlist("device_model[]")
+        serials = request.form.getlist("device_serial[]")
+        devices = [(m.strip(), s.strip()) for m, s in zip(models, serials) if m.strip() or s.strip()]
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO support_reports
+            (timestamp, emp_code, emp_name, support_date, company, contact_person,
+             address, contact_number, client_email, dealer_type,
+             dealer_contact_number, dealer_contact_person,
+             issue_description, solution_description, remarks, status)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            now, code, session["name"],
+            request.form.get("support_date"),
+            request.form.get("company"),
+            request.form.get("contact_person"),
+            request.form.get("address"),
+            request.form.get("contact_number"),
+            request.form.get("client_email"),
+            request.form.get("dealer_type"),
+            request.form.get("dealer_contact_number"),
+            request.form.get("dealer_contact_person"),
+            request.form.get("issue_description"),
+            request.form.get("solution_description"),
+            request.form.get("remarks"),
+            request.form.get("status", "Pending"),
+        ))
+        report_id = cur.fetchone()["id"]
+        for model, serial in devices:
+            cur.execute("""
+                INSERT INTO support_devices (report_id, device_model, device_serial)
+                VALUES (%s, %s, %s)
+            """, (report_id, model, serial))
+        conn.commit(); cur.close(); conn.close()
+        success = True
+
+    # --- history filters ---
+    f_status = request.args.get("status", "")
+    f_from   = request.args.get("from_d", "")
+    f_to     = request.args.get("to_d", "")
+    f_search = request.args.get("search", "")
+
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM support_reports WHERE emp_code=%s"
+    params = [code]
+    if f_status: query += " AND LOWER(status)=%s";  params.append(f_status.lower())
+    if f_from:   query += " AND support_date>=%s";  params.append(f_from)
+    if f_to:     query += " AND support_date<=%s";  params.append(f_to)
+    if f_search:
+        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY timestamp DESC"
+    cur.execute(query, params)
+    history = cur.fetchall()
+
+    # fetch devices for each report
+    history_with_devices = []
+    for rep in history:
+        cur.execute("SELECT * FROM support_devices WHERE report_id=%s ORDER BY id", (rep["id"],))
+        history_with_devices.append({"report": rep, "devices": cur.fetchall()})
+
+    cur.close(); conn.close()
+
+    return render_template(
+        "support_report.html",
+        name=session["name"],
+        success=success,
+        history=history_with_devices,
+        record_count=len(history_with_devices),
+        perms=session.get("perms", {}),
+        filters={"status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search},
+    )
+
+
+# ══════════════════════════════════════════
+#  ROUTES — MANAGER: SUPPORT REPORTS
+# ══════════════════════════════════════════
+@app.route("/manager/support-reports")
+def manager_support_reports():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    f_emp    = request.args.get("emp", "")
+    f_status = request.args.get("status", "")
+    f_from   = request.args.get("from_d", "")
+    f_to     = request.args.get("to_d", "")
+    f_search = request.args.get("search", "")
+    f_dealer = request.args.get("dealer", "")
+
+    conn   = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM support_reports WHERE 1=1"
+    params = []
+    if f_emp:    query += " AND emp_name=%s";             params.append(f_emp)
+    if f_status: query += " AND LOWER(status)=%s";        params.append(f_status.lower())
+    if f_from:   query += " AND support_date>=%s";        params.append(f_from)
+    if f_to:     query += " AND support_date<=%s";        params.append(f_to)
+    if f_dealer: query += " AND dealer_type=%s";          params.append(f_dealer)
+    if f_search:
+        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY timestamp DESC"
+    cur.execute(query, params)
+    reports = cur.fetchall()
+
+    reports_with_devices = []
+    for rep in reports:
+        cur.execute("SELECT * FROM support_devices WHERE report_id=%s ORDER BY id", (rep["id"],))
+        reports_with_devices.append({"report": rep, "devices": cur.fetchall()})
+
+    cur.execute("SELECT COUNT(*) AS c FROM support_reports"); total = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM support_reports WHERE LOWER(status)='complete'"); completed = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM support_reports WHERE LOWER(status)='pending'"); pending = cur.fetchone()["c"]
+    today = datetime.now().strftime("%Y-%m-%d")
+    cur.execute("SELECT COUNT(*) AS c FROM support_reports WHERE support_date=%s", (today,)); today_ct = cur.fetchone()["c"]
+    cur.execute("SELECT DISTINCT emp_name FROM support_reports ORDER BY emp_name"); emp_list = [r["emp_name"] for r in cur.fetchall()]
+    cur.close(); conn.close()
+
+    return render_template(
+        "manager_support.html",
+        name=session["name"],
+        reports=reports_with_devices,
+        total=total, completed=completed, pending=pending, today_ct=today_ct,
+        emp_list=emp_list,
+        filters={"emp": f_emp, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search, "dealer": f_dealer},
+        record_count=len(reports_with_devices),
+    )
+
+
+# ══════════════════════════════════════════
+#  EXPORT: SUPPORT REPORTS CSV
+# ══════════════════════════════════════════
+@app.route("/export/support-reports")
+def export_support_reports():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM support_reports ORDER BY timestamp DESC")
+    rows = cur.fetchall()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID","Submitted","Employee","Support Date","Company","Contact Person",
+        "Address","Contact Number","Client Email","Dealer Type",
+        "Dealer Contact Number","Dealer Contact Person",
+        "Issue Description","Solution Description","Remarks","Status"
+    ])
+    for r in rows:
+        cur.execute("SELECT device_model, device_serial FROM support_devices WHERE report_id=%s ORDER BY id", (r["id"],))
+        devices = cur.fetchall()
+        device_str = "; ".join(f"{d['device_model']} ({d['device_serial']})" for d in devices)
+        writer.writerow([
+            r["id"], r["timestamp"], r["emp_name"], r["support_date"],
+            r["company"], r["contact_person"], r["address"], r["contact_number"],
+            r["client_email"], r["dealer_type"], r["dealer_contact_number"],
+            r["dealer_contact_person"], r["issue_description"],
+            r["solution_description"], r["remarks"], r["status"]
+        ])
+    cur.close(); conn.close()
+    output.seek(0)
+    return Response(
+        output.getvalue(), mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=support_reports.csv"}
+    )

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Support Reports — Manager</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:24px}
+  a{color:inherit;text-decoration:none}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .topbar-right{display:flex;gap:8px;align-items:center}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;overflow-x:auto}
+  .nav-tab{padding:13px 16px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#6C3EE8;border-bottom-color:#6C3EE8}
+
+  .main{max-width:1200px;margin:0 auto;padding:1.4rem 1rem}
+
+  /* ── stat cards ── */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.4rem}
+  .stat-card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .stat-label{font-size:10.5px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .stat-val{font-size:28px;font-weight:800;color:#10193A;font-variant-numeric:tabular-nums}
+  .stat-sub{font-size:11px;color:#696B78;font-weight:600;margin-top:3px}
+  .ic-purple{background:#EAE3FF}.ic-green{background:#D9F5E8}.ic-amber{background:#FFE4CC}.ic-blue{background:#DCE9FF}
+  .stat-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:8px}
+
+  /* ── filter ── */
+  .filter-panel{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.1rem;margin-bottom:1.2rem}
+  .filter-panel-title{font-size:12px;font-weight:800;color:#696B78;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.8rem}
+  .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end}
+  .fg-group label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+  .fg-group input,.fg-group select{border:1.5px solid #E0DCCF;border-radius:9px;padding:8px 11px;font-size:13px;font-family:inherit;color:#14141A;background:#FAFAF7;outline:none;width:100%}
+  .fg-group input:focus,.fg-group select:focus{border-color:#6C3EE8;box-shadow:0 0 0 3px rgba(108,62,232,0.1)}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23696B78' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+  .btn-filter{padding:9px 18px;background:#10193A;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-filter:hover{background:#1A2960}
+  .btn-export{padding:9px 18px;background:#6C3EE8;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+  .btn-export:hover{background:#5A2ED4}
+  .btn-reset{padding:9px 14px;background:#F0EEE6;color:#696B78;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}
+  .btn-reset:hover{background:#E7E4DA}
+
+  /* ── table area ── */
+  .table-panel{background:#fff;border:1px solid #E7E4DA;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-header{padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E7E4DA;flex-wrap:wrap;gap:8px}
+  .table-header-title{font-size:14px;font-weight:800;color:#10193A}
+  .count-badge{background:#EAE3FF;color:#4A26A8;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:800}
+
+  /* ── accordion cards (mobile-first) ── */
+  .report-card{border-bottom:1px solid #F0EEE6}
+  .report-card:last-child{border-bottom:none}
+  .rc-head{padding:.9rem 1.2rem;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;gap:10px}
+  .rc-head:hover{background:#FAFAF7}
+  .rc-left{flex:1;min-width:0}
+  .rc-company{font-size:13.5px;font-weight:800;color:#10193A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rc-meta{font-size:11.5px;color:#696B78;font-weight:600;margin-top:2px}
+  .rc-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+  .badge-complete{background:#D9F5E8;color:#0B6839}
+  .badge-pending{background:#FFF3CD;color:#856404}
+  .rc-date{font-size:10.5px;color:#A8A4C4;font-weight:700}
+  .rc-emp{font-size:11px;color:#6C3EE8;font-weight:800}
+
+  .rc-body{display:none;padding:1rem 1.2rem;border-top:1px solid #F0EEE6;background:#FAFAF7}
+  .rc-body.open{display:block}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+  @media(min-width:600px){.detail-grid{grid-template-columns:repeat(3,1fr)}}
+  .detail-item label{font-size:10.5px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+  .detail-item .val{font-size:13px;color:#14141A;font-weight:600;line-height:1.4}
+  .detail-full{grid-column:1/-1}
+  .device-tag{display:inline-block;background:#EDE9FF;color:#4A26A8;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700;margin:2px 3px 0 0}
+  .empty-state{padding:2.5rem;text-align:center;color:#696B78;font-weight:600;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">🔧 Support Reports</div>
+  <div class="topbar-right">
+    <span style="font-size:12px;color:#A8A4C4;font-weight:700">{{ name }}</span>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+
+<!-- Manager nav tabs -->
+<div class="nav-tabs">
+  <a href="/dashboard"            class="nav-tab">🏠 Dashboard</a>
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
+  <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
+  <a href="/manager/clients"      class="nav-tab">🏢 Clients</a>
+  <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
+  <a href="/manager/support-reports" class="nav-tab active">🔧 Support</a>
+  <a href="/manager/users"        class="nav-tab">👤 Users</a>
+</div>
+
+<div class="main">
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-ic ic-purple">🔧</div>
+      <div class="stat-label">Total Reports</div>
+      <div class="stat-val">{{ total }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ic ic-green">✅</div>
+      <div class="stat-label">Completed</div>
+      <div class="stat-val">{{ completed }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ic ic-amber">⏳</div>
+      <div class="stat-label">Pending</div>
+      <div class="stat-val">{{ pending }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ic ic-blue">📅</div>
+      <div class="stat-label">Today</div>
+      <div class="stat-val">{{ today_ct }}</div>
+      <div class="stat-sub">Support sessions</div>
+    </div>
+  </div>
+
+  <!-- Filter Panel -->
+  <div class="filter-panel">
+    <div class="filter-panel-title">🔍 Filter Support Reports</div>
+    <form method="GET" action="/manager/support-reports">
+      <div class="filter-grid">
+        <div class="fg-group">
+          <label>Employee</label>
+          <select name="emp">
+            <option value="">All Employees</option>
+            {% for e in emp_list %}
+            <option value="{{ e }}" {% if filters.emp == e %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg-group">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All Status</option>
+            <option value="Complete" {% if filters.status|lower == 'complete' %}selected{% endif %}>Complete</option>
+            <option value="Pending"  {% if filters.status|lower == 'pending'  %}selected{% endif %}>Pending</option>
+          </select>
+        </div>
+        <div class="fg-group">
+          <label>Dealer Type</label>
+          <select name="dealer">
+            <option value="">All Types</option>
+            <option value="Dealer"      {% if filters.dealer == 'Dealer'      %}selected{% endif %}>Dealer</option>
+            <option value="Distributor" {% if filters.dealer == 'Distributor' %}selected{% endif %}>Distributor</option>
+            <option value="End User"    {% if filters.dealer == 'End User'    %}selected{% endif %}>End User</option>
+          </select>
+        </div>
+        <div class="fg-group">
+          <label>From Date</label>
+          <input type="date" name="from_d" value="{{ filters.from_d }}">
+        </div>
+        <div class="fg-group">
+          <label>To Date</label>
+          <input type="date" name="to_d" value="{{ filters.to_d }}">
+        </div>
+        <div class="fg-group">
+          <label>Search</label>
+          <input type="text" name="search" value="{{ filters.search }}" placeholder="Company / issue…">
+        </div>
+        <div class="fg-group" style="display:flex;gap:6px;align-items:flex-end">
+          <button type="submit" class="btn-filter">Filter</button>
+          <a href="/manager/support-reports" class="btn-reset">Reset</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Table Panel -->
+  <div class="table-panel">
+    <div class="table-header">
+      <div class="table-header-title">Support Reports</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="count-badge">{{ record_count }} record{% if record_count != 1 %}s{% endif %}</span>
+        <a href="/export/support-reports" class="btn-export">⬇ Export CSV</a>
+      </div>
+    </div>
+
+    {% if reports %}
+      {% for item in reports %}
+      {% set rep = item.report %}
+      <div class="report-card">
+        <div class="rc-head" onclick="toggleCard(this)">
+          <div class="rc-left">
+            <div class="rc-company">{{ rep.company or '—' }}</div>
+            <div class="rc-meta">{{ rep.contact_person }} &bull; {{ rep.support_date }}</div>
+            <div class="rc-emp">{{ rep.emp_name }}</div>
+          </div>
+          <div class="rc-right">
+            <span class="badge {% if rep.status|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}">{{ rep.status }}</span>
+            <span class="rc-date">{{ rep.timestamp[:10] }}</span>
+          </div>
+        </div>
+        <div class="rc-body">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Support Date</label>
+              <div class="val">{{ rep.support_date or '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Employee</label>
+              <div class="val">{{ rep.emp_name }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Contact Number</label>
+              <div class="val">{{ rep.contact_number or '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Client Email</label>
+              <div class="val">{{ rep.client_email or '—' }}</div>
+            </div>
+            <div class="detail-item full">
+              <label>Address</label>
+              <div class="val">{{ rep.address or '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Dealer / Distributor / End User</label>
+              <div class="val">{{ rep.dealer_type or '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Dealer Contact Number</label>
+              <div class="val">{{ rep.dealer_contact_number or '—' }}</div>
+            </div>
+            <div class="detail-item">
+              <label>Dealer Contact Person</label>
+              <div class="val">{{ rep.dealer_contact_person or '—' }}</div>
+            </div>
+            {% if item.devices %}
+            <div class="detail-item full">
+              <label>Devices</label>
+              <div class="val">
+                {% for d in item.devices %}
+                <span class="device-tag">{{ d.device_model }} — {{ d.device_serial }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+            <div class="detail-item full">
+              <label>Issue Description</label>
+              <div class="val">{{ rep.issue_description or '—' }}</div>
+            </div>
+            <div class="detail-item full">
+              <label>Solution Description</label>
+              <div class="val">{{ rep.solution_description or '—' }}</div>
+            </div>
+            {% if rep.remarks %}
+            <div class="detail-item full">
+              <label>Remarks</label>
+              <div class="val">{{ rep.remarks }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">No support reports found matching your filters. 🔧</div>
+    {% endif %}
+  </div>
+
+</div><!-- /main -->
+
+<script>
+function toggleCard(head) {
+  const body = head.nextElementSibling;
+  body.classList.toggle('open');
+}
+</script>
+</body>
+</html>
