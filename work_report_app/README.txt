@@ -1,3 +1,22 @@
+NEW IN THIS UPDATE (v3.5)
+- Manager Dashboard (Command Center):
+    New "🏠 Dashboard" tab — now the manager's default landing page
+    after login. One glance shows:
+      • Today's report completion (X of Y employees, with progress bar)
+      • Active jobs by status (Open / In Progress)
+      • Pending TA approvals (count + ₹ amount)
+      • Clients needing follow-up (no visit in 30+ days)
+      • Sales visits logged today
+      • Quick link into Attendance
+      • Who hasn't submitted a report today (name list)
+      • Clients going cold (clickable, links to client profile)
+      • Recent activity feed (latest reports, jobs, TA submissions)
+    Every number is pulled fresh from the database on each page load
+    (not cached), so it's always accurate. There's a manual "↻ Refresh"
+    button in the top bar. All existing tabs (Work Reports, Assign
+    Jobs, Attendance, Sales Visits, Clients, TA, Users) are unchanged
+    and still fully accessible — the dashboard is purely additive.
+
 NEW IN THIS UPDATE (v3.4)
 - Installable mobile app (PWA):
     The app can now be installed to the home screen on phones and
@@ -141,6 +160,7 @@ EMPLOYEES
   /manager       Manager  — view/filter all work reports
   /assign-job    Manager  — assign new jobs + view/filter all assigned jobs
   /attendance    Manager  — BioTime attendance dashboard
+  /dashboard                     Manager — command center / landing page
   /manager/clients               Manager — mini CRM: all clients, freshness filters
   /manager/clients/<id>          Manager — client profile + full visit timeline
 
@@ -158,6 +178,7 @@ EMPLOYEES
     manager.html        Manager — work reports table
     assign_job.html      Manager — assign jobs + all-jobs table
     attendance.html      Manager — attendance dashboard
+    dashboard.html        Manager — command center / landing page
     manager_clients.html       Manager — mini CRM client list
     manager_client_detail.html  Manager — client profile + visit timeline
   static/

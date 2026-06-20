@@ -369,13 +369,127 @@ def parse_codes(codes_str):
 @app.route("/")
 def index():
     if not logged_in(): return redirect(url_for("login"))
-    if is_manager(): return redirect(url_for("manager_view"))
+    if is_manager(): return redirect(url_for("dashboard"))
     # Land the employee on the first feature they actually have access to
     if has_perm("work_report"): return redirect(url_for("employee_form"))
     if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
     if has_perm("my_jobs"):     return redirect(url_for("my_jobs"))
     if has_perm("ta"):          return redirect(url_for("ta_report"))
     return redirect(url_for("no_access"))
+
+@app.route("/dashboard")
+def dashboard():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    conn = get_db(); cur = conn.cursor()
+
+    # ── Work reports: today's submission completion ──
+    cur.execute("SELECT COUNT(DISTINCT emp_code) AS c FROM reports WHERE date=%s", (today,))
+    submitted_today = cur.fetchone()["c"]
+    total_active_employees = len(EMPLOYEES)  # live in-memory dict, already filtered to active
+
+    submitted_codes = set()
+    cur.execute("SELECT DISTINCT emp_code FROM reports WHERE date=%s", (today,))
+    for r in cur.fetchall():
+        submitted_codes.add(r["emp_code"])
+    missing_names = sorted(
+        info["name"] for code, info in EMPLOYEES.items()
+        if info.get("can_work_report") and code not in submitted_codes
+    )
+
+    cur.execute("SELECT COUNT(*) AS c FROM reports")
+    total_reports = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM reports WHERE LOWER(status) IN ('done','completed')")
+    completed_reports = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM reports WHERE LOWER(status)='pending'")
+    pending_reports = cur.fetchone()["c"]
+
+    # ── Jobs: status breakdown ──
+    cur.execute("""
+        SELECT LOWER(COALESCE(status,'open')) AS s, COUNT(*) AS c
+        FROM jobs GROUP BY LOWER(COALESCE(status,'open'))
+    """)
+    job_counts = {"open": 0, "in progress": 0, "done": 0, "on hold": 0}
+    for r in cur.fetchall():
+        if r["s"] in job_counts:
+            job_counts[r["s"]] = r["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM jobs")
+    total_jobs = cur.fetchone()["c"]
+
+    # ── TA reports: pending approvals ──
+    cur.execute("SELECT COUNT(*) AS c, COALESCE(SUM(expense_cost),0) AS amt FROM ta_reports WHERE approval_status='Not Approved'")
+    ta_row = cur.fetchone()
+    pending_ta_count = ta_row["c"]
+    pending_ta_amount = float(ta_row["amt"])
+    cur.execute("SELECT COUNT(*) AS c, COALESCE(SUM(expense_cost),0) AS amt FROM ta_reports WHERE payment_status='Due'")
+    due_row = cur.fetchone()
+    due_ta_count = due_row["c"]
+    due_ta_amount = float(due_row["amt"])
+
+    # ── Clients: stale accounts (no visit in 30+ days) ──
+    cur.execute("""
+        SELECT c.id, c.name, MAX(v.visit_date) AS last_visit
+        FROM companies c
+        LEFT JOIN sales_visits v ON v.company_id = c.id
+        GROUP BY c.id, c.name
+    """)
+    today_d = datetime.now().date()
+    stale_clients = []
+    total_clients = 0
+    for row in cur.fetchall():
+        total_clients += 1
+        if row["last_visit"]:
+            try:
+                d = datetime.strptime(row["last_visit"], "%Y-%m-%d").date()
+                days = (today_d - d).days
+            except Exception:
+                days = None
+        else:
+            days = None
+        if days is None or days >= 30:
+            stale_clients.append({"id": row["id"], "name": row["name"], "days": days})
+    stale_clients.sort(key=lambda x: (x["days"] is not None, x["days"] or 9999), reverse=True)
+
+    # ── Sales visits today ──
+    cur.execute("SELECT COUNT(*) AS c FROM sales_visits WHERE visit_date=%s", (today,))
+    visits_today = cur.fetchone()["c"]
+
+    # ── Recent activity feed (latest across reports, jobs, ta) ──
+    activity = []
+    cur.execute("SELECT timestamp, emp_name, status FROM reports ORDER BY timestamp DESC LIMIT 5")
+    for r in cur.fetchall():
+        activity.append({"ts": r["timestamp"], "text": f"{r['emp_name']} submitted a work report", "tag": "report"})
+    cur.execute("SELECT created_at, job_title, emp_names FROM jobs ORDER BY created_at DESC LIMIT 5")
+    for r in cur.fetchall():
+        who = r["emp_names"] or "unassigned"
+        activity.append({"ts": r["created_at"], "text": f"Job \"{r['job_title']}\" assigned to {who}", "tag": "job"})
+    cur.execute("SELECT timestamp, emp_name, expense_cost FROM ta_reports ORDER BY timestamp DESC LIMIT 5")
+    for r in cur.fetchall():
+        activity.append({"ts": r["timestamp"], "text": f"{r['emp_name']} submitted a travel expense (₹{float(r['expense_cost'] or 0):.0f})", "tag": "ta"})
+    activity = [a for a in activity if a["ts"]]
+    activity.sort(key=lambda a: a["ts"], reverse=True)
+    activity = activity[:8]
+
+    cur.close(); conn.close()
+
+    completion_pct = round((submitted_today / total_active_employees) * 100) if total_active_employees else 0
+
+    return render_template(
+        "dashboard.html",
+        today=today,
+        submitted_today=submitted_today,
+        total_active_employees=total_active_employees,
+        completion_pct=completion_pct,
+        missing_names=missing_names,
+        total_reports=total_reports, completed_reports=completed_reports, pending_reports=pending_reports,
+        job_counts=job_counts, total_jobs=total_jobs,
+        pending_ta_count=pending_ta_count, pending_ta_amount=pending_ta_amount,
+        due_ta_count=due_ta_count, due_ta_amount=due_ta_amount,
+        stale_clients=stale_clients[:6], stale_clients_total=len(stale_clients), total_clients=total_clients,
+        visits_today=visits_today,
+        activity=activity,
+    )
 
 @app.route("/no-access")
 def no_access():
