@@ -21,10 +21,11 @@
   .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
   .btn-sm:hover{background:rgba(255,255,255,0.14)}
 
-  .page-tabs{background:#fff;border-bottom:2px solid #E7E4DA;display:none;overflow-x:auto;padding:0 1.5rem;position:sticky;top:56px;z-index:19}
-  .pt{display:inline-block;padding:14px 16px;font-size:13px;color:#696B78;border-bottom:3px solid transparent;font-weight:700;white-space:nowrap;margin-bottom:-2px}
+  .page-tabs{background:#fff;border-bottom:2px solid #E7E4DA;display:none;justify-content:center;position:sticky;top:56px;z-index:19}
+  .pt-inner{display:flex;width:100%;max-width:900px;padding:0 1rem;overflow-x:auto}
+  .pt{display:inline-block;padding:14px 16px;font-size:13px;color:#696B78;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;white-space:nowrap;margin-bottom:-2px}
   .pt:hover{color:#10193A}
-  .pt.active{color:#6C3EE8;border-bottom-color:#6C3EE8}
+  .pt.active{color:#6C3EE8;border-bottom-color:#6C3EE8;font-weight:700}
   @media(min-width:768px){.page-tabs{display:flex}}
 
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
@@ -110,11 +111,13 @@
 </div>
 
 <div class="page-tabs">
+  <div class="pt-inner">
   {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
   {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt">🤝 Sales Report</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="pt active">🔧 Support</a>{% endif %}
+  </div>
 </div>
 
 <div class="main">

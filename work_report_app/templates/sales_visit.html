@@ -26,9 +26,10 @@
 
   /* TABS — desktop only, mirrors Work Report / My Jobs pages */
   .page-tabs{display:none}
-  .pt{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .pt-inner{display:flex;width:100%;max-width:800px;padding:0 1rem;overflow-x:auto}
+  .pt{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
   .pt:hover{color:#10193A}
-  .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+  .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
 
   /* BOTTOM NAV */
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
@@ -83,20 +84,19 @@
   .empty-state p{font-size:13px;font-weight:600}
 
   /* ---------- FILTER BAR ---------- */
-  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .fg{display:flex;flex-direction:column;gap:4px}
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:16px;margin-bottom:1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
   .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
   .fg input:focus,.fg select:focus{border-color:#FF7A1A}
-  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
-  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
-  @media(max-width:540px){.fg input,.fg select{min-width:100%}.fg{width:100%}}
-
+  .filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:2px}
+  .btn-filter{padding:8px 18px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
   @media(max-width:540px){.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
   @media(min-width:860px){
     body{padding-bottom:0}
     .bottom-nav{display:none}
-    .page-tabs{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
+    .page-tabs{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
     .wrap{max-width:800px;margin:2rem auto}
   }
 </style>
@@ -113,11 +113,13 @@
 
 <!-- PAGE TABS -->
 <div class="page-tabs">
+  <div class="pt-inner">
   {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
   {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt active">🤝 Sales Report</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
+  </div>
 </div>
 
 <div class="wrap">
@@ -239,8 +241,10 @@
       <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
       <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
       <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, address, products..." value="{{ filters.search }}"></div>
-      <button class="btn-filter" type="submit">Apply</button>
-      <a class="btn-clear" href="/sales-visit">✕ Clear</a>
+      <div class="filter-actions">
+        <button class="btn-filter" type="submit">Apply</button>
+        <a class="btn-clear" href="/sales-visit">✕ Clear</a>
+      </div>
     </div>
   </form>
 

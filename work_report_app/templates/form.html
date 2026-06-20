@@ -16,16 +16,18 @@
   body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
   a{color:inherit}
 
+  :root{--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:32px}
+
   /* ---------- TOPBAR ---------- */
   .topbar{
-    background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;
+    background:#10193A;padding:0 24px;display:flex;align-items:center;justify-content:space-between;
     height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15);
   }
-  .topbar-left{display:flex;align-items:center;gap:10px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
-  .tname{font-size:14px;font-weight:700;color:#fff}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
+  .topbar-left{display:flex;align-items:center;gap:11px}
+  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A;flex-shrink:0}
+  .tname{font-size:14px;font-weight:700;color:#fff;line-height:1.3}
+  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
+  .logout{padding:7px 14px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
   .logout:hover{background:rgba(255,255,255,0.14)}
 
   /* ---------- DESKTOP TOP NAV (hidden on mobile) ---------- */
@@ -40,38 +42,39 @@
   .bn-item .bn-ic{font-size:19px;line-height:1}
   .bn-item.active{color:#FF7A1A}
 
-  .wrap{max-width:640px;margin:1.4rem auto;padding:0 1rem}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.6rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15.5px;font-weight:800;margin-bottom:1.3rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:8px;color:#10193A}
+  .wrap{max-width:640px;margin:var(--sp-6) auto;padding:0 var(--sp-4)}
+  .card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:var(--sp-7);margin-bottom:var(--sp-5);box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .card-title{font-size:15px;font-weight:700;letter-spacing:-.01em;margin-bottom:var(--sp-5);padding-bottom:var(--sp-4);border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:9px;color:#10193A}
+  .card-title .ic{line-height:1;font-size:16px}
 
-  .att-strip{display:flex;gap:10px;margin-bottom:0;flex-wrap:wrap}
-  .att-box{flex:1;min-width:110px;background:#F6F4EF;border:1px solid #E7E4DA;border-radius:12px;padding:.85rem .9rem;text-align:center}
-  .att-label{font-size:10.5px;color:#696B78;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .att-val{font-size:18px;font-weight:800;color:#10193A;font-variant-numeric:tabular-nums}
+  .att-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
+  .att-box{background:#F6F4EF;border:1px solid #E7E4DA;border-radius:12px;padding:var(--sp-4) var(--sp-3);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px}
+  .att-label{font-size:10.5px;color:#696B78;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1}
+  .att-val{font-size:18px;font-weight:800;color:#10193A;font-variant-numeric:tabular-nums;line-height:1}
   .att-val.green{color:#1AAE6F}
 
-  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:1.3rem 0 .65rem;display:flex;align-items:center;gap:6px}
+  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:var(--sp-6) 0 var(--sp-3);display:flex;align-items:center;gap:6px}
   .section-label:first-of-type{margin-top:0}
   .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
 
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .field{margin-bottom:13px}
-  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:6px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
+  .field{margin-bottom:var(--sp-4)}
+  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:7px}
   input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
   input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
   textarea{resize:vertical;min-height:72px}
 
-  .status-row{display:flex;gap:8px;margin-bottom:1.3rem}
+  .status-row{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-5)}
   .status-btn{flex:1;padding:11px 6px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:12.5px;cursor:pointer;color:#696B78;font-family:inherit;font-weight:700;transition:all .15s}
   .status-btn.done{background:#D9F5E8;border-color:#1AAE6F;color:#0E6B43}
   .status-btn.pending{background:#FBE2E2;border-color:#E5484D;color:#9A2A2D}
   .status-btn.partial{background:#DCE9FF;border-color:#2D7FF9;color:#1A4FA0}
 
-  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s, box-shadow .15s}
+  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:10px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s, box-shadow .15s}
   .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
   .submit-btn:active{transform:scale(.98)}
 
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:1.2rem;font-weight:600}
+  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:var(--sp-5);font-weight:600}
   .required{color:#E5484D}
 
   table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -84,27 +87,28 @@
   .badge-half{background:#DCE9FF;color:#1A4FA0}
 
   /* ---------- FILTER BAR ---------- */
-  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .fg{display:flex;flex-direction:column;gap:4px}
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:var(--sp-4);margin-bottom:var(--sp-5);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-3);box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
   .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
   .fg input:focus,.fg select:focus{border-color:#FF7A1A}
-  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
-  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+  .filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:2px}
+  .btn-filter{padding:8px 18px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
   .rec-count{font-size:12px;color:#696B78;font-weight:600}
-  @media(max-width:480px){.fg input,.fg select{min-width:100%}.fg{width:100%}}
 
-  @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{flex-direction:column}}
+  @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{grid-template-columns:repeat(2,1fr)}}
 
   /* ---------- DESKTOP LAYOUT ---------- */
   @media(min-width:860px){
     body{padding-bottom:0}
     .bottom-nav{display:none}
-    .nav-tabs-desktop{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
-    .nd-tab{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+    .nav-tabs-desktop{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
+    .nd-inner{display:flex;width:100%;max-width:760px;padding:0 24px;overflow-x:auto}
+    .nd-tab{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
     .nd-tab:hover{color:#10193A}
-    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
-    .wrap{max-width:760px;margin:2rem auto}
+    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
+    .wrap{max-width:760px;margin:32px auto;padding:0 24px}
   }
 </style>
 </head>
@@ -118,11 +122,13 @@
 </div>
 
 <div class="nav-tabs-desktop">
+  <div class="nd-inner">
   {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab active">📋 Work Report</a>{% endif %}
   {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab">📌 My Jobs</a>{% endif %}
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab">🔧 Support</a>{% endif %}
+  </div>
 </div>
 
 <div class="wrap">
@@ -130,7 +136,7 @@
   {% if att_today %}
   {% set a = att_today[0] %}
   <div class="card">
-    <div class="card-title">🕐 Today's Attendance</div>
+    <div class="card-title"><span class="ic">🕐</span>Today's Attendance</div>
     <div class="att-strip">
       <div class="att-box"><div class="att-label">Check In</div><div class="att-val green">{{ a.check_in }}</div></div>
       <div class="att-box"><div class="att-label">Check Out</div><div class="att-val">{{ a.check_out }}</div></div>
@@ -146,7 +152,7 @@
   {% endif %}
 
   <div class="card">
-    <div class="card-title">📋 Daily Work Report</div>
+    <div class="card-title"><span class="ic">📋</span>Daily Work Report</div>
     {% if success %}<div class="success">✅ Report submitted successfully!</div>{% endif %}
     <form method="POST">
       <input type="hidden" name="status" id="statusInput" value="">
@@ -213,7 +219,7 @@
   </div>
 
   <div class="card">
-    <div class="card-title">📅 My Work Reports</div>
+    <div class="card-title"><span class="ic">📅</span>My Work Reports</div>
     <form method="GET" action="/form">
       <div class="filters">
         <div class="fg"><label>Work type</label>
@@ -234,8 +240,10 @@
         <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
         <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
         <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, location..." value="{{ filters.search }}"></div>
-        <button class="btn-filter" type="submit">Apply</button>
-        <a class="btn-clear" href="/form">✕ Clear</a>
+        <div class="filter-actions">
+          <button class="btn-filter" type="submit">Apply</button>
+          <a class="btn-clear" href="/form">✕ Clear</a>
+        </div>
       </div>
     </form>
     <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem">
