@@ -1,3 +1,18 @@
+NEW IN THIS UPDATE (v3.3)
+- Mini CRM — Clients layer:
+    Every sales visit's client is now linked to a "company" record.
+    New manager tab → "Clients": see every client, total visit count,
+    last visit date, and a freshness badge (Active / 14-30 days /
+    30+ days no contact). Filter by "no visit in 30/60/90+ days" to
+    spot accounts going cold.
+    Click into any client to see its full profile (industry, contact
+    person, phone, address, notes — all editable by the manager) plus
+    a complete visit timeline pulled from every salesperson who's
+    visited them.
+    Existing sales visit data is migrated automatically on first
+    startup — every distinct client name already in your database
+    gets its own company record, no data lost, no manual SQL needed.
+
 NEW IN THIS UPDATE (v3.2)
 - Job assignment is now fully flexible:
     Manager can assign a job to multiple employees AND/OR multiple
@@ -112,6 +127,8 @@ EMPLOYEES
   /manager       Manager  — view/filter all work reports
   /assign-job    Manager  — assign new jobs + view/filter all assigned jobs
   /attendance    Manager  — BioTime attendance dashboard
+  /manager/clients               Manager — mini CRM: all clients, freshness filters
+  /manager/clients/<id>          Manager — client profile + full visit timeline
 
 ═══════════════════════════════════════════════
   FILES
@@ -127,4 +144,6 @@ EMPLOYEES
     manager.html        Manager — work reports table
     assign_job.html      Manager — assign jobs + all-jobs table
     attendance.html      Manager — attendance dashboard
+    manager_clients.html       Manager — mini CRM client list
+    manager_client_detail.html  Manager — client profile + visit timeline
 ═══════════════════════════════════════════════

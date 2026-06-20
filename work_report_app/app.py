@@ -974,6 +974,105 @@ with app.app_context():
 
 
 # ══════════════════════════════════════════
+#  MINI CRM — COMPANIES (CLIENTS)
+# ══════════════════════════════════════════
+def init_companies_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT UNIQUE NOT NULL,
+            industry        TEXT,
+            address         TEXT,
+            phone           TEXT,
+            primary_contact TEXT,
+            notes           TEXT,
+            owner_code      TEXT,
+            created_at      TEXT
+        )
+    """)
+    conn.commit()
+
+    # link sales_visits to companies (nullable, non-destructive)
+    cur.execute("""
+        ALTER TABLE sales_visits
+        ADD COLUMN IF NOT EXISTS company_id INTEGER
+    """)
+    conn.commit()
+
+    # Backfill: create a company row for every distinct client_name
+    # that doesn't have one yet, and link existing visits to it.
+    cur.execute("""
+        SELECT DISTINCT client_name, salesperson_code
+        FROM sales_visits
+        WHERE client_name IS NOT NULL AND client_name <> ''
+          AND company_id IS NULL
+    """)
+    distinct_clients = cur.fetchall()
+    for row in distinct_clients:
+        cname = row["client_name"].strip()
+        if not cname:
+            continue
+        cur.execute("SELECT id FROM companies WHERE name=%s", (cname,))
+        existing = cur.fetchone()
+        if existing:
+            cid = existing["id"]
+        else:
+            cur.execute("""
+                INSERT INTO companies (name, owner_code, created_at)
+                VALUES (%s, %s, %s) RETURNING id
+            """, (cname, row["salesperson_code"], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            cid = cur.fetchone()["id"]
+        cur.execute("""
+            UPDATE sales_visits SET company_id=%s
+            WHERE client_name=%s AND company_id IS NULL
+        """, (cid, cname))
+    conn.commit()
+    cur.close(); conn.close()
+
+def get_or_create_company(name, owner_code=None):
+    """Find a company by name (case-insensitive), or create it. Returns id."""
+    name = (name or "").strip()
+    if not name:
+        return None
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT id FROM companies WHERE LOWER(name)=LOWER(%s)", (name,))
+    row = cur.fetchone()
+    if row:
+        cid = row["id"]
+    else:
+        cur.execute("""
+            INSERT INTO companies (name, owner_code, created_at)
+            VALUES (%s, %s, %s) RETURNING id
+        """, (name, owner_code, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        cid = cur.fetchone()["id"]
+        conn.commit()
+    cur.close(); conn.close()
+    return cid
+
+with app.app_context():
+    try:
+        init_companies_db()
+        print("✅ Companies (mini CRM) table ready")
+    except Exception as e:
+        print(f"⚠️ Companies DB init error: {e}")
+
+
+@app.route("/api/companies-search")
+def api_companies_search():
+    if not logged_in():
+        return jsonify([])
+    q = request.args.get("q", "").strip()
+    conn = get_db(); cur = conn.cursor()
+    if q:
+        cur.execute("SELECT name FROM companies WHERE name ILIKE %s ORDER BY name LIMIT 10", (f"%{q}%",))
+    else:
+        cur.execute("SELECT name FROM companies ORDER BY name LIMIT 10")
+    rows = cur.fetchall(); cur.close(); conn.close()
+    return jsonify([r["name"] for r in rows])
+
+
+# ══════════════════════════════════════════
 #  ROUTES — EMPLOYEE: SALES VISIT REPORT
 # ══════════════════════════════════════════
 @app.route("/sales-visit", methods=["GET", "POST"])
@@ -987,20 +1086,22 @@ def sales_visit():
     if request.method == "POST":
         sp_code = request.form.get("salesperson_code", "")
         sp_name = EMPLOYEES.get(sp_code, {}).get("name", "")
+        client_name = request.form.get("client_name")
+        company_id = get_or_create_company(client_name, owner_code=sp_code)
         conn = get_db(); cur = conn.cursor()
         cur.execute("""
             INSERT INTO sales_visits
             (timestamp, visit_date, start_time, end_time, client_name,
              contact_number, address, type_of_visit, discussion_summary,
              products_interested, visit_outcome, next_followup_date,
-             salesperson_code, salesperson_name, remark)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+             salesperson_code, salesperson_name, remark, company_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             request.form.get("visit_date"),
             request.form.get("start_time"),
             request.form.get("end_time"),
-            request.form.get("client_name"),
+            client_name,
             request.form.get("contact_number"),
             request.form.get("address"),
             request.form.get("type_of_visit"),
@@ -1010,6 +1111,7 @@ def sales_visit():
             request.form.get("next_followup_date"),
             sp_code, sp_name,
             request.form.get("remark"),
+            company_id,
         ))
         conn.commit(); cur.close(); conn.close()
         success = True
@@ -1358,3 +1460,121 @@ def export_ta_reports():
         output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition": "attachment;filename=ta_reports.csv"}
     )
+
+
+# ══════════════════════════════════════════
+#  MINI CRM — MANAGER: CLIENTS
+# ══════════════════════════════════════════
+@app.route("/manager/clients")
+def manager_clients():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    f_search = request.args.get("search", "")
+    f_stale  = request.args.get("stale", "")  # "30" = no visit in 30+ days
+
+    conn = get_db(); cur = conn.cursor()
+    query = """
+        SELECT c.*,
+               COUNT(v.id)              AS visit_count,
+               MAX(v.visit_date)        AS last_visit_date,
+               MAX(v.next_followup_date) AS latest_followup
+        FROM companies c
+        LEFT JOIN sales_visits v ON v.company_id = c.id
+        WHERE 1=1
+    """
+    params = []
+    if f_search:
+        query += " AND c.name ILIKE %s"
+        params.append(f"%{f_search}%")
+    query += " GROUP BY c.id ORDER BY c.name ASC"
+    cur.execute(query, params)
+    companies = cur.fetchall()
+    cur.close(); conn.close()
+
+    today = datetime.now().date()
+    enriched = []
+    for c in companies:
+        days_since = None
+        if c["last_visit_date"]:
+            try:
+                d = datetime.strptime(c["last_visit_date"], "%Y-%m-%d").date()
+                days_since = (today - d).days
+            except Exception:
+                days_since = None
+        row = dict(c)
+        row["days_since"] = days_since
+        if f_stale:
+            try:
+                threshold = int(f_stale)
+                if days_since is None or days_since < threshold:
+                    continue
+            except ValueError:
+                pass
+        enriched.append(row)
+
+    return render_template(
+        "manager_clients.html",
+        companies=enriched,
+        record_count=len(enriched),
+        total_companies=len(companies),
+        filters={"search": f_search, "stale": f_stale},
+    )
+
+
+@app.route("/manager/clients/<int:company_id>")
+def manager_client_detail(company_id):
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM companies WHERE id=%s", (company_id,))
+    company = cur.fetchone()
+    if not company:
+        cur.close(); conn.close()
+        return redirect(url_for("manager_clients"))
+
+    cur.execute("""
+        SELECT * FROM sales_visits
+        WHERE company_id=%s
+        ORDER BY visit_date DESC, timestamp DESC
+    """, (company_id,))
+    visits = cur.fetchall()
+    cur.close(); conn.close()
+
+    outcome_counts = {}
+    for v in visits:
+        o = v["visit_outcome"] or "Unspecified"
+        outcome_counts[o] = outcome_counts.get(o, 0) + 1
+
+    salespeople = sorted({v["salesperson_name"] for v in visits if v["salesperson_name"]})
+
+    return render_template(
+        "manager_client_detail.html",
+        company=company,
+        visits=visits,
+        visit_count=len(visits),
+        outcome_counts=outcome_counts,
+        salespeople=salespeople,
+    )
+
+
+@app.route("/manager/clients/<int:company_id>/update", methods=["POST"])
+def manager_client_update(company_id):
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE companies SET industry=%s, address=%s, phone=%s,
+               primary_contact=%s, notes=%s
+        WHERE id=%s
+    """, (
+        request.form.get("industry"),
+        request.form.get("address"),
+        request.form.get("phone"),
+        request.form.get("primary_contact"),
+        request.form.get("notes"),
+        company_id,
+    ))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_client_detail", company_id=company_id))

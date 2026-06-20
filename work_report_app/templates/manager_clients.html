@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manager — Work Reports</title>
+<title>Manager — Clients</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
@@ -30,7 +30,7 @@
   .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
   .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
   .stat-val{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums}
-  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.purple{color:#7C5CFC}.red{color:#D9534F}
 
   .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
   .fg{display:flex;flex-direction:column;gap:4px}
@@ -51,16 +51,15 @@
   td{padding:10px 12px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
   tr:last-child td{border-bottom:none}
   tr:hover td{background:#FAFAF7}
+  tr.clickable{cursor:pointer}
   .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
-  .badge-done{background:#D9F5E8;color:#0E6B43}
-  .badge-pending{background:#FBE2E2;color:#9A2A2D}
-  .badge-partial{background:#DCE9FF;color:#1A4FA0}
-  .wtype{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;background:#F0EEE6;color:#696B78;font-weight:600}
-  .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px}
-  .emp-cell{display:flex;align-items:center}
-  .sum-cell{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .badge-fresh{background:#D9F5E8;color:#0E6B43}
+  .badge-warn{background:#FFF3D6;color:#9A6A0A}
+  .badge-stale{background:#FBE2E2;color:#9A2A2D}
+  .badge-none{background:#F0EEE6;color:#696B78}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#DCE9FF;color:#1A4FA0;font-size:10px;font-weight:800;margin-right:7px}
+  .co-cell{display:flex;align-items:center}
   .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500}
-  .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
 
   @media(min-width:860px){
     .nav-tabs{display:flex}
@@ -73,101 +72,83 @@
 <div class="topbar">
   <div class="topbar-title">📊 Work Report System V3</div>
   <div class="topbar-right">
-    <a href="/export/reports" class="btn-sm">⬇ Export CSV</a>
     <a href="/logout" class="btn-sm">Logout</a>
   </div>
 </div>
 <div class="nav-tabs">
-  <a href="/manager"              class="nav-tab active">📋 Work Reports</a>
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
   <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
   <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
   <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
-  <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
+  <a href="/manager/clients"      class="nav-tab active">🏢 Clients</a>
   <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
   <a href="/manager/users"        class="nav-tab">👤 Users</a>
 </div>
 <div class="main">
   <div class="stats">
-    <div class="stat"><div class="stat-label">Total reports</div><div class="stat-val blue">{{ total }}</div></div>
-    <div class="stat"><div class="stat-label">Completed</div><div class="stat-val green">{{ completed }}</div></div>
-    <div class="stat"><div class="stat-label">Pending</div><div class="stat-val amber">{{ pending }}</div></div>
-    <div class="stat"><div class="stat-label">Partial</div><div class="stat-val purple">{{ partial }}</div></div>
-    <div class="stat"><div class="stat-label">Active today</div><div class="stat-val blue">{{ today_ct }}</div></div>
+    <div class="stat"><div class="stat-label">Total clients</div><div class="stat-val blue">{{ total_companies }}</div></div>
+    <div class="stat"><div class="stat-label">Showing</div><div class="stat-val amber">{{ record_count }}</div></div>
   </div>
-  <form method="GET" action="/manager">
+  <form method="GET" action="/manager/clients">
     <div class="filters">
-      <div class="fg"><label>Employee</label>
-        <select name="emp">
-          <option value="">All employees</option>
-          {% for e in emp_list %}<option {% if filters.emp==e %}selected{% endif %}>{{ e }}</option>{% endfor %}
+      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client name..." value="{{ filters.search }}"></div>
+      <div class="fg"><label>Activity</label>
+        <select name="stale">
+          <option value="">All clients</option>
+          <option value="30" {% if filters.stale=='30' %}selected{% endif %}>No visit in 30+ days</option>
+          <option value="60" {% if filters.stale=='60' %}selected{% endif %}>No visit in 60+ days</option>
+          <option value="90" {% if filters.stale=='90' %}selected{% endif %}>No visit in 90+ days</option>
         </select>
       </div>
-      <div class="fg"><label>Work type</label>
-        <select name="wtype">
-          <option value="">All types</option>
-          {% for t in ['Site visit','Service call','Support visit','In-house','Work from home'] %}
-          <option {% if filters.wtype==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="fg"><label>Status</label>
-        <select name="status">
-          <option value="">All</option>
-          <option value="completed" {% if filters.status=='completed' %}selected{% endif %}>Completed</option>
-          <option value="pending"   {% if filters.status=='pending'   %}selected{% endif %}>Pending</option>
-          <option value="partial"   {% if filters.status=='partial'   %}selected{% endif %}>Partial</option>
-        </select>
-      </div>
-      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
-      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
-      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, location..." value="{{ filters.search }}"></div>
       <button class="btn-filter" type="submit">Apply</button>
-      <a class="btn-clear" href="/manager">✕ Clear</a>
+      <a class="btn-clear" href="/manager/clients">✕ Clear</a>
     </div>
   </form>
   <div class="table-card">
     <div class="table-hdr">
-      <div class="table-hdr-title">All work reports</div>
+      <div class="table-hdr-title">All clients</div>
       <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</div>
     </div>
     <div class="tbl-scroll">
-      {% if reports %}
+      {% if companies %}
       <table>
-        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Job details</th><th>Remarks</th><th>Supervisor</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Client</th><th>Visits</th><th>Last visit</th><th>Next follow-up</th><th>Status</th></tr></thead>
         <tbody>
-        {% for r in reports %}
-        {% set s = r['status']|lower %}
-        <tr>
+        {% for c in companies %}
+        <tr class="clickable" onclick="window.location='/manager/clients/{{ c.id }}'">
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
-          <td style="color:#A8A4C4;font-size:12px;white-space:nowrap">{{ r['timestamp'] }}</td>
-          <td><div class="emp-cell"><span class="avatar">{{ r['emp_name'][:2].upper() }}</span>{{ r['emp_name'] }}</div></td>
-          <td><span class="co-pill">{{ r['company'] }}</span></td>
-          <td style="white-space:nowrap">{{ r['date'] }}</td>
-          <td><span class="wtype">{{ r['work_type'] }}</span></td>
-          <td>{{ r['client_name'] or '—' }}</td>
-          <td>{{ r['location'] or '—' }}</td>
-          <td><div class="sum-cell" title="{{ r['summary'] }}">{{ r['summary'] }}</div></td>
-          <td><div class="sum-cell" title="{{ r['remarks'] }}">{{ r['remarks'] or '—' }}</div></td>
-          <td>{{ r['supervisor_name'] or '—' }}</td>
-          <td><span class="badge {% if s in ['done','completed'] %}badge-done{% elif s=='pending' %}badge-pending{% else %}badge-partial{% endif %}">
-            {% if s in ['done','completed'] %}✅ Done{% elif s=='pending' %}⏳ Pending{% else %}🔄 Partial{% endif %}
-          </span></td>
+          <td><div class="co-cell"><span class="avatar">{{ c.name[:2].upper() }}</span>{{ c.name }}</div></td>
+          <td>{{ c.visit_count }}</td>
+          <td style="white-space:nowrap">{{ c.last_visit_date or '—' }}</td>
+          <td style="white-space:nowrap">{{ c.latest_followup or '—' }}</td>
+          <td>
+            {% if c.days_since is none %}
+              <span class="badge badge-none">No visits yet</span>
+            {% elif c.days_since <= 14 %}
+              <span class="badge badge-fresh">✅ Active</span>
+            {% elif c.days_since <= 30 %}
+              <span class="badge badge-warn">⏳ {{ c.days_since }}d ago</span>
+            {% else %}
+              <span class="badge badge-stale">⚠️ {{ c.days_since }}d ago</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <div class="empty">🔍 No records found. Try clearing the filters.</div>
+      <div class="empty">🔍 No clients found. Try clearing the filters.</div>
       {% endif %}
     </div>
   </div>
 </div>
 
 <nav class="bottom-nav">
-  <a href="/manager"              class="bn-item active"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
   <a href="/assign-job"           class="bn-item"><span class="bn-ic">📌</span>Assign</a>
   <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
   <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
-  <a href="/manager/clients" class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
+  <a href="/manager/clients"      class="bn-item active"><span class="bn-ic">🏢</span>Clients</a>
   <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
   <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
