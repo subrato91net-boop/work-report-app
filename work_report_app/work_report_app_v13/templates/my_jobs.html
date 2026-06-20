@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorkReport">
+<title>My Jobs — {{ name }}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-left{display:flex;align-items:center;gap:10px}
+  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
+  .tname{font-size:14px;font-weight:700;color:#fff}
+  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
+  .logout:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs-desktop{display:none}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
+  .bn-item .bn-ic{font-size:19px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .wrap{max-width:760px;margin:1.4rem auto;padding:0 1rem}
+  .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+  .hdr-title{font-size:16px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+
+  .job-card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04);position:relative;overflow:hidden}
+  .job-card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:5px}
+  .job-card.role-employee::before{background:#2D7FF9}
+  .job-card.role-supervisor::before{background:#FF7A1A}
+  .job-card.role-both::before{background:linear-gradient(180deg,#2D7FF9,#FF7A1A)}
+
+  .job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:.5rem}
+  .job-title{font-size:15.5px;font-weight:800;color:#10193A}
+  .role-tag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#696B78;margin-bottom:.7rem}
+
+  .badge{display:inline-block;padding:4px 11px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  .badge-open{background:#DCE9FF;color:#1A4FA0}
+  .badge-progress{background:#FFE4CC;color:#9A4B0A}
+  .badge-done{background:#D9F5E8;color:#0E6B43}
+  .badge-other{background:#F0EEE6;color:#696B78}
+
+  .job-desc{font-size:13.5px;color:#3A3A40;line-height:1.6;margin-bottom:1.1rem;white-space:pre-wrap}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 18px;font-size:12.5px}
+  .meta-item{display:flex;flex-direction:column;gap:3px}
+  .meta-label{font-size:10px;color:#A8A4C4;text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+  .meta-val{color:#10193A;font-weight:600}
+  .empty{padding:3.5rem 1rem;text-align:center;color:#696B78;background:#fff;border:1px solid #E7E4DA;border-radius:16px;font-weight:500}
+  @media(max-width:480px){.meta-grid{grid-template-columns:1fr}}
+
+  @media(min-width:860px){
+    body{padding-bottom:0}
+    .bottom-nav{display:none}
+    .nav-tabs-desktop{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
+    .nd-tab{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+    .nd-tab:hover{color:#10193A}
+    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+    .wrap{max-width:900px;margin:2rem auto}
+    .jobs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .jobs-grid .job-card{margin-bottom:0}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="avatar">{{ name[:2].upper() }}</div>
+    <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
+  </div>
+  <a href="/logout" class="logout">Logout</a>
+</div>
+
+<div class="nav-tabs-desktop">
+  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab active">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
+</div>
+
+<div class="wrap">
+  <div class="hdr">
+    <div class="hdr-title">📌 Jobs assigned to you</div>
+    <div class="rec-count">{{ record_count }} job{{ 's' if record_count != 1 }}</div>
+  </div>
+
+  {% if jobs %}
+  <div class="jobs-grid">
+    {% for j in jobs %}
+    {% set s = (j['status'] or '')|lower %}
+    {% set role_class = 'role-both' if j['viewer_role']=='Both' else ('role-supervisor' if j['viewer_role']=='Supervisor' else 'role-employee') %}
+    <div class="job-card {{ role_class }}">
+      <div class="role-tag">
+        {% if j['viewer_role']=='Both' %}👷 You're the Employee &amp; Supervisor{% elif j['viewer_role']=='Supervisor' %}🧭 You're the Supervisor{% else %}👷 You're the Employee{% endif %}
+      </div>
+      <div class="job-top">
+        <div class="job-title">{{ j['job_title'] }}</div>
+        <span class="badge {% if s=='open' %}badge-open{% elif s in ['in progress','progress'] %}badge-progress{% elif s in ['done','completed'] %}badge-done{% else %}badge-other{% endif %}">{{ j['status'] }}</span>
+      </div>
+      {% if j['job_description'] %}<div class="job-desc">{{ j['job_description'] }}</div>{% endif %}
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Employee(s)</span><span class="meta-val">{{ j['emp_names'] or 'N/A' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Supervisor(s)</span><span class="meta-val">{{ j['supervisor_names'] or 'N/A' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Company</span><span class="meta-val">{{ j['company'] or '—' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Location</span><span class="meta-val">{{ j['location'] or '—' }}</span></div>
+        <div class="meta-item"><span class="meta-label">Assigned by</span><span class="meta-val">{{ j['assigned_by'] }}</span></div>
+        <div class="meta-item"><span class="meta-label">Start → End</span><span class="meta-val">{{ j['start_date'] or '—' }} → {{ j['end_date'] or '—' }}</span></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="empty">📭 No jobs assigned to you yet.</div>
+  {% endif %}
+</div>
+
+<nav class="bottom-nav">
+  {% if perms.get('work_report', True) %}<a href="/form" class="bn-item"><span class="bn-ic">📋</span>Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="bn-item active"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
+</nav>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

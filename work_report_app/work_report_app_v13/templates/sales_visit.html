@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorkReport">
+<title>Sales Visit Report — {{ name }}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-left{display:flex;align-items:center;gap:10px}
+  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
+  .tname{font-size:14px;font-weight:700;color:#fff}
+  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
+  .logout:hover{background:rgba(255,255,255,0.14)}
+
+  /* TABS — desktop only, mirrors Work Report / My Jobs pages */
+  .page-tabs{display:none}
+  .pt{padding:14px 20px;font-size:13.5px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .pt:hover{color:#10193A}
+  .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  /* BOTTOM NAV */
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
+  .bn-item .bn-ic{font-size:19px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .wrap{max-width:720px;margin:1.4rem auto;padding:0 1rem}
+  .card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.6rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .card-title{font-size:15.5px;font-weight:800;margin-bottom:1.3rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:8px;color:#10193A}
+
+  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:1.3rem 0 .65rem;display:flex;align-items:center;gap:6px}
+  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
+  .section-label:first-of-type{margin-top:0}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .field{margin-bottom:13px}
+  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:6px}
+  input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
+  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
+  textarea{resize:vertical;min-height:80px}
+
+  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s,box-shadow .15s}
+  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
+  .submit-btn:active{transform:scale(.98)}
+  .required{color:#E5484D}
+
+  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:1.2rem;font-weight:600}
+
+  /* HISTORY TABLE */
+  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:9px 12px;border-bottom:1px solid #F6F4EF;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF8}
+
+  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+  .badge-interested{background:#D9F5E8;color:#0E6B43}
+  .badge-followup{background:#DCE9FF;color:#1A4FA0}
+  .badge-new{background:#FFF3D9;color:#7A4A00}
+  .badge-followupv{background:#EEE7FF;color:#5B30D1}
+
+  .empty-state{text-align:center;padding:3rem 1rem;color:#A8A4C4}
+  .empty-state .es-ic{font-size:2.5rem;margin-bottom:.8rem}
+  .empty-state p{font-size:13px;font-weight:600}
+
+  /* ---------- FILTER BAR ---------- */
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+  @media(max-width:540px){.fg input,.fg select{min-width:100%}.fg{width:100%}}
+
+  @media(max-width:540px){.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
+  @media(min-width:860px){
+    body{padding-bottom:0}
+    .bottom-nav{display:none}
+    .page-tabs{display:flex;background:#fff;border-bottom:1px solid #E7E4DA;padding:0 2rem;position:sticky;top:56px;z-index:19;overflow-x:auto}
+    .wrap{max-width:800px;margin:2rem auto}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="avatar">{{ name[:2].upper() }}</div>
+    <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
+  </div>
+  <a href="/logout" class="logout">Logout</a>
+</div>
+
+<!-- PAGE TABS -->
+<div class="page-tabs">
+  {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt active">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
+</div>
+
+<div class="wrap">
+
+  {% if success %}
+  <div class="success">✅ Sales visit report submitted successfully!</div>
+  {% endif %}
+
+  <!-- SUBMIT FORM -->
+  <div class="card">
+    <div class="card-title">🤝 New Sales Visit Report</div>
+
+    <form method="POST">
+
+      <span class="section-label">Visit Details</span>
+      <div class="row3">
+        <div class="field">
+          <label>Visit Date <span class="required">*</span></label>
+          <input type="date" name="visit_date" required>
+        </div>
+        <div class="field">
+          <label>Start Time</label>
+          <input type="time" name="start_time">
+        </div>
+        <div class="field">
+          <label>End Time</label>
+          <input type="time" name="end_time">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>Type of Visit <span class="required">*</span></label>
+          <select name="type_of_visit" required>
+            <option value="" disabled selected>— Select —</option>
+            <option value="New Visit">New Visit</option>
+            <option value="Follow-up">Follow-up</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Visit Outcome <span class="required">*</span></label>
+          <select name="visit_outcome" required>
+            <option value="" disabled selected>— Select —</option>
+            <option value="Interested">Interested</option>
+            <option value="Need Follow-up">Need Follow-up</option>
+          </select>
+        </div>
+      </div>
+
+      <span class="section-label">Client Info</span>
+      <div class="row2">
+        <div class="field">
+          <label>Client / Shop Name <span class="required">*</span></label>
+          <input type="text" name="client_name" placeholder="e.g. ABC Electronics" required>
+        </div>
+        <div class="field">
+          <label>Contact Number</label>
+          <input type="tel" name="contact_number" placeholder="+91 XXXXX XXXXX">
+        </div>
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" name="address" placeholder="Full address of client / shop">
+      </div>
+
+      <span class="section-label">Discussion & Products</span>
+      <div class="field">
+        <label>Discussion Summary / বর্ণনা <span class="required">*</span></label>
+        <textarea name="discussion_summary" placeholder="What was discussed during the visit? কী আলোচনা হলো?" required></textarea>
+      </div>
+      <div class="field">
+        <label>Product(s) Interested In</label>
+        <input type="text" name="products_interested" placeholder="e.g. Biometric Device, CCTV, Access Control">
+      </div>
+
+      <span class="section-label">Follow-up & Salesperson</span>
+      <div class="row2">
+        <div class="field">
+          <label>Next Follow-up Date</label>
+          <input type="date" name="next_followup_date">
+        </div>
+        <div class="field">
+          <label>Salesperson Name <span class="required">*</span></label>
+          <select name="salesperson_code" required>
+            <option value="" disabled selected>— Select —</option>
+            {% for sp in salesperson_choices %}
+            <option value="{{ sp.code }}" {% if sp.code == current_code %}selected{% endif %}>{{ sp.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Remark</label>
+        <textarea name="remark" placeholder="Any additional notes or observations..." style="min-height:60px"></textarea>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit Sales Visit Report</button>
+    </form>
+  </div>
+
+  <!-- HISTORY TABLE -->
+  <form method="GET" action="/sales-visit">
+    <div class="filters">
+      <div class="fg"><label>Type of Visit</label>
+        <select name="vtype">
+          <option value="">All types</option>
+          <option value="New Visit" {% if filters.vtype=='New Visit' %}selected{% endif %}>New Visit</option>
+          <option value="Follow-up" {% if filters.vtype=='Follow-up' %}selected{% endif %}>Follow-up</option>
+        </select>
+      </div>
+      <div class="fg"><label>Outcome</label>
+        <select name="outcome">
+          <option value="">All</option>
+          <option value="Interested" {% if filters.outcome=='Interested' %}selected{% endif %}>Interested</option>
+          <option value="Need Follow-up" {% if filters.outcome=='Need Follow-up' %}selected{% endif %}>Need Follow-up</option>
+        </select>
+      </div>
+      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+      <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, address, products..." value="{{ filters.search }}"></div>
+      <button class="btn-filter" type="submit">Apply</button>
+      <a class="btn-clear" href="/sales-visit">✕ Clear</a>
+    </div>
+  </form>
+
+  <div class="table-card">
+    <div class="table-hdr">
+      <span class="table-hdr-title">📂 My Visit History</span>
+      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+    </div>
+    {% if history %}
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Visit Date</th>
+            <th>Client / Shop</th>
+            <th>Type</th>
+            <th>Outcome</th>
+            <th>Products</th>
+            <th>Follow-up</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in history %}
+          <tr>
+            <td>{{ v.visit_date }}</td>
+            <td>
+              <strong>{{ v.client_name }}</strong>
+              {% if v.contact_number %}<br><span style="color:#696B78;font-size:11px">{{ v.contact_number }}</span>{% endif %}
+              {% if v.address %}<br><span style="color:#696B78;font-size:11px">{{ v.address }}</span>{% endif %}
+            </td>
+            <td>
+              {% if v.type_of_visit == 'New Visit' %}
+                <span class="badge badge-new">New</span>
+              {% else %}
+                <span class="badge badge-followupv">Follow-up</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if v.visit_outcome == 'Interested' %}
+                <span class="badge badge-interested">Interested</span>
+              {% else %}
+                <span class="badge badge-followup">Need Follow-up</span>
+              {% endif %}
+            </td>
+            <td style="max-width:160px">{{ v.products_interested or '—' }}</td>
+            <td>{{ v.next_followup_date or '—' }}</td>
+            <td style="color:#696B78;font-size:11px">{{ v.timestamp[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="es-ic">🤝</div>
+      {% if filters.vtype or filters.outcome or filters.from_d or filters.to_d or filters.search %}
+      <p>No visit reports match your filters.<br>Try clearing them.</p>
+      {% else %}
+      <p>No visit reports yet.<br>Submit your first one above!</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="bottom-nav">
+  {% if perms.get('work_report', True) %}<a href="/form"        class="bn-item"><span class="bn-ic">📋</span>Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs"     class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
+</nav>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

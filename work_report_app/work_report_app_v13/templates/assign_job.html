@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorkReport">
+<title>Assign Jobs — Manager</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,0.14)}
+
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none;overflow-x:auto}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+
+  .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem;display:grid;grid-template-columns:1fr;gap:1.2rem}
+  .card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.4rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+  .card-title{font-size:15px;font-weight:800;margin-bottom:1.2rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:7px;color:#10193A}
+
+  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.07em;margin:1.15rem 0 .65rem;display:flex;align-items:center;gap:6px}
+  .section-label:first-child{margin-top:0}
+  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .field{margin-bottom:12px}
+  label{display:block;font-size:12.5px;color:#10193A;font-weight:700;margin-bottom:6px}
+  .hint-txt{font-size:11px;color:#A8A4C4;font-weight:500;margin-left:5px;text-transform:none;letter-spacing:0}
+  input,select,textarea{width:100%;padding:9px 12px;font-size:13.5px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:9px;outline:none;font-family:inherit}
+  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
+  textarea{resize:vertical;min-height:80px}
+  .required{color:#E5484D}
+
+  .chip-box{border:1.5px solid #E7E4DA;border-radius:10px;padding:9px;background:#F6F4EF;max-height:168px;overflow-y:auto}
+  .chip-box.na-active{opacity:.45;pointer-events:none}
+  .chip-row{display:flex;align-items:center;gap:9px;padding:6px 5px;border-radius:7px;cursor:pointer;transition:background .12s}
+  .chip-row:hover{background:#EFEDE3}
+  .chip-row input[type=checkbox]{width:16px;height:16px;accent-color:#FF7A1A;margin:0}
+  .chip-row label{margin:0;font-weight:600;font-size:13px;cursor:pointer}
+  .na-row{display:flex;align-items:center;gap:9px;padding:7px 5px;margin-top:4px;border-top:1px dashed #DAD6CA}
+  .na-row input[type=checkbox]{width:16px;height:16px;accent-color:#696B78;margin:0}
+  .na-row label{margin:0;font-weight:700;font-size:12.5px;color:#696B78;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}
+
+  .submit-btn{width:100%;padding:12px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.5rem;box-shadow:0 8px 20px rgba(255,122,26,0.3)}
+  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
+  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:9px;padding:11px 13px;font-size:13px;margin-bottom:1.1rem;font-weight:600}
+  .error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3;border-radius:9px;padding:11px 13px;font-size:13px;margin-bottom:1.1rem;font-weight:600}
+
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;align-items:flex-end}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700}
+  .fg select,.fg input{padding:8px 10px;font-size:12.5px;min-width:140px}
+  .btn-filter{padding:8px 15px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-clear{padding:8px 13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
+
+  .table-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+  .rec-count{font-size:12px;color:#696B78;font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 10px;text-align:left;font-size:10px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:10px 10px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.02em}
+  .badge-open{background:#DCE9FF;color:#1A4FA0}
+  .badge-progress{background:#FFE4CC;color:#9A4B0A}
+  .badge-done{background:#D9F5E8;color:#0E6B43}
+  .badge-hold{background:#F5E8FF;color:#6B2FA0}
+  .badge-other{background:#F0EEE6;color:#696B78}
+  .desc-cell{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .na-text{color:#C7C4B8;font-style:italic}
+  .empty{padding:3rem;text-align:center;color:#696B78;font-weight:500}
+  .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
+  .report-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#0E6B43;margin-right:4px;vertical-align:middle}
+
+  /* Edit button */
+  .btn-edit{padding:4px 11px;border:1.5px solid #FF7A1A;border-radius:7px;background:#fff;color:#FF7A1A;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s}
+  .btn-edit:hover{background:#FF7A1A;color:#fff}
+
+  /* ── MODAL ── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,0.55);z-index:200;align-items:center;justify-content:center;padding:1rem}
+  .modal-overlay.open{display:flex}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(16,25,58,0.28);display:flex;flex-direction:column}
+  .modal-head{padding:1.2rem 1.4rem 1rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:18px 18px 0 0}
+  .modal-title{font-size:15px;font-weight:800;color:#10193A}
+  .modal-close{width:32px;height:32px;border:none;border-radius:8px;background:#F6F4EF;font-size:18px;cursor:pointer;color:#696B78;display:flex;align-items:center;justify-content:center;line-height:1}
+  .modal-close:hover{background:#E7E4DA}
+  .modal-body{padding:1.2rem 1.4rem;flex:1}
+  .modal-foot{padding:1rem 1.4rem;border-top:1px solid #F0EEE6;display:flex;gap:9px;position:sticky;bottom:0;background:#fff;border-radius:0 0 18px 18px}
+  .btn-save{flex:1;padding:11px;background:#FF7A1A;color:#10193A;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(255,122,26,0.28)}
+  .btn-save:hover{box-shadow:0 8px 24px rgba(255,122,26,0.38)}
+  .btn-cancel{padding:11px 18px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;color:#696B78}
+  .btn-cancel:hover{background:#E7E4DA}
+
+  /* status quick-pick inside modal */
+  .status-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+  .status-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;border:2px solid transparent;transition:all .15s;user-select:none}
+  .sp-open{background:#DCE9FF;color:#1A4FA0}
+  .sp-open.sel,.sp-open:hover{border-color:#1A4FA0}
+  .sp-progress{background:#FFE4CC;color:#9A4B0A}
+  .sp-progress.sel,.sp-progress:hover{border-color:#9A4B0A}
+  .sp-done{background:#D9F5E8;color:#0E6B43}
+  .sp-done.sel,.sp-done:hover{border-color:#0E6B43}
+  .sp-hold{background:#F5E8FF;color:#6B2FA0}
+  .sp-hold.sel,.sp-hold:hover{border-color:#6B2FA0}
+
+  .edited-tag{font-size:10px;color:#A8A4C4;font-weight:500;margin-left:6px}
+
+  @media(min-width:980px){
+    .main{grid-template-columns:420px 1fr;align-items:start}
+  }
+  @media(min-width:860px){
+    .nav-tabs{display:flex}
+    .bottom-nav{display:none}
+    body{padding-bottom:0}
+  }
+  .bulk-bar{display:none;align-items:center;gap:12px;background:#10193A;color:#fff;border-radius:13px;padding:11px 16px;margin-bottom:1.1rem;flex-wrap:wrap;font-size:12.5px;font-weight:700}
+  .bulk-bar.show{display:flex}
+  .bulk-btn{padding:7px 13px;border:none;border-radius:7px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:800}
+  .bulk-open{background:#2D7FF9;color:#fff}
+  .bulk-progress{background:#FF7A1A;color:#fff}
+  .bulk-done{background:#1AAE6F;color:#fff}
+  .bulk-hold{background:rgba(255,255,255,0.12);color:#fff}
+  .bulk-clear{background:transparent;color:#A8A4C4;border:1px solid rgba(255,255,255,0.18)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">📊 Work Report System V3</div>
+  <div class="topbar-right">
+    <a href="/export/reports" class="btn-sm">⬇ Export CSV</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="nav-tabs">
+  <a href="/dashboard" class="nav-tab">🏠 Dashboard</a>
+  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
+  <a href="/assign-job"           class="nav-tab active">📌 Assign Jobs</a>
+  <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
+  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
+  <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
+  <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
+  <a href="/manager/support-reports" class="nav-tab">🔧 Support</a>
+  <a href="/manager/users"        class="nav-tab">👤 Users</a>
+</div>
+
+<div class="main">
+  <!-- ═══ ASSIGN NEW JOB ═══ -->
+  <div class="card">
+    <div class="card-title">📌 Assign New Job</div>
+    {% if success %}<div class="success">✅ Job assigned successfully!</div>{% endif %}
+    {% if edited %}<div class="success">✏️ Job updated successfully!</div>{% endif %}
+    {% if error %}<div class="error">⚠️ {{ error }}</div>{% endif %}
+    <form method="POST" action="/assign-job">
+      <div class="section-label">Assignees</div>
+
+      <div class="field">
+        <label>Employees <span class="hint-txt">(select one or more, or mark N/A)</span></label>
+        <div class="chip-box" id="empChipBox">
+          {% for e in employee_choices %}
+          <div class="chip-row">
+            <input type="checkbox" name="emp_codes" value="{{ e.code }}" id="emp_{{ e.code }}" class="emp-check" data-company="{{ e.company }}" onchange="syncCompany()">
+            <label for="emp_{{ e.code }}">{{ e.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="na-row">
+          <input type="checkbox" id="empNA" onchange="toggleNA('emp')">
+          <label for="empNA">N/A — no employee assigned</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Supervisors <span class="hint-txt">(select one or more, or mark N/A)</span></label>
+        <div class="chip-box" id="supChipBox">
+          {% for e in employee_choices %}
+          <div class="chip-row">
+            <input type="checkbox" name="supervisor_codes" value="{{ e.code }}" id="sup_{{ e.code }}" class="sup-check">
+            <label for="sup_{{ e.code }}">{{ e.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="na-row">
+          <input type="checkbox" id="supNA" onchange="toggleNA('sup')">
+          <label for="supNA">N/A — no supervisor assigned</label>
+        </div>
+      </div>
+
+      <div class="section-label">Job details</div>
+      <div class="field">
+        <label>Job title <span class="required">*</span></label>
+        <input type="text" name="job_title" placeholder="e.g. Install CCTV at client site" required>
+      </div>
+      <div class="field">
+        <label>Job description <span class="required">*</span></label>
+        <textarea name="job_description" placeholder="Describe the job in detail..." required></textarea>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Location</label>
+          <input type="text" name="location" placeholder="Site / address">
+        </div>
+        <div class="field">
+          <label>Company</label>
+          <input type="text" name="company" id="companyInput" placeholder="Company / client">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Start date</label>
+          <input type="date" name="start_date">
+        </div>
+        <div class="field">
+          <label>End date</label>
+          <input type="date" name="end_date">
+        </div>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select name="status">
+          <option value="Open" selected>Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Done">Done</option>
+          <option value="On Hold">On Hold</option>
+        </select>
+      </div>
+      <button type="submit" class="submit-btn">Assign Job →</button>
+    </form>
+  </div>
+
+  <!-- ═══ ALL ASSIGNED JOBS ═══ -->
+  <div class="card">
+    <div class="card-title">📋 All Assigned Jobs</div>
+    <form method="GET" action="/assign-job">
+      <div class="filters">
+        <div class="fg"><label>Employee / Supervisor</label>
+          <input type="text" name="emp" placeholder="Search by name..." value="{{ filters.emp }}">
+        </div>
+        <div class="fg"><label>Status</label>
+          <select name="status">
+            <option value="">All</option>
+            <option value="Open"        {% if filters.status=='Open' %}selected{% endif %}>Open</option>
+            <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
+            <option value="Done"        {% if filters.status=='Done' %}selected{% endif %}>Done</option>
+            <option value="On Hold"     {% if filters.status=='On Hold' %}selected{% endif %}>On Hold</option>
+          </select>
+        </div>
+        <button class="btn-filter" type="submit">Apply</button>
+        <a class="btn-clear" href="/assign-job">✕ Clear</a>
+      </div>
+    </form>
+    <div class="table-hdr">
+      <div class="rec-count">{{ record_count }} job{{ 's' if record_count != 1 }}</div>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+    <span id="bulkCount">0 selected</span>
+    <form method="POST" action="/jobs/bulk-status{{ request.query_string.decode() and '?' + request.query_string.decode() or '' }}" id="bulkForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="hidden" name="bulk_status" id="bulkStatus">
+      <span id="bulkIdsHolder"></span>
+      <button type="button" class="bulk-btn bulk-open" onclick="submitBulkStatus('Open')">🟦 Open</button>
+      <button type="button" class="bulk-btn bulk-progress" onclick="submitBulkStatus('In Progress')">🟧 In Progress</button>
+      <button type="button" class="bulk-btn bulk-done" onclick="submitBulkStatus('Done')">✅ Done</button>
+      <button type="button" class="bulk-btn bulk-hold" onclick="submitBulkStatus('On Hold')">⏸ On Hold</button>
+      <button type="button" class="bulk-btn bulk-clear" onclick="clearJobSelection()">✕ Clear</button>
+    </form>
+  </div>
+  <div class="tbl-scroll">
+      {% if jobs %}
+      <table>
+        <thead><tr>
+          <th><input type="checkbox" id="selectAllJobs" onclick="toggleAllJobs(this)"></th>
+          <th>#</th><th>Assigned</th><th>Employee(s)</th><th>Supervisor(s)</th><th>Company</th>
+          <th>Job title</th><th>Location</th><th>Start</th><th>End</th><th>Status</th><th>Report</th><th>Edit</th>
+        </tr></thead>
+        <tbody>
+        {% for j in jobs %}
+        {% set s = (j['status'] or '')|lower %}
+        <tr>
+          <td><input type="checkbox" class="job-check" value="{{ j['id'] }}" onclick="updateBulkJobBar()"></td>
+          <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
+          <td style="color:#A8A4C4;font-size:11.5px;white-space:nowrap">
+            {{ j['created_at'] }}
+            {% if j.get('last_edited') %}<span class="edited-tag">edited {{ j['last_edited'][:10] }}</span>{% endif %}
+          </td>
+          <td>{% if j['emp_names'] %}{{ j['emp_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
+          <td>{% if j['supervisor_names'] %}{{ j['supervisor_names'] }}{% else %}<span class="na-text">N/A</span>{% endif %}</td>
+          <td><span class="co-pill">{{ j['company'] or '—' }}</span></td>
+          <td><div class="desc-cell" title="{{ j['job_description'] }}">{{ j['job_title'] }}</div></td>
+          <td>{{ j['location'] or '—' }}</td>
+          <td style="white-space:nowrap">{{ j['start_date'] or '—' }}</td>
+          <td style="white-space:nowrap">{{ j['end_date'] or '—' }}</td>
+          <td><span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% elif s=='on hold' %}badge-hold{% else %}badge-other{% endif %}">{{ j['status'] }}</span></td>
+          <td>
+            {% if j.get('service_report') %}
+              <span title="{{ j['service_report'] }}"><span class="report-dot"></span>Yes</span>
+            {% else %}
+              <span style="color:#C7C4B8;font-size:11px">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <button class="btn-edit" onclick="openEdit({{ j['id'] }})">✏️ Edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">🔍 No jobs assigned yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     EDIT JOB MODAL
+════════════════════════════════ -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">✏️ Edit Job</div>
+      <button class="modal-close" onclick="closeEdit()" aria-label="Close">✕</button>
+    </div>
+    <form id="editForm" method="POST">
+      <div class="modal-body">
+
+        <!-- STATUS QUICK-PICK -->
+        <div class="section-label">Status</div>
+        <div class="status-pills">
+          <div class="status-pill sp-open"     onclick="setPill(this,'Open')">Open</div>
+          <div class="status-pill sp-progress" onclick="setPill(this,'In Progress')">In Progress</div>
+          <div class="status-pill sp-done"      onclick="setPill(this,'Done')">Done</div>
+          <div class="status-pill sp-hold"      onclick="setPill(this,'On Hold')">On Hold</div>
+        </div>
+        <input type="hidden" name="status" id="editStatus">
+
+        <!-- JOB DETAILS -->
+        <div class="section-label" style="margin-top:1.3rem">Job details</div>
+        <div class="field">
+          <label>Job title <span class="required">*</span></label>
+          <input type="text" name="job_title" id="editTitle" required>
+        </div>
+        <div class="field">
+          <label>Job description</label>
+          <textarea name="job_description" id="editDesc" rows="3"></textarea>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Location</label>
+            <input type="text" name="location" id="editLocation">
+          </div>
+          <div class="field">
+            <label>Company</label>
+            <input type="text" name="company" id="editCompany">
+          </div>
+        </div>
+
+        <!-- DATES -->
+        <div class="section-label">Dates</div>
+        <div class="row2">
+          <div class="field">
+            <label>Start date</label>
+            <input type="date" name="start_date" id="editStart">
+          </div>
+          <div class="field">
+            <label>End date <span class="hint-txt">(extend if needed)</span></label>
+            <input type="date" name="end_date" id="editEnd">
+          </div>
+        </div>
+
+        <!-- ASSIGNEES -->
+        <div class="section-label">Employees</div>
+        <div class="chip-box" id="editEmpBox" style="max-height:140px"></div>
+        <div class="na-row">
+          <input type="checkbox" id="editEmpNA" onchange="toggleEditNA('emp')">
+          <label for="editEmpNA">N/A — no employee</label>
+        </div>
+
+        <div class="section-label" style="margin-top:1rem">Supervisors</div>
+        <div class="chip-box" id="editSupBox" style="max-height:140px"></div>
+        <div class="na-row">
+          <input type="checkbox" id="editSupNA" onchange="toggleEditNA('sup')">
+          <label for="editSupNA">N/A — no supervisor</label>
+        </div>
+
+        <!-- SERVICE REPORT -->
+        <div class="section-label" style="margin-top:1.3rem">Service report</div>
+        <div class="field">
+          <label>Service report / completion notes <span class="hint-txt">(visible to manager only)</span></label>
+          <textarea name="service_report" id="editReport" rows="4" placeholder="Write service notes, completion summary, issues found, materials used…"></textarea>
+        </div>
+
+      </div><!-- /modal-body -->
+      <div class="modal-foot">
+        <button type="button" class="btn-cancel" onclick="closeEdit()">Cancel</button>
+        <button type="submit" class="btn-save">💾 Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="/dashboard" class="bn-item"><span class="bn-ic">🏠</span>Home</a>
+  <a href="/manager" class="bn-item"><span class="bn-ic">📋</span>Reports</a>
+  <a href="/assign-job" class="bn-item active"><span class="bn-ic">📌</span>Assign</a>
+  <a href="/attendance" class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
+  <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
+  <a href="/manager/clients" class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
+  <a href="/manager/ta-reports" class="bn-item"><span class="bn-ic">🧾</span>TA</a>
+  <a href="/manager/users" class="bn-item"><span class="bn-ic">👤</span>Users</a>
+</nav>
+
+<script>
+/* ── Bulk job selection ── */
+function getCheckedJobs(){
+  return Array.from(document.querySelectorAll('.job-check:checked')).map(c => c.value);
+}
+function updateBulkJobBar(){
+  const ids = getCheckedJobs();
+  const bar = document.getElementById('bulkBar');
+  document.getElementById('bulkCount').textContent = ids.length + ' selected';
+  bar.classList.toggle('show', ids.length > 0);
+  const selectAll = document.getElementById('selectAllJobs');
+  const allChecks = document.querySelectorAll('.job-check');
+  selectAll.checked = allChecks.length > 0 && ids.length === allChecks.length;
+}
+function toggleAllJobs(box){
+  document.querySelectorAll('.job-check').forEach(c => c.checked = box.checked);
+  updateBulkJobBar();
+}
+function clearJobSelection(){
+  document.querySelectorAll('.job-check').forEach(c => c.checked = false);
+  document.getElementById('selectAllJobs').checked = false;
+  updateBulkJobBar();
+}
+function submitBulkStatus(status){
+  const ids = getCheckedJobs();
+  if(ids.length === 0) return;
+  const holder = document.getElementById('bulkIdsHolder');
+  holder.innerHTML = '';
+  ids.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = id;
+    holder.appendChild(inp);
+  });
+  document.getElementById('bulkStatus').value = status;
+  document.getElementById('bulkForm').submit();
+}
+
+/* ── All job data stored safely in JS — no inline onclick JSON ── */
+const JOBS_DATA = {{ jobs | tojson }};
+const EMPS_DATA = {{ employee_choices | tojson }};
+
+/* ── Assign-new-job helpers ── */
+function toggleNA(which) {
+  const naBox   = document.getElementById(which === 'emp' ? 'empNA' : 'supNA');
+  const chipBox = document.getElementById(which === 'emp' ? 'empChipBox' : 'supChipBox');
+  chipBox.querySelectorAll('input[type=checkbox]').forEach(c => { if(naBox.checked) c.checked = false; });
+  chipBox.classList.toggle('na-active', naBox.checked);
+  if (which === 'emp') syncCompany();
+}
+function syncCompany() {
+  const checked = document.querySelector('.emp-check:checked');
+  if (checked) document.getElementById('companyInput').value = checked.getAttribute('data-company') || '';
+}
+
+/* ── Modal ── */
+const overlay = document.getElementById('editOverlay');
+
+function openEdit(jobId) {
+  const job = JOBS_DATA.find(j => j.id === jobId);
+  if (!job) { alert('Job not found'); return; }
+
+  document.getElementById('editForm').action = '/edit-job/' + jobId;
+
+  document.getElementById('editTitle').value    = job.job_title        || '';
+  document.getElementById('editDesc').value     = job.job_description  || '';
+  document.getElementById('editLocation').value = job.location         || '';
+  document.getElementById('editCompany').value  = job.company          || '';
+  document.getElementById('editStart').value    = job.start_date       || '';
+  document.getElementById('editEnd').value      = job.end_date         || '';
+  document.getElementById('editReport').value   = job.service_report   || '';
+
+  /* Status pills */
+  const status = job.status || 'Open';
+  document.getElementById('editStatus').value = status;
+  document.querySelectorAll('.status-pill').forEach(p =>
+    p.classList.toggle('sel', p.textContent.trim() === status)
+  );
+
+  /* Employees */
+  const selEmps = (job.emp_codes || '').split(',').map(s => s.trim()).filter(Boolean);
+  buildCheckboxes('editEmpBox', 'emp_codes', EMPS_DATA, selEmps, false);
+  document.getElementById('editEmpNA').checked = selEmps.length === 0;
+  document.getElementById('editEmpBox').classList.toggle('na-active', selEmps.length === 0);
+
+  /* Supervisors */
+  const selSups = (job.supervisor_codes || '').split(',').map(s => s.trim()).filter(Boolean);
+  buildCheckboxes('editSupBox', 'supervisor_codes', EMPS_DATA, selSups, true);
+  document.getElementById('editSupNA').checked = selSups.length === 0;
+  document.getElementById('editSupBox').classList.toggle('na-active', selSups.length === 0);
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function buildCheckboxes(boxId, fieldName, employees, selected) {
+  const box = document.getElementById(boxId);
+  box.innerHTML = '';
+  employees.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'chip-row';
+    const uid = boxId + '_' + e.code;
+
+    const chk = document.createElement('input');
+    chk.type    = 'checkbox';
+    chk.name    = fieldName;
+    chk.value   = e.code;
+    chk.id      = uid;
+    chk.checked = selected.includes(e.code);
+    chk.style.cssText = 'width:16px;height:16px;accent-color:#FF7A1A;margin:0';
+
+    const lbl = document.createElement('label');
+    lbl.htmlFor     = uid;
+    lbl.textContent = e.name;
+    lbl.style.cssText = 'margin:0;font-weight:600;font-size:13px;cursor:pointer';
+
+    row.appendChild(chk);
+    row.appendChild(lbl);
+    box.appendChild(row);
+  });
+}
+
+function toggleEditNA(which) {
+  const naBox   = document.getElementById(which === 'emp' ? 'editEmpNA' : 'editSupNA');
+  const chipBox = document.getElementById(which === 'emp' ? 'editEmpBox' : 'editSupBox');
+  chipBox.querySelectorAll('input[type=checkbox]').forEach(c => { if(naBox.checked) c.checked = false; });
+  chipBox.classList.toggle('na-active', naBox.checked);
+}
+
+function setPill(el, value) {
+  document.querySelectorAll('.status-pill').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('editStatus').value = value;
+}
+
+function closeEdit() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+overlay.addEventListener('click', e => { if (e.target === overlay) closeEdit(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
