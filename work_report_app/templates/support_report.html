@@ -260,53 +260,53 @@
 
     {% if history %}
       {% for item in history %}
-      {% set rep = item.report %}
+      {% set rep = item['report'] %}
       <div class="report-card">
         <div class="rc-head" onclick="toggleCard(this)">
           <div>
-            <div class="rc-company">{{ rep.company or '—' }}</div>
-            <div class="rc-meta">{{ rep.contact_person }} &bull; {{ rep.support_date }}</div>
+            <div class="rc-company">{{ rep['company'] or '—' }}</div>
+            <div class="rc-meta">{{ rep['contact_person'] }} &bull; {{ rep['support_date'] }}</div>
           </div>
           <div class="rc-right">
-            <span class="badge {% if rep.status|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}">{{ rep.status }}</span>
-            <span class="rc-date">{{ rep.timestamp[:10] }}</span>
+            <span class="badge {% if rep['status']|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}">{{ rep['status'] }}</span>
+            <span class="rc-date">{{ rep['timestamp'][:10] }}</span>
           </div>
         </div>
         <div class="rc-body">
           <div class="detail-grid">
             <div class="detail-item">
               <label>Support Date</label>
-              <div class="val">{{ rep.support_date or '—' }}</div>
+              <div class="val">{{ rep['support_date'] or '—' }}</div>
             </div>
             <div class="detail-item">
               <label>Contact Number</label>
-              <div class="val">{{ rep.contact_number or '—' }}</div>
+              <div class="val">{{ rep['contact_number'] or '—' }}</div>
             </div>
             <div class="detail-item">
               <label>Client Email</label>
-              <div class="val">{{ rep.client_email or '—' }}</div>
+              <div class="val">{{ rep['client_email'] or '—' }}</div>
             </div>
             <div class="detail-item full">
               <label>Address</label>
-              <div class="val">{{ rep.address or '—' }}</div>
+              <div class="val">{{ rep['address'] or '—' }}</div>
             </div>
             <div class="detail-item">
               <label>Dealer Type</label>
-              <div class="val">{{ rep.dealer_type or '—' }}</div>
+              <div class="val">{{ rep['dealer_type'] or '—' }}</div>
             </div>
             <div class="detail-item">
               <label>Dealer Contact</label>
-              <div class="val">{{ rep.dealer_contact_number or '—' }}</div>
+              <div class="val">{{ rep['dealer_contact_number'] or '—' }}</div>
             </div>
             <div class="detail-item">
               <label>Dealer Person</label>
-              <div class="val">{{ rep.dealer_contact_person or '—' }}</div>
+              <div class="val">{{ rep['dealer_contact_person'] or '—' }}</div>
             </div>
-            {% if item.devices %}
+            {% if item['devices'] %}
             <div class="detail-item full">
               <label>Devices</label>
               <div class="val">
-                {% for d in item.devices %}
+                {% for d in item['devices'] %}
                 <span class="device-tag">{{ d.device_model }} — {{ d.device_serial }}</span>
                 {% endfor %}
               </div>
@@ -314,16 +314,16 @@
             {% endif %}
             <div class="detail-item full">
               <label>Issue Description</label>
-              <div class="val">{{ rep.issue_description or '—' }}</div>
+              <div class="val">{{ rep['issue_description'] or '—' }}</div>
             </div>
             <div class="detail-item full">
               <label>Solution Description</label>
-              <div class="val">{{ rep.solution_description or '—' }}</div>
+              <div class="val">{{ rep['solution_description'] or '—' }}</div>
             </div>
-            {% if rep.remarks %}
+            {% if rep['remarks'] %}
             <div class="detail-item full">
               <label>Remarks</label>
-              <div class="val">{{ rep.remarks }}</div>
+              <div class="val">{{ rep['remarks'] }}</div>
             </div>
             {% endif %}
           </div>
