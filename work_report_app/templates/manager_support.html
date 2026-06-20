@@ -101,6 +101,19 @@
   .sect-divider{grid-column:1/-1;border-top:1px dashed #E0DCCF;margin:4px 0;padding-top:8px;font-size:10.5px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.05em}
 
   .empty-state{padding:2.5rem;text-align:center;color:#696B78;font-weight:600;font-size:13px}
+
+  /* ─── ticket id + timeline (manager view) ─── */
+  .ticket-id{display:inline-flex;align-items:center;gap:5px;background:#10193A;color:#FFD479;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.03em;font-variant-numeric:tabular-nums;margin-left:8px}
+  .edited-tag{font-size:10px;color:#A8A4C4;font-weight:700;margin-top:2px}
+  .timeline{margin-top:.4rem}
+  .timeline-title{font-size:11px;font-weight:800;color:#6C3EE8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.6rem}
+  .tl-item{background:#fff;border:1px solid #E7E4DA;border-radius:10px;padding:.75rem .9rem;margin-bottom:8px}
+  .tl-item:last-child{margin-bottom:0}
+  .tl-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+  .tl-num{font-size:11.5px;font-weight:800;color:#6C3EE8}
+  .tl-date{font-size:10.5px;color:#A8A4C4;font-weight:700}
+  .tl-label{font-size:10px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.03em;margin-top:6px}
+  .tl-text{font-size:12.5px;color:#14141A;font-weight:500;line-height:1.45;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -193,7 +206,7 @@
         </div>
         <div class="fg">
           <label>Search</label>
-          <input type="text" name="search" value="{{ filters.search }}" placeholder="Company / issue…">
+          <input type="text" name="search" value="{{ filters.search }}" placeholder="Company / issue / Support ID…">
         </div>
         <div class="fg" style="display:flex;gap:6px;align-items:flex-end">
           <button type="submit" class="btn-filter">Filter</button>
@@ -219,9 +232,10 @@
       <details class="rep-item">
         <summary>
           <div class="sum-left">
-            <div class="sum-company">{{ rep['company'] or '—' }}</div>
+            <div class="sum-company">{{ rep['company'] or '—' }}<span class="ticket-id">🎫 {{ rep['support_ticket_id'] or '—' }}</span></div>
             <div class="sum-meta">{{ rep['contact_person'] or '' }} &bull; {{ rep['support_date'] or '' }}</div>
             <div class="sum-emp">{{ rep['emp_name'] }}</div>
+            {% if rep['last_edited'] %}<div class="edited-tag">✏️ edited {{ rep['last_edited'][:16] }}</div>{% endif %}
           </div>
           <div class="sum-right">
             <span class="badge {% if (rep['status'] or '')|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}">{{ rep['status'] or 'Pending' }}</span>
@@ -322,6 +336,27 @@
             </div>
 
           </div>
+
+          {% if item['followups'] and item['followups']|length > 1 %}
+          <div class="timeline">
+            <div class="timeline-title">📜 Case Timeline ({{ item['followups']|length }} entries)</div>
+            {% for f in item['followups'] %}
+            <div class="tl-item">
+              <div class="tl-item-head">
+                <span class="tl-num">{% if loop.first %}🟣 Original Visit{% else %}🔁 Follow-up #{{ loop.index - 1 }}{% endif %}</span>
+                <span class="tl-date">{{ f['timestamp'] or '' }} &bull; {{ f['emp_name'] or '' }}</span>
+              </div>
+              <div class="tl-label">Issue</div>
+              <div class="tl-text">{{ f['issue_description'] or '—' }}</div>
+              {% if f['solution_description'] %}
+              <div class="tl-label">Resolution</div>
+              <div class="tl-text">{{ f['solution_description'] }}</div>
+              {% endif %}
+              <span class="badge {% if (f['status'] or '')|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}" style="margin-top:6px">{{ f['status'] or 'Pending' }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </details>
       {% endfor %}

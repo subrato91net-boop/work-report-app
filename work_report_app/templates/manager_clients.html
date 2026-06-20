@@ -121,13 +121,20 @@
     <div class="tbl-scroll">
       {% if companies %}
       <table>
-        <thead><tr><th>#</th><th>Client</th><th>Visits</th><th>Last visit</th><th>Next follow-up</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Client</th><th>Visits</th><th>Support</th><th>Last visit</th><th>Next follow-up</th><th>Status</th></tr></thead>
         <tbody>
         {% for c in companies %}
         <tr class="clickable" onclick="window.location='/manager/clients/{{ c.id }}'">
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
           <td><div class="co-cell"><span class="avatar">{{ c.name[:2].upper() }}</span>{{ c.name }}</div></td>
           <td>{{ c.visit_count }}</td>
+          <td>
+            {% if c.open_support_count and c.open_support_count > 0 %}
+              <span class="badge badge-stale">🎧 {{ c.open_support_count }} open</span>
+            {% else %}
+              <span style="color:#C7C4B8;font-size:11.5px">—</span>
+            {% endif %}
+          </td>
           <td style="white-space:nowrap">{{ c.last_visit_date or '—' }}</td>
           <td style="white-space:nowrap">{{ c.latest_followup or '—' }}</td>
           <td>

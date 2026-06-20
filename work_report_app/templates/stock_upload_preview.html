@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<title>Stock Preview — Work Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:40px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .main{max-width:1100px;margin:0 auto;padding:1.4rem 1rem}
+
+  .summary-bar{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.3rem;margin-bottom:1.3rem;display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+  .sum-item{text-align:center}
+  .sum-val{font-size:24px;font-weight:800}
+  .sum-lbl{font-size:10.5px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}
+
+  .warning-box{background:#FFF7E8;border:1.5px solid #FFD580;border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.2rem;font-size:13px;color:#9A4B0A;font-weight:600}
+
+  .action-bar{display:flex;gap:10px;margin-bottom:1.3rem;flex-wrap:wrap;align-items:center}
+  .btn-confirm{background:#1AAE6F;color:#fff;border:none;border-radius:10px;padding:11px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-cancel{background:#F0EEE6;color:#696B78;border:none;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
+  .select-all-wrap{font-size:13px;color:#696B78;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:auto}
+
+  .tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid #E7E4DA}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 13px;text-align:left;font-size:10px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #EDE9DE;white-space:nowrap}
+  td{padding:10px 13px;border-bottom:1px solid #F4F2ED;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  tr.unmatched td{opacity:.5;background:#FDFCFB}
+
+  .badge-match{background:#D9F5E8;color:#0E6B43;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
+  .badge-new{background:#FBE2E2;color:#9A2A2D;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
+  .arrow{color:#7C5CFC;font-weight:800}
+  .qty-new{color:#1AAE6F;font-weight:800;font-size:14px}
+  .qty-old{color:#A8A4C4;text-decoration:line-through;font-size:12px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">🔍 Stock Preview — {{ filename }}</div>
+  <a class="btn-sm" href="/manager/stock-upload">✕ Cancel</a>
+</div>
+<div class="main">
+
+  <div class="summary-bar">
+    <div class="sum-item"><div class="sum-val blue">{{ total }}</div><div class="sum-lbl">Items in PDF</div></div>
+    <div class="sum-item"><div class="sum-val green">{{ matched_ct }}</div><div class="sum-lbl">Matched to Products</div></div>
+    <div class="sum-item"><div class="sum-val amber">{{ unmatched_ct }}</div><div class="sum-lbl">Not Found in DB</div></div>
+    <div style="margin-left:auto;font-size:13px;color:#696B78;font-weight:600">
+      📄 File: <strong>{{ filename }}</strong><br>
+      ✅ Review below and confirm to update stock quantities
+    </div>
+  </div>
+
+  {% if unmatched_ct > 0 %}
+  <div class="warning-box">
+    ⚠️ {{ unmatched_ct }} item(s) from the PDF were not found in the product database. These will be skipped. You can add them manually in the Products section.
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/manager/stock-upload/confirm">
+    <div class="action-bar">
+      <button type="submit" class="btn-confirm">✅ Confirm &amp; Update {{ matched_ct }} Products</button>
+      <a href="/manager/stock-upload" class="btn-cancel">✕ Cancel</a>
+      <label class="select-all-wrap">
+        <input type="checkbox" id="selectAll" checked onchange="toggleAll(this)"> Select / Deselect All
+      </label>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Apply</th>
+            <th>PDF Product Name</th>
+            <th>Brand</th>
+            <th>Matched To</th>
+            <th>Current Qty</th>
+            <th>→ New Qty</th>
+            <th>Unit</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr class="{{ '' if item.matched else 'unmatched' }}">
+            <td>
+              {% if item.matched %}
+              <input type="checkbox" name="apply_ids" value="{{ item.product_id }}" checked class="apply-chk" style="width:16px;height:16px;accent-color:#1AAE6F;cursor:pointer">
+              {% else %}
+              <span style="color:#C4C0D4;font-size:12px">—</span>
+              {% endif %}
+            </td>
+            <td style="font-weight:600;color:#10193A;max-width:280px">{{ item.name }}</td>
+            <td style="color:#696B78;font-size:12px">{{ item.brand }}</td>
+            <td style="color:#7C5CFC;font-size:12px;font-weight:600">
+              {% if item.matched %}{{ item.db_name }}{% else %}<span style="color:#C4C0D4">Not found</span>{% endif %}
+            </td>
+            <td>
+              {% if item.matched %}<span class="qty-old">{{ item.current_stock }}</span>{% else %}<span style="color:#C4C0D4">—</span>{% endif %}
+            </td>
+            <td><span class="qty-new">{{ item.qty }}</span></td>
+            <td style="color:#696B78;font-size:12px">{{ item.unit }}</td>
+            <td>
+              {% if item.matched %}<span class="badge-match">✓ Will Update</span>
+              {% else %}<span class="badge-new">✗ Skip</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:1.2rem;display:flex;gap:10px">
+      <button type="submit" class="btn-confirm">✅ Confirm &amp; Update {{ matched_ct }} Products</button>
+      <a href="/manager/stock-upload" class="btn-cancel">✕ Cancel</a>
+    </div>
+  </form>
+</div>
+<script>
+function toggleAll(cb){
+  document.querySelectorAll('.apply-chk').forEach(c => c.checked = cb.checked)
+}
+</script>
+</body>
+</html>

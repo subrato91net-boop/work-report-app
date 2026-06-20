@@ -133,6 +133,9 @@
   {% if success %}
   <div class="success">✅ Travel expense report saved successfully!</div>
   {% endif %}
+  {% if lock_error %}
+  <div class="success" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">🔒 That entry has already been approved and can no longer be edited.</div>
+  {% endif %}
 
   <!-- SUBMIT / EDIT FORM -->
   <div class="card">
@@ -262,10 +265,14 @@
               {% endif %}
             </td>
             <td>
+              {% if r.approval_status != 'Approved' %}
               <button type="button" class="edit-link"
                 onclick="editRow('{{ r.id }}','{{ r.travel_date }}','{{ r.from_place|e }}','{{ r.to_place|e }}','{{ r.travel_by|e }}','{{ (r.description or '')|e }}','{{ r.expense_cost }}')">
                 ✏️ Edit
               </button>
+              {% else %}
+              <span style="font-size:11px;color:#C7C4B8">🔒 locked</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -292,7 +299,7 @@
   </div>
 
   <p style="font-size:11.5px;color:#A8A4C4;text-align:center;margin-top:1rem;font-weight:600">
-    🔒 Payment &amp; Approval status are set by your manager and cannot be edited here.
+    🔒 Payment &amp; Approval status are set by your manager and cannot be edited here. Once a report is <b>Approved</b>, it can no longer be edited.
   </p>
 
 </div><!-- /wrap -->

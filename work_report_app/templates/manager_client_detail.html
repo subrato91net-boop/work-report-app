@@ -64,7 +64,16 @@
   .t-meta{display:flex;gap:7px;margin-top:6px;flex-wrap:wrap}
   .pill{display:inline-block;padding:3px 9px;border-radius:6px;font-size:10.5px;background:#F0EEE6;color:#696B78;font-weight:700}
   .pill-outcome{background:#D9F5E8;color:#0E6B43}
+  .pill-pending{background:#FFF3D6;color:#9A6A0A}
+  .pill-complete{background:#D9F5E8;color:#0E6B43}
   .empty{padding:2.5rem;text-align:center;color:#696B78;font-weight:500;font-size:12.5px}
+
+  .tabswitch{display:flex;gap:6px;margin-bottom:1rem;background:#F6F4EF;padding:4px;border-radius:10px}
+  .tabswitch button{flex:1;padding:8px;border:none;border-radius:7px;background:transparent;font-size:12px;font-weight:800;color:#696B78;cursor:pointer;font-family:inherit}
+  .tabswitch button.active{background:#fff;color:#10193A;box-shadow:0 1px 3px rgba(16,25,58,0.08)}
+  .red{color:#D9534F}
+  .t-dot-support{background:#7C5CFC}
+  .ticket-id{font-size:10.5px;color:#A8A4C4;font-weight:700}
 </style>
 </head>
 <body>
@@ -88,6 +97,8 @@
   <div class="stats">
     <div class="stat"><div class="stat-label">Total visits</div><div class="stat-val blue">{{ visit_count }}</div></div>
     <div class="stat"><div class="stat-label">Salespeople</div><div class="stat-val amber">{{ salespeople|length }}</div></div>
+    <div class="stat"><div class="stat-label">Support tickets</div><div class="stat-val purple">{{ support_count }}</div></div>
+    <div class="stat"><div class="stat-label">Open tickets</div><div class="stat-val {% if open_support_count > 0 %}red{% else %}green{% endif %}">{{ open_support_count }}</div></div>
     {% for outcome, ct in outcome_counts.items() %}
     <div class="stat"><div class="stat-label">{{ outcome }}</div><div class="stat-val green">{{ ct }}</div></div>
     {% endfor %}
@@ -115,28 +126,64 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Visit history ({{ visit_count }})</div>
-      {% if visits %}
-        {% for v in visits %}
-        <div class="timeline-item">
-          <div class="t-dot"></div>
-          <div style="flex:1">
-            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-              <span class="t-emp">{{ v.salesperson_name }}</span>
-              <span class="t-date">{{ v.visit_date }}</span>
-            </div>
-            <div class="t-summary">{{ v.discussion_summary or '—' }}</div>
-            <div class="t-meta">
-              {% if v.type_of_visit %}<span class="pill">{{ v.type_of_visit }}</span>{% endif %}
-              {% if v.visit_outcome %}<span class="pill pill-outcome">{{ v.visit_outcome }}</span>{% endif %}
-              {% if v.next_followup_date %}<span class="pill">Next: {{ v.next_followup_date }}</span>{% endif %}
+      <div class="tabswitch">
+        <button type="button" class="active" id="tabBtnVisits" onclick="showTab('visits')">🤝 Visits ({{ visit_count }})</button>
+        <button type="button" id="tabBtnSupport" onclick="showTab('support')">🎧 Support ({{ support_count }})</button>
+      </div>
+
+      <div id="tabVisits">
+        <div class="card-title">Visit history ({{ visit_count }})</div>
+        {% if visits %}
+          {% for v in visits %}
+          <div class="timeline-item">
+            <div class="t-dot"></div>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <span class="t-emp">{{ v.salesperson_name }}</span>
+                <span class="t-date">{{ v.visit_date }}</span>
+              </div>
+              <div class="t-summary">{{ v.discussion_summary or '—' }}</div>
+              <div class="t-meta">
+                {% if v.type_of_visit %}<span class="pill">{{ v.type_of_visit }}</span>{% endif %}
+                {% if v.visit_outcome %}<span class="pill pill-outcome">{{ v.visit_outcome }}</span>{% endif %}
+                {% if v.next_followup_date %}<span class="pill">Next: {{ v.next_followup_date }}</span>{% endif %}
+              </div>
             </div>
           </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty">No visits logged yet for this client.</div>
-      {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="empty">No visits logged yet for this client.</div>
+        {% endif %}
+      </div>
+
+      <div id="tabSupport" style="display:none">
+        <div class="card-title">Support tickets ({{ support_count }})</div>
+        {% if support_tickets %}
+          {% for t in support_tickets %}
+          <div class="timeline-item">
+            <div class="t-dot t-dot-support"></div>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <span class="t-emp">{{ t.emp_name }} <span class="ticket-id">#{{ t.support_ticket_id }}</span></span>
+                <span class="t-date">{{ t.support_date }}</span>
+              </div>
+              <div class="t-summary">{{ t.issue_description or '—' }}</div>
+              {% if t.solution_description %}
+              <div class="t-summary" style="color:#696B78;margin-top:4px">↳ {{ t.solution_description }}</div>
+              {% endif %}
+              <div class="t-meta">
+                {% if t.status %}
+                  <span class="pill {% if t.status|lower == 'complete' %}pill-complete{% else %}pill-pending{% endif %}">{{ t.status }}</span>
+                {% endif %}
+                {% if t.dealer_type %}<span class="pill">{{ t.dealer_type }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">No support tickets logged yet for this client.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -152,6 +199,22 @@
   <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
 <script>
+function showTab(which){
+  const visitsTab = document.getElementById('tabVisits');
+  const supportTab = document.getElementById('tabSupport');
+  const btnV = document.getElementById('tabBtnVisits');
+  const btnS = document.getElementById('tabBtnSupport');
+  if(which === 'visits'){
+    visitsTab.style.display = 'block';
+    supportTab.style.display = 'none';
+    btnV.classList.add('active'); btnS.classList.remove('active');
+  } else {
+    visitsTab.style.display = 'none';
+    supportTab.style.display = 'block';
+    btnS.classList.add('active'); btnV.classList.remove('active');
+  }
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/static/sw.js').catch(() => {});

@@ -69,6 +69,17 @@
   .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500}
   .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
 
+  .overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,0.55);z-index:200;align-items:center;justify-content:center;padding:1.25rem}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:420px;box-shadow:0 24px 60px rgba(8,12,32,0.35)}
+  .modal h3{font-size:16px;font-weight:800;color:#10193A;margin-bottom:4px}
+  .modal .sub{font-size:12.5px;color:#696B78;margin-bottom:16px;font-weight:600}
+  .modal textarea{width:100%;padding:10px 13px;font-size:13.5px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-family:inherit;outline:none;min-height:90px;resize:vertical}
+  .modal textarea:focus{border-color:#FF7A1A;background:#fff}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  .btn-primary-modal{padding:10px 18px;border:none;border-radius:9px;background:#C7333A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-secondary-modal{padding:10px 16px;border:1.5px solid #E7E4DA;border-radius:9px;background:#fff;color:#696B78;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+
   @media(min-width:860px){
     .nav-tabs{display:flex}
     .bottom-nav{display:none}
@@ -93,6 +104,8 @@
   <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
   <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
   <a href="/manager/support-reports" class="nav-tab">🔧 Support</a>
+  <a href="/manager/products"     class="nav-tab">📦 Products</a>
+  <a href="/manager/stock-upload" class="nav-tab">📤 Stock Upload</a>
   <a href="/manager/users"        class="nav-tab">👤 Users</a>
 </div>
 <div class="main">
@@ -102,6 +115,7 @@
     <div class="stat"><div class="stat-label">Pending</div><div class="stat-val amber">{{ pending }}</div></div>
     <div class="stat"><div class="stat-label">Partial</div><div class="stat-val purple">{{ partial }}</div></div>
     <div class="stat"><div class="stat-label">Active today</div><div class="stat-val blue">{{ today_ct }}</div></div>
+    <div class="stat"><div class="stat-label">Awaiting review</div><div class="stat-val amber">{{ awaiting_review }}</div></div>
   </div>
   <form method="GET" action="/manager">
     <div class="filters">
@@ -126,6 +140,15 @@
           <option value="partial"   {% if filters.status=='partial'   %}selected{% endif %}>Partial</option>
         </select>
       </div>
+      <div class="fg"><label>Review</label>
+        <select name="review">
+          <option value="">All</option>
+          <option value="Draft"           {% if filters.review=='Draft' %}selected{% endif %}>Draft</option>
+          <option value="Awaiting Review" {% if filters.review=='Awaiting Review' %}selected{% endif %}>Awaiting Review</option>
+          <option value="Approved"        {% if filters.review=='Approved' %}selected{% endif %}>Approved</option>
+          <option value="Rejected"        {% if filters.review=='Rejected' %}selected{% endif %}>Rejected</option>
+        </select>
+      </div>
       <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
       <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
       <div class="fg"><label>Search</label><input type="text" name="search" placeholder="Client, location..." value="{{ filters.search }}"></div>
@@ -141,10 +164,11 @@
     <div class="tbl-scroll">
       {% if reports %}
       <table>
-        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Job details</th><th>Remarks</th><th>Supervisor</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Submitted</th><th>Employee</th><th>Company</th><th>Date</th><th>Work type</th><th>Client</th><th>Location</th><th>Job details</th><th>Remarks</th><th>Supervisor</th><th>Status</th><th>Review</th><th>Action</th></tr></thead>
         <tbody>
         {% for r in reports %}
         {% set s = r['status']|lower %}
+        {% set rv = r['review_status'] or 'Draft' %}
         <tr>
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
           <td style="color:#A8A4C4;font-size:12px;white-space:nowrap">{{ r['timestamp'] }}</td>
@@ -160,6 +184,34 @@
           <td><span class="badge {% if s in ['done','completed'] %}badge-done{% elif s=='pending' %}badge-pending{% else %}badge-partial{% endif %}">
             {% if s in ['done','completed'] %}✅ Done{% elif s=='pending' %}⏳ Pending{% else %}🔄 Partial{% endif %}
           </span></td>
+          <td>
+            {% if rv == 'Awaiting Review' %}
+              <span class="badge badge-pending">🔒 Awaiting</span>
+            {% elif rv == 'Approved' %}
+              <span class="badge badge-done">✔ Approved</span>
+            {% elif rv == 'Rejected' %}
+              <span class="badge" style="background:#FBE2E2;color:#9A2A2D" title="{{ r['reject_reason'] or '' }}">↩ Rejected</span>
+            {% else %}
+              <span class="badge" style="background:#F0EEE6;color:#696B78">Draft</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if rv == 'Awaiting Review' %}
+            <div style="display:flex;gap:6px">
+              <form method="POST" action="/manager/reports/{{ r['id'] }}/approve" style="display:inline">
+                <button type="submit" class="btn-filter" style="padding:5px 10px;font-size:11px;background:#1AAE6F">✔ Approve</button>
+              </form>
+              <button type="button" class="btn-clear" style="padding:5px 10px;font-size:11px"
+                onclick="openReject({{ r['id'] }}, '{{ r['emp_name']|e }}')">✕ Reject</button>
+            </div>
+            {% elif rv == 'Approved' %}
+            <span style="font-size:11px;color:#A8A4C4">by {{ r['reviewed_by'] or 'manager' }}</span>
+            {% elif rv == 'Rejected' %}
+            <span style="font-size:11px;color:#9A2A2D">sent back</span>
+            {% else %}
+            <span style="font-size:11px;color:#C7C4B8">—</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
         </tbody>
@@ -179,13 +231,40 @@
   <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
   <a href="/manager/clients" class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
   <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
+  <a href="/manager/products"    class="bn-item"><span class="bn-ic">📦</span>Products</a>
+  <a href="/manager/stock-upload" class="bn-item"><span class="bn-ic">📤</span>Stock</a>
   <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
+<!-- REJECT MODAL -->
+<div class="overlay" id="rejectOverlay">
+  <div class="modal">
+    <h3>Reject Report</h3>
+    <div class="sub" id="rejectEmpName">—</div>
+    <form method="POST" id="rejectForm">
+      <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em">Reason (shown to employee)</label>
+      <textarea name="reject_reason" id="rejectReason" placeholder="What needs to be fixed?"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary-modal" onclick="closeReject()">Cancel</button>
+        <button type="submit" class="btn-primary-modal">Reject & Send Back</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/static/sw.js').catch(() => {});
   });
+}
+function openReject(reportId, empName){
+  document.getElementById('rejectForm').action = '/manager/reports/' + reportId + '/reject';
+  document.getElementById('rejectEmpName').textContent = 'Report by ' + empName;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectOverlay').classList.add('open');
+}
+function closeReject(){
+  document.getElementById('rejectOverlay').classList.remove('open');
 }
 </script>
 </body>

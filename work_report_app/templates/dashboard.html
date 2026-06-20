@@ -125,6 +125,15 @@
       <div class="progress-track"><div class="progress-fill {% if completion_pct < 50 %}danger{% elif completion_pct < 85 %}warn{% endif %}" style="width:{{ completion_pct }}%"></div></div>
     </a>
 
+    <a href="/manager?review=Awaiting+Review" class="card">
+      <div class="card-top">
+        <div class="card-ic ic-amber">🔒</div>
+      </div>
+      <div class="card-label">Reports awaiting review</div>
+      <div class="card-val">{{ awaiting_review_count }}</div>
+      <div class="card-sub">locked, pending your approve/reject</div>
+    </a>
+
     <a href="/assign-job" class="card">
       <div class="card-top">
         <div class="card-ic ic-amber">📌</div>
@@ -231,6 +240,7 @@
   <a href="/manager/clients"      class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
   <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
   <a href="/manager/support-reports" class="bn-item"><span class="bn-ic">🔧</span>Support</a>
+  <a href="/manager/products"    class="bn-item"><span class="bn-ic">📦</span>Products</a>
   <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
 </nav>
 

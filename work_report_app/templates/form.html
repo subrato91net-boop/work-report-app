@@ -152,10 +152,13 @@
   {% endif %}
 
   <div class="card">
-    <div class="card-title"><span class="ic">📋</span>Daily Work Report</div>
-    {% if success %}<div class="success">✅ Report submitted successfully!</div>{% endif %}
-    <form method="POST">
+    <div class="card-title" id="formTitle"><span class="ic">📋</span>Daily Work Report</div>
+    {% if success %}<div class="success">✅ Report saved successfully!</div>{% endif %}
+    {% if lock_error %}<div class="success" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">🔒 That report is locked (already submitted for review) and can no longer be edited.</div>{% endif %}
+    <div class="success" id="editBanner" style="display:none;background:#FFF3D9;color:#7A4A00;border-color:#F5DCA0">✏️ Editing an existing report — saving will update this entry.</div>
+    <form method="POST" id="reportForm">
       <input type="hidden" name="status" id="statusInput" value="">
+      <input type="hidden" name="edit_id" id="editId" value="">
       <div class="section-label">Employee details</div>
       <div class="row2">
         <div class="field">
@@ -172,7 +175,7 @@
       <div class="row2">
         <div class="field">
           <label>Work type <span class="required">*</span></label>
-          <select name="work_type" required>
+          <select name="work_type" id="f_work_type" required>
             <option value="">Select type...</option>
             <option>Site visit</option>
             <option>Service call</option>
@@ -183,16 +186,16 @@
         </div>
         <div class="field">
           <label>Client name</label>
-          <input type="text" name="client_name" placeholder="Client / company">
+          <input type="text" name="client_name" id="f_client_name" placeholder="Client / company">
         </div>
       </div>
       <div class="field">
         <label>Location</label>
-        <input type="text" name="location" placeholder="Address, area, Office or Home">
+        <input type="text" name="location" id="f_location" placeholder="Address, area, Office or Home">
       </div>
       <div class="field">
         <label>Supervisor <span class="required">*</span></label>
-        <select name="supervisor_code" required>
+        <select name="supervisor_code" id="f_supervisor_code" required>
           <option value="">Select supervisor...</option>
           {% for s in supervisor_choices %}
           <option value="{{ s.code }}">{{ s.name }}</option>
@@ -201,11 +204,11 @@
       </div>
       <div class="field">
         <label>Job details <span class="required">*</span></label>
-        <textarea name="summary" placeholder="Describe the work done today in detail..." style="min-height:160px" required></textarea>
+        <textarea name="summary" id="f_summary" placeholder="Describe the work done today in detail..." style="min-height:160px" required></textarea>
       </div>
       <div class="field">
         <label>Remarks / notes</label>
-        <textarea name="remarks" placeholder="Extra notes (optional)" style="min-height:48px"></textarea>
+        <textarea name="remarks" id="f_remarks" placeholder="Extra notes (optional)" style="min-height:48px"></textarea>
       </div>
 
       <div class="section-label">Job status <span class="required">*</span></div>
@@ -214,7 +217,9 @@
         <button type="button" class="status-btn" id="btn-pending" onclick="setStatus('pending')">⏳ Pending</button>
         <button type="button" class="status-btn" id="btn-partial" onclick="setStatus('partial')">🔄 Partial</button>
       </div>
-      <button type="submit" class="submit-btn" onclick="return validateForm()">Submit Report →</button>
+      <p style="font-size:11.5px;color:#A8A4C4;margin:-10px 0 14px;font-weight:600">🔒 Marking a report <b>Completed</b> sends it for manager review and locks it from further edits.</p>
+      <button type="submit" class="submit-btn" id="submitBtn" onclick="return validateForm()">Submit Report →</button>
+      <button type="button" class="btn-clear" id="cancelEditBtn" style="display:none;width:100%;text-align:center;margin-top:8px;padding:11px" onclick="resetForm()">Cancel Edit</button>
     </form>
   </div>
 
@@ -251,16 +256,45 @@
     </div>
     {% if recent %}
     <table>
-      <thead><tr><th>Date</th><th>Work type</th><th>Job details</th><th>Supervisor</th><th>Status</th></tr></thead>
+      <thead><tr><th>Date</th><th>Work type</th><th>Job details</th><th>Supervisor</th><th>Status</th><th>Review</th><th></th></tr></thead>
       <tbody>
       {% for r in recent %}
       {% set s = r['status']|lower %}
+      {% set rv = r['review_status'] or 'Draft' %}
+      {% set editable = rv in ['Draft', 'Rejected'] %}
       <tr>
         <td>{{ r['date'] }}</td>
         <td>{{ r['work_type'] }}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r['summary'] }}</td>
         <td>{{ r['supervisor_name'] or '—' }}</td>
         <td><span class="badge {% if s in ['done','completed'] %}badge-present{% elif s=='pending' %}badge-absent{% else %}badge-half{% endif %}">{{ r['status']|title }}</span></td>
+        <td>
+          {% if rv == 'Awaiting Review' %}
+            <span class="badge badge-half">🔒 Awaiting Review</span>
+          {% elif rv == 'Approved' %}
+            <span class="badge badge-present">🔒 Approved</span>
+          {% elif rv == 'Rejected' %}
+            <span class="badge badge-absent" title="{{ r['reject_reason'] or '' }}">↩ Rejected</span>
+          {% else %}
+            <span class="badge" style="background:#F0EEE6;color:#696B78">Draft</span>
+          {% endif %}
+          {% if rv == 'Rejected' and r['reject_reason'] %}
+          <div style="font-size:11px;color:#9A2A2D;margin-top:3px;max-width:160px">{{ r['reject_reason'] }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if editable %}
+          <button type="button" class="btn-clear" style="padding:5px 11px;font-size:11.5px"
+            onclick='editReport({{ {
+              "id": r["id"], "date": r["date"], "work_type": r["work_type"],
+              "client_name": r["client_name"] or "", "location": r["location"] or "",
+              "supervisor_code": r["supervisor_code"] or "", "summary": r["summary"] or "",
+              "remarks": r["remarks"] or "", "status": s
+            }|tojson }})'>✏️ Edit</button>
+          {% else %}
+          <span style="font-size:11px;color:#C7C4B8">🔒 locked</span>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
       </tbody>
@@ -292,6 +326,36 @@
   function validateForm() {
     if (!sel) { alert('Please select a job status.'); return false; }
     return true;
+  }
+
+  function editReport(r){
+    document.getElementById('editId').value = r.id;
+    document.getElementById('date').value = r.date;
+    document.getElementById('f_work_type').value = r.work_type;
+    document.getElementById('f_client_name').value = r.client_name;
+    document.getElementById('f_location').value = r.location;
+    document.getElementById('f_supervisor_code').value = r.supervisor_code;
+    document.getElementById('f_summary').value = r.summary;
+    document.getElementById('f_remarks').value = r.remarks;
+    setStatus(r.status === 'completed' ? 'done' : r.status);
+
+    document.getElementById('formTitle').innerHTML = '<span class="ic">✏️</span>Edit Daily Work Report';
+    document.getElementById('editBanner').style.display = 'block';
+    document.getElementById('submitBtn').textContent = 'Update Report →';
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    document.querySelector('.card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetForm(){
+    document.getElementById('reportForm').reset();
+    document.getElementById('editId').value = '';
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    sel = '';
+    document.getElementById('statusInput').value = '';
+    ['done','pending','partial'].forEach(x => document.getElementById('btn-'+x).className='status-btn');
+    document.getElementById('formTitle').innerHTML = '<span class="ic">📋</span>Daily Work Report';
+    document.getElementById('editBanner').style.display = 'none';
+    document.getElementById('submitBtn').textContent = 'Submit Report →';
+    document.getElementById('cancelEditBtn').style.display = 'none';
   }
 </script>
 <script>

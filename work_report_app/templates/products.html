@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Product Catalogue</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
+  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;min-width:60px}
+  .bn-item .bn-ic{font-size:18px;line-height:1}
+  .bn-item.active{color:#FF7A1A}
+  .main{max-width:1100px;margin:0 auto;padding:1.2rem 1rem}
+  .page-title{font-size:19px;font-weight:800;color:#10193A;margin-bottom:4px}
+  .page-sub{font-size:12.5px;color:#696B78;margin-bottom:1.2rem}
+
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:.9rem 1rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:10.5px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:120px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-f{padding:8px 14px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clr{padding:8px 12px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;font-weight:700}
+
+  .brand-section{margin-bottom:1.6rem}
+  .brand-hdr{display:flex;align-items:center;gap:10px;margin-bottom:.65rem}
+  .brand-pill{background:#10193A;color:#fff;font-size:11.5px;font-weight:800;padding:4px 13px;border-radius:20px;letter-spacing:.04em}
+  .brand-count{font-size:12px;color:#696B78;font-weight:600}
+
+  .tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid #E7E4DA;box-shadow:0 1px 3px rgba(16,25,58,.05)}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:13px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 14px;text-align:left;font-size:10.5px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #EDE9DE;white-space:nowrap}
+  td{padding:11px 14px;border-bottom:1px solid #F4F2ED;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+
+  .prod-name{font-weight:700;color:#10193A;font-size:13px}
+  .model{font-size:11px;color:#A8A4C4;margin-top:2px;font-family:'SF Mono',Consolas,monospace}
+  .price{font-weight:800;color:#10193A;font-size:14px}
+  .qty-val{font-size:15px;font-weight:800}
+  .qty-in{color:#1AAE6F}
+  .qty-low{color:#FF7A1A}
+  .qty-out{color:#C7333A}
+  .badge{font-size:10px;font-weight:800;padding:3px 9px;border-radius:5px;text-transform:uppercase}
+  .b-in{background:#D9F5E8;color:#0E6B43}
+  .b-low{background:#FFF0D9;color:#9A4B0A}
+  .b-out{background:#FBE2E2;color:#9A2A2D}
+  .empty{padding:3rem;text-align:center;color:#696B78;background:#fff;border-radius:12px;border:1px solid #E7E4DA}
+  .updated-note{font-size:11px;color:#A8A4C4;margin-top:.4rem}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">📦 Product Catalogue</div>
+  <a class="btn-sm" href="/dashboard">← Back</a>
+</div>
+<div class="main">
+  <div class="page-title">Product Catalogue</div>
+  <div class="page-sub">Current stock quantity &amp; price — updated daily from godown report</div>
+
+  <form method="GET" class="filters">
+    <div class="fg"><label>Search</label><input name="q" value="{{ filters.q }}" placeholder="Product name or code..."></div>
+    <div class="fg">
+      <label>Brand</label>
+      <select name="brand">
+        <option value="">All Brands</option>
+        {% for b in brands %}<option value="{{ b.id }}" {% if filters.brand==b.id|string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Stock</label>
+      <select name="stock">
+        <option value="">All</option>
+        <option value="in" {% if filters.stock=='in' %}selected{% endif %}>In Stock</option>
+        <option value="low" {% if filters.stock=='low' %}selected{% endif %}>Low Stock</option>
+        <option value="out" {% if filters.stock=='out' %}selected{% endif %}>Out of Stock</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-f">🔍 Search</button>
+    <a href="/products" class="btn-clr">Clear</a>
+  </form>
+
+  {% if not grouped %}
+  <div class="empty">No products found.</div>
+  {% else %}
+  {% for brand_name, items in grouped.items() %}
+  <div class="brand-section">
+    <div class="brand-hdr">
+      <span class="brand-pill">{{ brand_name }}</span>
+      <span class="brand-count">{{ items|length }} product{{ 's' if items|length != 1 }}</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Price (₹)</th>
+            <th>Quantity</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in items %}
+          <tr>
+            <td style="color:#C4C0D4;font-size:11px;width:32px">{{ loop.index }}</td>
+            <td>
+              <div class="prod-name">{{ p.name }}</div>
+              <div class="model">{{ p.model_code }}</div>
+            </td>
+            <td class="price">₹{{ "{:,.0f}".format(p.price) }}</td>
+            <td>
+              {% if p.in_stock == 0 %}
+                <span class="qty-val qty-out">0</span>
+              {% elif p.in_stock <= p.min_stock %}
+                <span class="qty-val qty-low">{{ p.in_stock }}</span>
+              {% else %}
+                <span class="qty-val qty-in">{{ p.in_stock }}</span>
+              {% endif %}
+              <span style="font-size:11px;color:#A8A4C4"> {{ p.unit }}</span>
+            </td>
+            <td>
+              {% if p.in_stock == 0 %}<span class="badge b-out">Out of Stock</span>
+              {% elif p.in_stock <= p.min_stock %}<span class="badge b-low">Low Stock</span>
+              {% else %}<span class="badge b-in">Available</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+<nav class="bottom-nav">
+  <a class="bn-item" href="/dashboard"><span class="bn-ic">🏠</span>Home</a>
+  <a class="bn-item" href="/form"><span class="bn-ic">📋</span>Report</a>
+  <a class="bn-item" href="/sales-visit"><span class="bn-ic">🤝</span>Sales</a>
+  <a class="bn-item" href="/support-report"><span class="bn-ic">🛠️</span>Support</a>
+  <a class="bn-item active" href="/products"><span class="bn-ic">📦</span>Products</a>
+</nav>
+</body>
+</html>

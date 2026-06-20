@@ -98,6 +98,46 @@
   .detail-full{grid-column:1/-1}
   .device-tag{display:inline-block;background:#EDE9FF;color:#4A26A8;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700;margin:2px 3px 0 0}
   .empty-state{text-align:center;padding:2rem;color:#696B78;font-weight:600;font-size:13px}
+
+  /* ─── ticket id ─── */
+  .ticket-id{display:inline-flex;align-items:center;gap:5px;background:#10193A;color:#FFD479;padding:3px 11px;border-radius:20px;font-size:11.5px;font-weight:800;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+  .success-box .ticket-id{margin-left:4px}
+
+  /* ─── edit button on history cards ─── */
+  .rc-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .btn-edit-rep{padding:4px 11px;border:1.5px solid #FF7A1A;border-radius:7px;background:#fff;color:#FF7A1A;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-edit-rep:hover{background:#FF7A1A;color:#fff}
+  .edited-tag{font-size:10px;color:#A8A4C4;font-weight:700;margin-top:2px}
+
+  /* ─── editing banner on the form ─── */
+  .edit-banner{background:#FFF3D9;color:#7A4A00;border:1px solid #F5DCA0;border-radius:10px;padding:.75rem 1rem;font-size:12.5px;font-weight:700;margin-bottom:1rem;display:none;align-items:center;justify-content:space-between;gap:10px}
+  .btn-cancel-edit{background:none;border:1.5px solid #7A4A00;color:#7A4A00;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+
+  /* ─── reopen ticket panel ─── */
+  .reopen-row{display:flex;gap:8px}
+  .reopen-row input{flex:1}
+  .btn-lookup{padding:9px 18px;background:#10193A;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-lookup:hover{background:#1A2960}
+  .ticket-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2;border-radius:10px;padding:.7rem 1rem;font-size:12.5px;font-weight:700;margin-top:.8rem}
+  .ticket-found{border:1.5px solid #C5BDFF;background:#F5F2FF;border-radius:12px;padding:1rem;margin-top:1rem;display:none}
+  .tf-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.6rem}
+  .tf-company{font-size:14px;font-weight:800;color:#10193A}
+  .tf-meta{font-size:11.5px;color:#696B78;font-weight:600}
+
+  /* ─── timeline ─── */
+  .timeline{margin-top:.6rem;border-top:1px dashed #D8D2F5;padding-top:.7rem}
+  .timeline-title{font-size:11px;font-weight:800;color:#6C3EE8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .tl-item{background:#fff;border:1px solid #E7E4DA;border-radius:10px;padding:.7rem .85rem;margin-bottom:7px}
+  .tl-item:last-child{margin-bottom:0}
+  .tl-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+  .tl-num{font-size:11px;font-weight:800;color:#6C3EE8}
+  .tl-date{font-size:10.5px;color:#A8A4C4;font-weight:700}
+  .tl-label{font-size:10px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
+  .tl-text{font-size:12.5px;color:#14141A;font-weight:500;line-height:1.4;white-space:pre-wrap}
+
+  .followup-form{margin-top:.9rem;border-top:1px dashed #D8D2F5;padding-top:.9rem}
+  .btn-followup{width:100%;padding:11px;background:#6C3EE8;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.6rem}
+  .btn-followup:hover{background:#5A2ED4}
 </style>
 </head>
 <body>
@@ -123,46 +163,124 @@
 <div class="main">
 
   {% if success %}
-  <div class="success-box">✅ Support report submitted successfully!</div>
+  <div class="success-box">
+    ✅ Support report saved successfully!
+    {% if success_ticket_id %}
+      <span class="ticket-id">🎫 ID: {{ success_ticket_id }}</span>
+    {% endif %}
+  </div>
   {% endif %}
+
+  {% if lock_error %}
+  <div class="success-box" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">
+    ⚠️ That report couldn't be updated — please refresh and try again.
+  </div>
+  {% endif %}
+
+  <!-- ── REOPEN PREVIOUS TICKET ── -->
+  <div class="card">
+    <div class="card-title">🔁 Reopen a Previous Support Ticket</div>
+    <p style="font-size:12px;color:#696B78;font-weight:600;margin:-6px 0 12px">
+      Have a 6-digit Support ID from an earlier visit? Look it up to see the full history and log a new issue/resolution against the same ticket.
+    </p>
+    <div class="reopen-row">
+      <input type="text" id="ticketSearchInput" maxlength="6" inputmode="numeric" pattern="[0-9]*"
+             placeholder="Enter 6-digit Support ID e.g. 384920" value="{{ active_ticket }}">
+      <button type="button" class="btn-lookup" onclick="lookupTicket()">🔍 Find Ticket</button>
+    </div>
+    {% if ticket_error %}
+    <div class="ticket-error">⚠️ {{ ticket_error }}</div>
+    {% endif %}
+
+    <div class="ticket-found" id="ticketFoundBox">
+      <div class="tf-head">
+        <div>
+          <div class="tf-company" id="tfCompany">—</div>
+          <div class="tf-meta" id="tfMeta">—</div>
+        </div>
+        <span class="ticket-id" id="tfTicketId">🎫 ID: —</span>
+      </div>
+
+      <div class="timeline" id="tfTimeline">
+        <div class="timeline-title">📜 Case Timeline</div>
+        <div id="tfTimelineItems"></div>
+      </div>
+
+      <form method="POST" action="/support-report" class="followup-form" id="reopenForm">
+        <input type="hidden" name="form_action" value="reopen">
+        <input type="hidden" name="ticket_id" id="reopenTicketId">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>New Issue Description <span class="req">*</span></label>
+            <textarea name="issue_description" rows="3" placeholder="Describe the new issue the client reported…" required></textarea>
+          </div>
+          <div class="form-group full">
+            <label>Solution Description</label>
+            <textarea name="solution_description" rows="3" placeholder="Describe the solution provided…"></textarea>
+          </div>
+          <div class="form-group full">
+            <label>Remarks</label>
+            <textarea name="remarks" rows="2" placeholder="Any additional remarks…"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Status <span class="req">*</span></label>
+            <select name="status" required>
+              <option value="Pending">Pending</option>
+              <option value="Complete">Complete</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn-followup">➕ Add Follow-up to This Ticket</button>
+      </form>
+    </div>
+  </div>
 
   <!-- ── SUBMIT FORM ── -->
   <div class="card">
-    <div class="card-title">🔧 New Support Report</div>
-    <form method="POST" action="/support-report">
+    <div class="card-title" id="formTitle">🔧 New Support Report</div>
+
+    <div class="edit-banner" id="editBanner">
+      <span>✏️ Editing an existing report — saving will update this entry.</span>
+      <button type="button" class="btn-cancel-edit" onclick="cancelEdit()">Cancel Edit</button>
+    </div>
+
+    <form method="POST" action="/support-report" id="supportForm">
+      <input type="hidden" name="form_action" id="formAction" value="new">
+      <input type="hidden" name="edit_id" id="editId" value="">
+
 
       <div class="form-grid">
 
         <!-- Row 1: Support Date + Company -->
         <div class="form-group">
           <label>Support Date <span class="req">*</span></label>
-          <input type="date" name="support_date" required>
+          <input type="date" name="support_date" id="f_support_date" required>
         </div>
         <div class="form-group">
           <label>Company <span class="req">*</span></label>
-          <input type="text" name="company" placeholder="Client company name" required>
+          <input type="text" name="company" id="f_company" placeholder="Client company name" required>
         </div>
 
         <!-- Row 2: Contact Person + Address -->
         <div class="form-group">
           <label>Contact Person <span class="req">*</span></label>
-          <input type="text" name="contact_person" placeholder="Full name" required>
+          <input type="text" name="contact_person" id="f_contact_person" placeholder="Full name" required>
         </div>
         <div class="form-group">
           <label>Contact Number <span class="req">*</span></label>
-          <input type="tel" name="contact_number" placeholder="+91 00000 00000" required>
+          <input type="tel" name="contact_number" id="f_contact_number" placeholder="+91 00000 00000" required>
         </div>
 
         <!-- Row 3: Address full width -->
         <div class="form-group full">
           <label>Address</label>
-          <input type="text" name="address" placeholder="Client address">
+          <input type="text" name="address" id="f_address" placeholder="Client address">
         </div>
 
         <!-- Row 4: Email -->
         <div class="form-group full">
           <label>Client Email ID</label>
-          <input type="email" name="client_email" placeholder="client@example.com">
+          <input type="email" name="client_email" id="f_client_email" placeholder="client@example.com">
         </div>
 
         <!-- Section: Dealer / Distributor / End User -->
@@ -172,7 +290,7 @@
 
         <div class="form-group">
           <label>Type <span class="req">*</span></label>
-          <select name="dealer_type" required>
+          <select name="dealer_type" id="f_dealer_type" required>
             <option value="">— Select —</option>
             <option value="Dealer">Dealer</option>
             <option value="Distributor">Distributor</option>
@@ -181,11 +299,11 @@
         </div>
         <div class="form-group">
           <label>Contact Number</label>
-          <input type="tel" name="dealer_contact_number" placeholder="Contact number">
+          <input type="tel" name="dealer_contact_number" id="f_dealer_contact_number" placeholder="Contact number">
         </div>
         <div class="form-group full">
           <label>Contact Person Name</label>
-          <input type="text" name="dealer_contact_person" placeholder="Contact person name">
+          <input type="text" name="dealer_contact_person" id="f_dealer_contact_person" placeholder="Contact person name">
         </div>
 
         <!-- Section: Devices -->
@@ -214,21 +332,21 @@
 
         <div class="form-group full">
           <label>Issue Description <span class="req">*</span></label>
-          <textarea name="issue_description" rows="3" placeholder="Describe the issue reported by the client…" required></textarea>
+          <textarea name="issue_description" id="f_issue_description" rows="3" placeholder="Describe the issue reported by the client…" required></textarea>
         </div>
         <div class="form-group full">
           <label>Solution Description</label>
-          <textarea name="solution_description" rows="3" placeholder="Describe the solution provided…"></textarea>
+          <textarea name="solution_description" id="f_solution_description" rows="3" placeholder="Describe the solution provided…"></textarea>
         </div>
         <div class="form-group full">
           <label>Remarks</label>
-          <textarea name="remarks" rows="2" placeholder="Any additional remarks…"></textarea>
+          <textarea name="remarks" id="f_remarks" rows="2" placeholder="Any additional remarks…"></textarea>
         </div>
 
         <!-- Status -->
         <div class="form-group">
           <label>Status <span class="req">*</span></label>
-          <select name="status" required>
+          <select name="status" id="f_status" required>
             <option value="Pending">Pending</option>
             <option value="Complete">Complete</option>
           </select>
@@ -236,9 +354,10 @@
 
       </div><!-- /form-grid -->
 
-      <button type="submit" class="btn-submit" style="margin-top:1rem">Submit Support Report</button>
+      <button type="submit" class="btn-submit" id="submitBtn" style="margin-top:1rem">Submit Support Report</button>
     </form>
   </div>
+
 
   <!-- ── HISTORY ── -->
   <div class="card">
@@ -247,7 +366,7 @@
     <!-- Filters -->
     <form method="GET" action="/support-report">
       <div class="filter-bar">
-        <input type="text" name="search" value="{{ filters.search }}" placeholder="Search company / issue…">
+        <input type="text" name="search" value="{{ filters.search }}" placeholder="Search company / issue / Support ID…">
         <select name="status">
           <option value="">All Status</option>
           <option value="Complete" {% if filters.status=='complete' %}selected{% endif %}>Complete</option>
@@ -267,8 +386,11 @@
       <div class="report-card">
         <div class="rc-head" onclick="toggleCard(this)">
           <div>
-            <div class="rc-company">{{ rep['company'] or '—' }}</div>
+            <div class="rc-company">{{ rep['company'] or '—' }}
+              <span class="ticket-id">🎫 {{ rep['support_ticket_id'] or '—' }}</span>
+            </div>
             <div class="rc-meta">{{ rep['contact_person'] }} &bull; {{ rep['support_date'] }}</div>
+            {% if rep['last_edited'] %}<div class="edited-tag">✏️ edited {{ rep['last_edited'][:16] }}</div>{% endif %}
           </div>
           <div class="rc-right">
             <span class="badge {% if rep['status']|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}">{{ rep['status'] }}</span>
@@ -276,6 +398,27 @@
           </div>
         </div>
         <div class="rc-body">
+          <div class="rc-actions" style="margin-bottom:.9rem">
+            <button type="button" class="btn-edit-rep"
+              onclick='event.stopPropagation(); editReport({{ {
+                "id": rep["id"],
+                "support_date": rep["support_date"],
+                "company": rep["company"],
+                "contact_person": rep["contact_person"],
+                "contact_number": rep["contact_number"],
+                "address": rep["address"],
+                "client_email": rep["client_email"],
+                "dealer_type": rep["dealer_type"],
+                "dealer_contact_number": rep["dealer_contact_number"],
+                "dealer_contact_person": rep["dealer_contact_person"],
+                "issue_description": rep["issue_description"],
+                "solution_description": rep["solution_description"],
+                "remarks": rep["remarks"],
+                "status": rep["status"],
+                "devices": item["devices"] | map(attribute="device_model") | list,
+                "devices_serial": item["devices"] | map(attribute="device_serial") | list,
+              }|tojson }})'>✏️ Edit Report</button>
+          </div>
           <div class="detail-grid">
             <div class="detail-item">
               <label>Support Date</label>
@@ -316,11 +459,11 @@
             </div>
             {% endif %}
             <div class="detail-item full">
-              <label>Issue Description</label>
+              <label>Issue Description (latest)</label>
               <div class="val">{{ rep['issue_description'] or '—' }}</div>
             </div>
             <div class="detail-item full">
-              <label>Solution Description</label>
+              <label>Solution Description (latest)</label>
               <div class="val">{{ rep['solution_description'] or '—' }}</div>
             </div>
             {% if rep['remarks'] %}
@@ -330,6 +473,27 @@
             </div>
             {% endif %}
           </div>
+
+          {% if item['followups'] and item['followups']|length > 1 %}
+          <div class="timeline">
+            <div class="timeline-title">📜 Case Timeline ({{ item['followups']|length }} entries)</div>
+            {% for f in item['followups'] %}
+            <div class="tl-item">
+              <div class="tl-item-head">
+                <span class="tl-num">{% if loop.first %}🟣 Original Visit{% else %}🔁 Follow-up #{{ loop.index - 1 }}{% endif %}</span>
+                <span class="tl-date">{{ f['timestamp'] or '' }} &bull; {{ f['emp_name'] or '' }}</span>
+              </div>
+              <div class="tl-label">Issue</div>
+              <div class="tl-text">{{ f['issue_description'] or '—' }}</div>
+              {% if f['solution_description'] %}
+              <div class="tl-label">Resolution</div>
+              <div class="tl-text">{{ f['solution_description'] }}</div>
+              {% endif %}
+              <span class="badge {% if (f['status'] or '')|lower == 'complete' %}badge-complete{% else %}badge-pending{% endif %}" style="margin-top:6px">{{ f['status'] or 'Pending' }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -349,13 +513,13 @@
 </nav>
 
 <script>
-function addDevice() {
+function addDevice(model, serial) {
   const container = document.getElementById('devices-container');
   const row = document.createElement('div');
   row.className = 'device-row';
   row.innerHTML = `
-    <input type="text" name="device_model[]" placeholder="Device model">
-    <input type="text" name="device_serial[]" placeholder="Serial number">
+    <input type="text" name="device_model[]" placeholder="Device model" value="${model ? model.replace(/"/g,'&quot;') : ''}">
+    <input type="text" name="device_serial[]" placeholder="Serial number" value="${serial ? serial.replace(/"/g,'&quot;') : ''}">
     <button type="button" class="btn-remove-device" onclick="this.parentElement.remove()">✕</button>
   `;
   container.appendChild(row);
@@ -365,6 +529,113 @@ function toggleCard(head) {
   const body = head.nextElementSibling;
   body.classList.toggle('open');
 }
+
+/* ───────── Edit existing report ───────── */
+function editReport(r) {
+  document.getElementById('formAction').value = 'edit';
+  document.getElementById('editId').value = r.id;
+
+  document.getElementById('f_support_date').value = r.support_date || '';
+  document.getElementById('f_company').value = r.company || '';
+  document.getElementById('f_contact_person').value = r.contact_person || '';
+  document.getElementById('f_contact_number').value = r.contact_number || '';
+  document.getElementById('f_address').value = r.address || '';
+  document.getElementById('f_client_email').value = r.client_email || '';
+  document.getElementById('f_dealer_type').value = r.dealer_type || '';
+  document.getElementById('f_dealer_contact_number').value = r.dealer_contact_number || '';
+  document.getElementById('f_dealer_contact_person').value = r.dealer_contact_person || '';
+  document.getElementById('f_issue_description').value = r.issue_description || '';
+  document.getElementById('f_solution_description').value = r.solution_description || '';
+  document.getElementById('f_remarks').value = r.remarks || '';
+  document.getElementById('f_status').value = r.status || 'Pending';
+
+  // rebuild device rows from the saved devices
+  const container = document.getElementById('devices-container');
+  container.innerHTML = '';
+  const models = r.devices || [];
+  const serials = r.devices_serial || [];
+  if (models.length === 0) {
+    addDevice('', '');
+  } else {
+    models.forEach((m, i) => addDevice(m, serials[i] || ''));
+  }
+
+  document.getElementById('formTitle').innerHTML = '✏️ Edit Support Report';
+  document.getElementById('editBanner').style.display = 'flex';
+  document.getElementById('submitBtn').textContent = 'Save Changes';
+
+  document.getElementById('supportForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelEdit() {
+  document.getElementById('supportForm').reset();
+  document.getElementById('formAction').value = 'new';
+  document.getElementById('editId').value = '';
+  document.getElementById('formTitle').innerHTML = '🔧 New Support Report';
+  document.getElementById('editBanner').style.display = 'none';
+  document.getElementById('submitBtn').textContent = 'Submit Support Report';
+
+  const container = document.getElementById('devices-container');
+  container.innerHTML = '';
+  addDevice('', '');
+}
+
+/* ───────── Reopen previous ticket by 6-digit Support ID ───────── */
+async function lookupTicket() {
+  const input = document.getElementById('ticketSearchInput');
+  const ticketId = input.value.trim();
+  if (!ticketId) return;
+
+  try {
+    const res = await fetch('/support-report/lookup/' + encodeURIComponent(ticketId));
+    const data = await res.json();
+
+    if (!data.found) {
+      document.getElementById('ticketFoundBox').style.display = 'none';
+      alert('No support ticket found with ID ' + ticketId + '.');
+      return;
+    }
+
+    const rep = data.report;
+    document.getElementById('tfCompany').textContent = rep.company || '—';
+    document.getElementById('tfMeta').textContent = (rep.contact_person || '') + ' • ' + (rep.contact_number || '');
+    document.getElementById('tfTicketId').textContent = '🎫 ID: ' + rep.support_ticket_id;
+    document.getElementById('reopenTicketId').value = rep.support_ticket_id;
+
+    const itemsBox = document.getElementById('tfTimelineItems');
+    itemsBox.innerHTML = '';
+    data.followups.forEach((f, i) => {
+      const div = document.createElement('div');
+      div.className = 'tl-item';
+      const label = i === 0 ? '🟣 Original Visit' : ('🔁 Follow-up #' + i);
+      const statusClass = (f.status || '').toLowerCase() === 'complete' ? 'badge-complete' : 'badge-pending';
+      div.innerHTML = `
+        <div class="tl-item-head">
+          <span class="tl-num">${label}</span>
+          <span class="tl-date">${f.timestamp || ''} • ${f.emp_name || ''}</span>
+        </div>
+        <div class="tl-label">Issue</div>
+        <div class="tl-text">${(f.issue_description || '—').replace(/</g,'&lt;')}</div>
+        ${f.solution_description ? '<div class="tl-label">Resolution</div><div class="tl-text">' + f.solution_description.replace(/</g,'&lt;') + '</div>' : ''}
+        <span class="badge ${statusClass}" style="margin-top:6px">${f.status || 'Pending'}</span>
+      `;
+      itemsBox.appendChild(div);
+    });
+
+    document.getElementById('ticketFoundBox').style.display = 'block';
+    document.getElementById('ticketFoundBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) {
+    alert('Could not look up that ticket. Please try again.');
+  }
+}
+
+document.getElementById('ticketSearchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); lookupTicket(); }
+});
+
+{% if active_ticket %}
+window.addEventListener('DOMContentLoaded', () => { lookupTicket(); });
+{% endif %}
 </script>
 </body>
 </html>

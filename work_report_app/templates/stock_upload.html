@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Stock Upload — Work Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:40px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .main{max-width:900px;margin:0 auto;padding:1.4rem 1rem}
+  .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700}
+  .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+  .flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+
+  .upload-card{background:#fff;border:2px dashed #C8D5F5;border-radius:16px;padding:2.5rem;text-align:center;margin-bottom:1.5rem;transition:border-color .2s}
+  .upload-card:hover{border-color:#2D7FF9}
+  .upload-icon{font-size:48px;margin-bottom:1rem}
+  .upload-title{font-size:18px;font-weight:800;color:#10193A;margin-bottom:6px}
+  .upload-sub{font-size:13px;color:#696B78;margin-bottom:1.5rem}
+  .file-input-wrap{position:relative;display:inline-block}
+  .file-input-wrap input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+  .btn-upload{background:#2D7FF9;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-parse{background:#10193A;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:1rem}
+  #file-name{margin-top:.8rem;font-size:13px;color:#696B78;font-weight:600}
+
+  .info-boxes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem}
+  .info-box{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:1rem 1.15rem;border-left:4px solid #2D7FF9}
+  .info-box-title{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .info-box-text{font-size:13px;color:#14141A;font-weight:600}
+
+  .history-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+  .history-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .history-title{font-size:14px;font-weight:800;color:#10193A}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 13px;text-align:left;font-size:10.5px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #F0EEE6}
+  td{padding:10px 13px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  .badge-g{background:#D9F5E8;color:#0E6B43;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px}
+  .empty{padding:2.5rem;text-align:center;color:#A8A4C4;font-size:13px}
+  .btn-log{background:#F0EEE6;color:#696B78;border:none;border-radius:7px;padding:5px 12px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">📤 Stock Upload</div>
+  <div style="display:flex;gap:8px">
+    <a class="btn-sm" href="/manager/products">📦 Products</a>
+    <a class="btn-sm" href="/manager">← Manager</a>
+  </div>
+</div>
+<div class="main">
+
+  {% if flash_msg %}
+  <div class="flash flash-{{ flash_type }}">{{ flash_msg }}</div>
+  {% endif %}
+
+  <div class="info-boxes">
+    <div class="info-box" style="border-left-color:#1AAE6F">
+      <div class="info-box-title">How it works</div>
+      <div class="info-box-text">Upload the Tally Godown Summary PDF → preview changes → confirm to update stock</div>
+    </div>
+    <div class="info-box" style="border-left-color:#FF7A1A">
+      <div class="info-box-title">Price Safety</div>
+      <div class="info-box-text">Prices are NEVER changed by PDF upload — only quantity (closing balance) is updated</div>
+    </div>
+    <div class="info-box" style="border-left-color:#7C5CFC">
+      <div class="info-box-title">Supported Format</div>
+      <div class="info-box-text">Tally Prime Godown Summary PDF (same format as Chandni Chowk daily report)</div>
+    </div>
+  </div>
+
+  <form method="POST" action="/manager/stock-upload/parse" enctype="multipart/form-data">
+    <div class="upload-card" id="dropZone">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Upload Godown Stock PDF</div>
+      <div class="upload-sub">Select your daily Tally Godown Summary PDF file</div>
+      <div class="file-input-wrap">
+        <input type="file" name="pdf_file" accept=".pdf" id="pdfInput" required onchange="showName(this)">
+        <button type="button" class="btn-upload">📁 Choose PDF File</button>
+      </div>
+      <div id="file-name">No file selected</div>
+      <br>
+      <button type="submit" class="btn-parse" id="parseBtn" style="display:none">🔍 Parse &amp; Preview →</button>
+    </div>
+  </form>
+
+  <!-- Upload History -->
+  <div class="history-card">
+    <div class="history-hdr">
+      <div class="history-title">📋 Upload History</div>
+    </div>
+    {% if history %}
+    <table>
+      <thead><tr><th>#</th><th>File</th><th>Uploaded</th><th>By</th><th>Parsed</th><th>Updated</th><th>Detail</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td style="color:#A8A4C4;font-size:11px">{{ h.id }}</td>
+          <td style="font-weight:600;color:#10193A;font-size:12.5px">{{ h.filename }}</td>
+          <td style="color:#696B78;font-size:12px">{{ h.uploaded_at }}</td>
+          <td style="color:#696B78;font-size:12px">{{ h.uploaded_by }}</td>
+          <td><span class="badge-g">{{ h.total_parsed }}</span></td>
+          <td><span style="font-weight:800;color:#1AAE6F">{{ h.total_matched }}</span></td>
+          <td><a href="/manager/stock-upload/{{ h.id }}/log" class="btn-log">View Log</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No uploads yet. Upload your first PDF above.</div>
+    {% endif %}
+  </div>
+</div>
+<script>
+function showName(input){
+  const name = input.files[0]?.name || 'No file selected'
+  document.getElementById('file-name').textContent = name
+  document.getElementById('parseBtn').style.display = name !== 'No file selected' ? 'inline-block' : 'none'
+}
+</script>
+</body>
+</html>

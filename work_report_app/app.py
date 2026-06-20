@@ -176,6 +176,20 @@ def init_db():
     cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS supervisor_code TEXT")
     cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS supervisor_name TEXT")
 
+    # ── Review workflow (employee submits Completed -> locked -> manager Approve/Reject) ──
+    # review_status: 'Draft' (editable) | 'Awaiting Review' (locked) | 'Approved' (locked) | 'Rejected' (editable again)
+    cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'Draft'")
+    cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS reject_reason TEXT")
+    cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_by TEXT")
+    cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS reviewed_at TEXT")
+    # Backfill existing rows based on their current work-status, so nothing already
+    # submitted as Completed suddenly becomes uneditable without explanation.
+    cur.execute("""
+        UPDATE reports SET review_status =
+            CASE WHEN LOWER(status) IN ('done','completed') THEN 'Awaiting Review' ELSE 'Draft' END
+        WHERE review_status IS NULL
+    """)
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS jobs (
             id              SERIAL PRIMARY KEY,
@@ -404,6 +418,8 @@ def dashboard():
     completed_reports = cur.fetchone()["c"]
     cur.execute("SELECT COUNT(*) AS c FROM reports WHERE LOWER(status)='pending'")
     pending_reports = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM reports WHERE review_status='Awaiting Review'")
+    awaiting_review_count = cur.fetchone()["c"]
 
     # ── Jobs: status breakdown ──
     cur.execute("""
@@ -483,6 +499,7 @@ def dashboard():
         completion_pct=completion_pct,
         missing_names=missing_names,
         total_reports=total_reports, completed_reports=completed_reports, pending_reports=pending_reports,
+        awaiting_review_count=awaiting_review_count,
         job_counts=job_counts, total_jobs=total_jobs,
         pending_ta_count=pending_ta_count, pending_ta_amount=pending_ta_amount,
         due_ta_count=due_ta_count, due_ta_amount=due_ta_amount,
@@ -538,24 +555,54 @@ def employee_form():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
     if not has_perm("work_report"): return redirect(url_for("no_access"))
     success = False
+    lock_error = False
     if request.method == "POST":
         sup_code = request.form.get("supervisor_code", "")
         sup_name = EMPLOYEES.get(sup_code, {}).get("name", "")
+        new_status = request.form.get("status")
+        # A Completed submission is itself the review request: it locks immediately.
+        # Pending/Partial stay editable drafts. Resubmitting a Rejected report as
+        # Completed sends it back into the review queue.
+        new_review_status = "Awaiting Review" if (new_status or "").lower() in ("done", "completed") else "Draft"
+        edit_id = request.form.get("edit_id", "").strip()
+
         conn = get_db(); cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO reports
-            (timestamp,emp_code,emp_name,company,date,work_type,client_name,location,summary,remarks,status,supervisor_code,supervisor_name)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            get_emp_code(), session["name"], session.get("company",""),
-            request.form.get("date"), request.form.get("work_type"),
-            request.form.get("client_name"), request.form.get("location"),
-            request.form.get("summary"), request.form.get("remarks"),
-            request.form.get("status"), sup_code, sup_name,
-        ))
+        if edit_id:
+            # Only allow editing rows that are still unlocked (Draft or Rejected) and
+            # belong to this employee. The WHERE clause is the actual security boundary
+            # here, not just the UI hiding the edit button.
+            cur.execute("""
+                UPDATE reports
+                SET company=%s, date=%s, work_type=%s, client_name=%s, location=%s,
+                    summary=%s, remarks=%s, status=%s, supervisor_code=%s, supervisor_name=%s,
+                    review_status=%s, reject_reason=NULL
+                WHERE id=%s AND emp_code=%s AND review_status IN ('Draft','Rejected')
+            """, (
+                session.get("company",""), request.form.get("date"), request.form.get("work_type"),
+                request.form.get("client_name"), request.form.get("location"),
+                request.form.get("summary"), request.form.get("remarks"),
+                new_status, sup_code, sup_name, new_review_status,
+                edit_id, get_emp_code(),
+            ))
+            if cur.rowcount == 0:
+                lock_error = True
+            else:
+                success = True
+        else:
+            cur.execute("""
+                INSERT INTO reports
+                (timestamp,emp_code,emp_name,company,date,work_type,client_name,location,summary,remarks,status,supervisor_code,supervisor_name,review_status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                get_emp_code(), session["name"], session.get("company",""),
+                request.form.get("date"), request.form.get("work_type"),
+                request.form.get("client_name"), request.form.get("location"),
+                request.form.get("summary"), request.form.get("remarks"),
+                new_status, sup_code, sup_name, new_review_status,
+            ))
+            success = True
         conn.commit(); cur.close(); conn.close()
-        success = True
 
     # filters for "my reports" history (own reports only)
     f_wtype  = request.args.get("wtype", "")
@@ -592,7 +639,7 @@ def employee_form():
         for code, info in EMPLOYEES.items() if code != get_emp_code()
     ]
 
-    return render_template("form.html", name=session["name"], success=success, recent=recent,
+    return render_template("form.html", name=session["name"], success=success, lock_error=lock_error, recent=recent,
                             att_today=att_today, supervisor_choices=supervisor_choices,
                             record_count=len(recent), perms=session.get("perms", {}),
                             filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
@@ -633,6 +680,7 @@ def manager_view():
     emp    = request.args.get("emp","")
     wtype  = request.args.get("wtype","")
     status = request.args.get("status","")
+    review = request.args.get("review","")
     from_d = request.args.get("from_d","")
     to_d   = request.args.get("to_d","")
     search = request.args.get("search","")
@@ -643,6 +691,7 @@ def manager_view():
     if emp:    query += " AND emp_name=%s";                              params.append(emp)
     if wtype:  query += " AND work_type=%s";                             params.append(wtype)
     if status: query += " AND LOWER(status)=%s";                         params.append(status.lower())
+    if review: query += " AND review_status=%s";                         params.append(review)
     if from_d: query += " AND date>=%s";                                 params.append(from_d)
     if to_d:   query += " AND date<=%s";                                 params.append(to_d)
     if search:
@@ -657,15 +706,44 @@ def manager_view():
     cur.execute("SELECT COUNT(*) FROM reports WHERE LOWER(status)='pending'");               pending   = cur.fetchone()["count"]
     cur.execute("SELECT COUNT(*) FROM reports WHERE LOWER(status)='partial'");               partial   = cur.fetchone()["count"]
     cur.execute("SELECT COUNT(DISTINCT emp_code) FROM reports WHERE date=%s", (today,));     today_ct  = cur.fetchone()["count"]
+    cur.execute("SELECT COUNT(*) FROM reports WHERE review_status='Awaiting Review'");       awaiting_review = cur.fetchone()["count"]
     cur.execute("SELECT DISTINCT emp_name FROM reports ORDER BY emp_name");                  emp_list  = [r["emp_name"] for r in cur.fetchall()]
     cur.close(); conn.close()
 
     return render_template("manager.html",
         reports=reports, emp_list=emp_list,
         total=total, completed=completed, pending=pending, partial=partial, today_ct=today_ct,
-        filters={"emp":emp,"wtype":wtype,"status":status,"from_d":from_d,"to_d":to_d,"search":search},
+        awaiting_review=awaiting_review,
+        filters={"emp":emp,"wtype":wtype,"status":status,"review":review,"from_d":from_d,"to_d":to_d,"search":search},
         record_count=len(reports)
     )
+
+@app.route("/manager/reports/<int:report_id>/approve", methods=["POST"])
+def approve_report(report_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE reports SET review_status='Approved', reject_reason=NULL,
+                            reviewed_by=%s, reviewed_at=%s
+        WHERE id=%s AND review_status='Awaiting Review'
+    """, (session.get("name","Manager"), now, report_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(request.referrer or url_for("manager_view"))
+
+@app.route("/manager/reports/<int:report_id>/reject", methods=["POST"])
+def reject_report(report_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    reason = request.form.get("reject_reason", "").strip()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE reports SET review_status='Rejected', reject_reason=%s,
+                            reviewed_by=%s, reviewed_at=%s
+        WHERE id=%s AND review_status='Awaiting Review'
+    """, (reason, session.get("name","Manager"), now, report_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(request.referrer or url_for("manager_view"))
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER: ASSIGN JOBS
@@ -952,6 +1030,7 @@ def create_user():
     can_my_jobs     = "can_my_jobs" in request.form
     can_ta          = "can_ta" in request.form
     can_support     = "can_support" in request.form
+    can_products    = "can_products" in request.form
 
     if not emp_code or not name or not username or not password:
         return redirect(url_for("manage_users", flash="All fields are required to create a user.", flash_type="error"))
@@ -968,11 +1047,11 @@ def create_user():
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
             INSERT INTO users (emp_code, name, username, password_hash, company,
-                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support,
+                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products,
                                 created_at, created_by)
-            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s, %s,%s)
+            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s,%s, %s,%s)
         """, (emp_code, name, username, hash_password(password), company,
-              can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, now, session.get("name", "manager")))
+              can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, now, session.get("name", "manager")))
         conn.commit()
         refresh_employees()
         return redirect(url_for("manage_users", flash=f"User '{name}' created successfully.", flash_type="success"))
@@ -1015,16 +1094,17 @@ def update_user_permissions(emp_code):
     can_my_jobs     = "can_my_jobs" in request.form
     can_ta          = "can_ta" in request.form
     can_support     = "can_support" in request.form
+    can_products    = "can_products" in request.form
     name            = request.form.get("name", "").strip()
     company         = request.form.get("company", "").strip()
 
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
-        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s, can_support=%s,
+        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s, can_support=%s, can_products=%s,
                           name=COALESCE(NULLIF(%s,''), name),
                           company=COALESCE(NULLIF(%s,''), company)
         WHERE emp_code=%s
-    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, name, company, emp_code))
+    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, name, company, emp_code))
     conn.commit(); cur.close(); conn.close()
     refresh_employees()
 
@@ -1419,6 +1499,7 @@ def ta_report():
 
     code = get_emp_code()
     success = False
+    lock_error = False
 
     if request.method == "POST":
         travel_date  = request.form.get("travel_date", "").strip()
@@ -1438,15 +1519,20 @@ def ta_report():
             now  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             conn = get_db(); cur = conn.cursor()
             if edit_id:
-                # Employees may only edit their own report's trip details (cols 1-5).
-                # Status columns (6 & 7) are intentionally excluded from this UPDATE.
+                # Employees may only edit their own report's trip details (cols 1-5),
+                # and only while it hasn't been approved yet. Status columns (6 & 7)
+                # are intentionally excluded from this UPDATE regardless.
                 cur.execute("""
                     UPDATE ta_reports
                     SET travel_date=%s, from_place=%s, to_place=%s, travel_by=%s,
                         description=%s, expense_cost=%s, last_edited=%s, last_edited_by=%s
-                    WHERE id=%s AND emp_code=%s
+                    WHERE id=%s AND emp_code=%s AND approval_status != 'Approved'
                 """, (travel_date, from_place, to_place, travel_by, description,
                       expense_cost, now, session["name"], edit_id, code))
+                if cur.rowcount == 0:
+                    lock_error = True
+                else:
+                    success = True
             else:
                 cur.execute("""
                     INSERT INTO ta_reports
@@ -1456,6 +1542,7 @@ def ta_report():
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'Due','Not Approved',%s,%s)
                 """, (now, code, session["name"], travel_date, from_place, to_place,
                       travel_by, description, expense_cost, now, session["name"]))
+                success = True
             conn.commit(); cur.close(); conn.close()
             success = True
 
@@ -1489,7 +1576,7 @@ def ta_report():
     cur.close(); conn.close()
 
     return render_template("ta_report.html",
-        name=session["name"], success=success, reports=reports,
+        name=session["name"], success=success, lock_error=lock_error, reports=reports,
         record_count=len(reports), own_total=own_total, filtered_total=filtered_total,
         perms=session.get("perms", {}),
         filters={"status": f_status, "approval": f_approval, "from_d": f_from, "to_d": f_to, "search": f_search})
@@ -1649,11 +1736,13 @@ def manager_clients():
     conn = get_db(); cur = conn.cursor()
     query = """
         SELECT c.*,
-               COUNT(v.id)              AS visit_count,
-               MAX(v.visit_date)        AS last_visit_date,
-               MAX(v.next_followup_date) AS latest_followup
+               COUNT(DISTINCT v.id)              AS visit_count,
+               MAX(v.visit_date)                  AS last_visit_date,
+               MAX(v.next_followup_date)          AS latest_followup,
+               COUNT(DISTINCT s.id) FILTER (WHERE LOWER(COALESCE(s.status,'pending')) <> 'complete') AS open_support_count
         FROM companies c
         LEFT JOIN sales_visits v ON v.company_id = c.id
+        LEFT JOIN support_reports s ON s.company_id = c.id
         WHERE 1=1
     """
     params = []
@@ -1713,6 +1802,13 @@ def manager_client_detail(company_id):
         ORDER BY visit_date DESC, timestamp DESC
     """, (company_id,))
     visits = cur.fetchall()
+
+    cur.execute("""
+        SELECT * FROM support_reports
+        WHERE company_id=%s
+        ORDER BY support_date DESC, timestamp DESC
+    """, (company_id,))
+    support_tickets = cur.fetchall()
     cur.close(); conn.close()
 
     outcome_counts = {}
@@ -1721,6 +1817,11 @@ def manager_client_detail(company_id):
         outcome_counts[o] = outcome_counts.get(o, 0) + 1
 
     salespeople = sorted({v["salesperson_name"] for v in visits if v["salesperson_name"]})
+    support_status_counts = {}
+    for t in support_tickets:
+        s = t["status"] or "Pending"
+        support_status_counts[s] = support_status_counts.get(s, 0) + 1
+    open_support_count = sum(c for s, c in support_status_counts.items() if s.lower() != "complete")
 
     return render_template(
         "manager_client_detail.html",
@@ -1729,6 +1830,10 @@ def manager_client_detail(company_id):
         visit_count=len(visits),
         outcome_counts=outcome_counts,
         salespeople=salespeople,
+        support_tickets=support_tickets,
+        support_count=len(support_tickets),
+        support_status_counts=support_status_counts,
+        open_support_count=open_support_count,
     )
 
 
@@ -1795,6 +1900,139 @@ with app.app_context():
         print("✅ Support report tables ready")
     except Exception as e:
         print(f"⚠️ Support DB init error: {e}")
+
+
+# ══════════════════════════════════════════
+#  SUPPORT — link to CRM companies
+#  Runs after both companies and support_reports tables exist.
+# ══════════════════════════════════════════
+def link_support_to_companies():
+    conn = get_db(); cur = conn.cursor()
+
+    cur.execute("""
+        ALTER TABLE support_reports
+        ADD COLUMN IF NOT EXISTS company_id INTEGER
+    """)
+    conn.commit()
+
+    # Backfill: create/find a company row for every distinct support
+    # report's company name that doesn't have one yet.
+    cur.execute("""
+        SELECT DISTINCT company, emp_code
+        FROM support_reports
+        WHERE company IS NOT NULL AND company <> ''
+          AND company_id IS NULL
+    """)
+    distinct_support_companies = cur.fetchall()
+    for row in distinct_support_companies:
+        cname = row["company"].strip()
+        if not cname:
+            continue
+        cur.execute("SELECT id FROM companies WHERE LOWER(name)=LOWER(%s)", (cname,))
+        existing = cur.fetchone()
+        if existing:
+            cid = existing["id"]
+        else:
+            cur.execute("""
+                INSERT INTO companies (name, owner_code, created_at)
+                VALUES (%s, %s, %s) RETURNING id
+            """, (cname, row["emp_code"], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            cid = cur.fetchone()["id"]
+        cur.execute("""
+            UPDATE support_reports SET company_id=%s
+            WHERE LOWER(company)=LOWER(%s) AND company_id IS NULL
+        """, (cid, cname))
+    conn.commit()
+    cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        link_support_to_companies()
+        print("✅ Support reports linked to CRM companies")
+    except Exception as e:
+        print(f"⚠️ Support-CRM link error: {e}")
+
+
+# ══════════════════════════════════════════
+#  SUPPORT — TICKET ID + EDIT + REOPEN/FOLLOW-UPS
+#  Adds:
+#    - support_ticket_id   : permanent 6-digit ticket number per case
+#    - last_edited         : timestamp of last edit by the employee
+#    - support_followups   : every new issue/resolution logged against
+#                             a ticket (the original submission is
+#                             follow-up #1), so reopening a ticket for
+#                             a returning client builds a full timeline
+#                             instead of overwriting prior history.
+# ══════════════════════════════════════════
+def migrate_support_upgrade():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("ALTER TABLE support_reports ADD COLUMN IF NOT EXISTS support_ticket_id TEXT")
+    cur.execute("ALTER TABLE support_reports ADD COLUMN IF NOT EXISTS last_edited TEXT")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS support_followups (
+            id                    SERIAL PRIMARY KEY,
+            report_id             INTEGER NOT NULL REFERENCES support_reports(id) ON DELETE CASCADE,
+            timestamp             TEXT,
+            emp_code              TEXT,
+            emp_name              TEXT,
+            issue_description     TEXT,
+            solution_description  TEXT,
+            remarks               TEXT,
+            status                TEXT DEFAULT 'Pending'
+        )
+    """)
+    conn.commit()
+
+    # Backfill: give every pre-existing report a ticket ID, and seed a
+    # follow-up #1 entry from its original issue/solution so old reports
+    # show up correctly in the new timeline view.
+    cur.execute("SELECT id FROM support_reports WHERE support_ticket_id IS NULL ORDER BY id")
+    missing = cur.fetchall()
+    existing_ids = set()
+    cur.execute("SELECT support_ticket_id FROM support_reports WHERE support_ticket_id IS NOT NULL")
+    for row in cur.fetchall():
+        existing_ids.add(row["support_ticket_id"])
+
+    for row in missing:
+        new_tid = generate_ticket_id(existing_ids)
+        existing_ids.add(new_tid)
+        cur.execute("UPDATE support_reports SET support_ticket_id=%s WHERE id=%s", (new_tid, row["id"]))
+
+    cur.execute("""
+        SELECT r.id, r.timestamp, r.emp_code, r.emp_name, r.issue_description,
+               r.solution_description, r.remarks, r.status
+        FROM support_reports r
+        WHERE NOT EXISTS (SELECT 1 FROM support_followups f WHERE f.report_id = r.id)
+    """)
+    for r in cur.fetchall():
+        cur.execute("""
+            INSERT INTO support_followups
+            (report_id, timestamp, emp_code, emp_name, issue_description, solution_description, remarks, status)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (r["id"], r["timestamp"], r["emp_code"], r["emp_name"],
+              r["issue_description"], r["solution_description"], r["remarks"], r["status"]))
+
+    conn.commit(); cur.close(); conn.close()
+
+
+def generate_ticket_id(existing_ids=None):
+    """6-digit numeric support ticket ID, unique against existing_ids (or the DB if not supplied)."""
+    if existing_ids is None:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("SELECT support_ticket_id FROM support_reports WHERE support_ticket_id IS NOT NULL")
+        existing_ids = {row["support_ticket_id"] for row in cur.fetchall()}
+        cur.close(); conn.close()
+    while True:
+        candidate = "".join(secrets.choice(string.digits) for _ in range(6))
+        if candidate not in existing_ids:
+            return candidate
+
+with app.app_context():
+    try:
+        migrate_support_upgrade()
+        print("✅ Support ticket-ID / edit / reopen upgrade ready")
+    except Exception as e:
+        print(f"⚠️ Support upgrade migration error: {e}")
 
 
 # ══════════════════════════════════════════
@@ -1874,49 +2112,166 @@ def support_report():
     if not has_perm("support"):
         return redirect(url_for("no_access"))
 
-    code    = get_emp_code()
-    success = False
+    code      = get_emp_code()
+    success   = False
+    lock_error  = False
+    ticket_error = ""
+    active_ticket = ""
+    success_ticket_id = ""
 
     if request.method == "POST":
+        action = request.form.get("form_action", "new")  # new | edit | reopen
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # collect device rows (multiple)
         models  = request.form.getlist("device_model[]")
         serials = request.form.getlist("device_serial[]")
         devices = [(m.strip(), s.strip()) for m, s in zip(models, serials) if m.strip() or s.strip()]
 
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         conn = get_db(); cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO support_reports
-            (timestamp, emp_code, emp_name, support_date, company, contact_person,
-             address, contact_number, client_email, dealer_type,
-             dealer_contact_number, dealer_contact_person,
-             issue_description, solution_description, remarks, status)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id
-        """, (
-            now, code, session["name"],
-            request.form.get("support_date"),
-            request.form.get("company"),
-            request.form.get("contact_person"),
-            request.form.get("address"),
-            request.form.get("contact_number"),
-            request.form.get("client_email"),
-            request.form.get("dealer_type"),
-            request.form.get("dealer_contact_number"),
-            request.form.get("dealer_contact_person"),
-            request.form.get("issue_description"),
-            request.form.get("solution_description"),
-            request.form.get("remarks"),
-            request.form.get("status", "Pending"),
-        ))
-        report_id = cur.fetchone()["id"]
-        for model, serial in devices:
+
+        if action == "edit":
+            # Edit an existing report — only the owning employee can edit,
+            # and only their own report (ownership is enforced in the WHERE
+            # clause, not just by hiding the button in the UI).
+            edit_id = request.form.get("edit_id", "").strip()
+            edit_company_id = get_or_create_company(request.form.get("company"), owner_code=code)
             cur.execute("""
-                INSERT INTO support_devices (report_id, device_model, device_serial)
-                VALUES (%s, %s, %s)
-            """, (report_id, model, serial))
+                UPDATE support_reports
+                SET support_date=%s, company=%s, contact_person=%s, address=%s,
+                    contact_number=%s, client_email=%s, dealer_type=%s,
+                    dealer_contact_number=%s, dealer_contact_person=%s,
+                    issue_description=%s, solution_description=%s, remarks=%s,
+                    status=%s, last_edited=%s, company_id=%s
+                WHERE id=%s AND emp_code=%s
+                RETURNING id
+            """, (
+                request.form.get("support_date"),
+                request.form.get("company"),
+                request.form.get("contact_person"),
+                request.form.get("address"),
+                request.form.get("contact_number"),
+                request.form.get("client_email"),
+                request.form.get("dealer_type"),
+                request.form.get("dealer_contact_number"),
+                request.form.get("dealer_contact_person"),
+                request.form.get("issue_description"),
+                request.form.get("solution_description"),
+                request.form.get("remarks"),
+                request.form.get("status", "Pending"),
+                now, edit_company_id, edit_id, code,
+            ))
+            row = cur.fetchone()
+            if row is None:
+                lock_error = True
+            else:
+                report_id = row["id"]
+                # Devices on edit: replace the device list with what's on the form
+                cur.execute("DELETE FROM support_devices WHERE report_id=%s", (report_id,))
+                for model, serial in devices:
+                    cur.execute("""
+                        INSERT INTO support_devices (report_id, device_model, device_serial)
+                        VALUES (%s, %s, %s)
+                    """, (report_id, model, serial))
+                # Keep follow-up #1 (the original case entry) in sync with the edit
+                cur.execute("""
+                    UPDATE support_followups
+                    SET issue_description=%s, solution_description=%s, remarks=%s, status=%s
+                    WHERE id = (SELECT id FROM support_followups WHERE report_id=%s ORDER BY id ASC LIMIT 1)
+                """, (
+                    request.form.get("issue_description"),
+                    request.form.get("solution_description"),
+                    request.form.get("remarks"),
+                    request.form.get("status", "Pending"),
+                    report_id,
+                ))
+                cur.execute("SELECT support_ticket_id FROM support_reports WHERE id=%s", (report_id,))
+                success_ticket_id = cur.fetchone()["support_ticket_id"]
+                success = True
+
+        elif action == "reopen":
+            # Reopen a previous ticket by its 6-digit Support ID: log a new
+            # follow-up entry (new issue + new resolution) against the same
+            # ticket, without touching the original report's history.
+            ticket_id = request.form.get("ticket_id", "").strip()
+            cur.execute("SELECT id FROM support_reports WHERE support_ticket_id=%s", (ticket_id,))
+            target = cur.fetchone()
+            if target is None:
+                ticket_error = f"No support ticket found with ID {ticket_id}."
+                active_ticket = ticket_id
+            else:
+                report_id = target["id"]
+                new_status = request.form.get("status", "Pending")
+                cur.execute("""
+                    INSERT INTO support_followups
+                    (report_id, timestamp, emp_code, emp_name, issue_description, solution_description, remarks, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    report_id, now, code, session["name"],
+                    request.form.get("issue_description"),
+                    request.form.get("solution_description"),
+                    request.form.get("remarks"),
+                    new_status,
+                ))
+                # Reflect the latest status + last-touched time on the parent ticket
+                cur.execute("""
+                    UPDATE support_reports SET status=%s, last_edited=%s WHERE id=%s
+                """, (new_status, now, report_id))
+                success = True
+                success_ticket_id = ticket_id
+                active_ticket = ticket_id
+
+        else:
+            # Brand-new support report — gets its own permanent 6-digit ticket ID
+            new_ticket_id = generate_ticket_id()
+            company_id = get_or_create_company(request.form.get("company"), owner_code=code)
+            cur.execute("""
+                INSERT INTO support_reports
+                (timestamp, emp_code, emp_name, support_date, company, contact_person,
+                 address, contact_number, client_email, dealer_type,
+                 dealer_contact_number, dealer_contact_person,
+                 issue_description, solution_description, remarks, status, support_ticket_id, company_id)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
+            """, (
+                now, code, session["name"],
+                request.form.get("support_date"),
+                request.form.get("company"),
+                request.form.get("contact_person"),
+                request.form.get("address"),
+                request.form.get("contact_number"),
+                request.form.get("client_email"),
+                request.form.get("dealer_type"),
+                request.form.get("dealer_contact_number"),
+                request.form.get("dealer_contact_person"),
+                request.form.get("issue_description"),
+                request.form.get("solution_description"),
+                request.form.get("remarks"),
+                request.form.get("status", "Pending"),
+                new_ticket_id,
+                company_id,
+            ))
+            report_id = cur.fetchone()["id"]
+            for model, serial in devices:
+                cur.execute("""
+                    INSERT INTO support_devices (report_id, device_model, device_serial)
+                    VALUES (%s, %s, %s)
+                """, (report_id, model, serial))
+            cur.execute("""
+                INSERT INTO support_followups
+                (report_id, timestamp, emp_code, emp_name, issue_description, solution_description, remarks, status)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                report_id, now, code, session["name"],
+                request.form.get("issue_description"),
+                request.form.get("solution_description"),
+                request.form.get("remarks"),
+                request.form.get("status", "Pending"),
+            ))
+            success = True
+            success_ticket_id = new_ticket_id
+
         conn.commit(); cur.close(); conn.close()
-        success = True
 
     # --- history filters ---
     f_status = request.args.get("status", "")
@@ -1931,17 +2286,20 @@ def support_report():
     if f_from:   query += " AND support_date>=%s";  params.append(f_from)
     if f_to:     query += " AND support_date<=%s";  params.append(f_to)
     if f_search:
-        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s)"
-        s = f"%{f_search}%"; params += [s, s, s, s]
+        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s OR support_ticket_id ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s, s]
     query += " ORDER BY timestamp DESC"
     cur.execute(query, params)
     history = cur.fetchall()
 
-    # fetch devices for each report
+    # fetch devices + follow-up timeline for each report
     history_with_devices = []
     for rep in history:
         cur.execute("SELECT * FROM support_devices WHERE report_id=%s ORDER BY id", (rep["id"],))
-        history_with_devices.append({"report": rep, "devices": cur.fetchall()})
+        devices = cur.fetchall()
+        cur.execute("SELECT * FROM support_followups WHERE report_id=%s ORDER BY id ASC", (rep["id"],))
+        followups = cur.fetchall()
+        history_with_devices.append({"report": rep, "devices": devices, "followups": followups})
 
     cur.close(); conn.close()
 
@@ -1949,11 +2307,48 @@ def support_report():
         "support_report.html",
         name=session["name"],
         success=success,
+        lock_error=lock_error,
+        ticket_error=ticket_error,
+        active_ticket=active_ticket,
+        success_ticket_id=success_ticket_id,
         history=history_with_devices,
         record_count=len(history_with_devices),
         perms=session.get("perms", {}),
         filters={"status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search},
     )
+
+
+# ══════════════════════════════════════════
+#  API — LOOK UP A SUPPORT TICKET BY ITS 6-DIGIT ID
+#  Used by the "Reopen Previous Ticket" panel so an employee can pull up
+#  a ticket's client details + full timeline before adding a follow-up.
+# ══════════════════════════════════════════
+@app.route("/support-report/lookup/<ticket_id>")
+def support_ticket_lookup(ticket_id):
+    if not logged_in() or is_manager():
+        return jsonify({"found": False, "error": "Not authorized"}), 403
+    if not has_perm("support"):
+        return jsonify({"found": False, "error": "Not authorized"}), 403
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM support_reports WHERE support_ticket_id=%s", (ticket_id.strip(),))
+    rep = cur.fetchone()
+    if rep is None:
+        cur.close(); conn.close()
+        return jsonify({"found": False})
+
+    cur.execute("SELECT device_model, device_serial FROM support_devices WHERE report_id=%s ORDER BY id", (rep["id"],))
+    devices = cur.fetchall()
+    cur.execute("SELECT * FROM support_followups WHERE report_id=%s ORDER BY id ASC", (rep["id"],))
+    followups = cur.fetchall()
+    cur.close(); conn.close()
+
+    return jsonify({
+        "found": True,
+        "report": dict(rep),
+        "devices": [dict(d) for d in devices],
+        "followups": [dict(f) for f in followups],
+    })
 
 
 # ══════════════════════════════════════════
@@ -1980,8 +2375,8 @@ def manager_support_reports():
     if f_to:     query += " AND support_date<=%s";        params.append(f_to)
     if f_dealer: query += " AND dealer_type=%s";          params.append(f_dealer)
     if f_search:
-        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s)"
-        s = f"%{f_search}%"; params += [s, s, s, s]
+        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s OR remarks ILIKE %s OR support_ticket_id ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s, s]
     query += " ORDER BY timestamp DESC"
     cur.execute(query, params)
     reports = cur.fetchall()
@@ -1989,7 +2384,10 @@ def manager_support_reports():
     reports_with_devices = []
     for rep in reports:
         cur.execute("SELECT * FROM support_devices WHERE report_id=%s ORDER BY id", (rep["id"],))
-        reports_with_devices.append({"report": rep, "devices": cur.fetchall()})
+        devices = cur.fetchall()
+        cur.execute("SELECT * FROM support_followups WHERE report_id=%s ORDER BY id ASC", (rep["id"],))
+        followups = cur.fetchall()
+        reports_with_devices.append({"report": rep, "devices": devices, "followups": followups})
 
     cur.execute("SELECT COUNT(*) AS c FROM support_reports"); total = cur.fetchone()["c"]
     cur.execute("SELECT COUNT(*) AS c FROM support_reports WHERE LOWER(status)='complete'"); completed = cur.fetchone()["c"]
@@ -2023,21 +2421,21 @@ def export_support_reports():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "ID","Submitted","Employee","Support Date","Company","Contact Person",
+        "ID","Support ID","Submitted","Employee","Support Date","Company","Contact Person",
         "Address","Contact Number","Client Email","Dealer Type",
         "Dealer Contact Number","Dealer Contact Person",
-        "Issue Description","Solution Description","Remarks","Status"
+        "Issue Description","Solution Description","Remarks","Status","Last Edited"
     ])
     for r in rows:
         cur.execute("SELECT device_model, device_serial FROM support_devices WHERE report_id=%s ORDER BY id", (r["id"],))
         devices = cur.fetchall()
         device_str = "; ".join(f"{d['device_model']} ({d['device_serial']})" for d in devices)
         writer.writerow([
-            r["id"], r["timestamp"], r["emp_name"], r["support_date"],
+            r["id"], r.get("support_ticket_id", ""), r["timestamp"], r["emp_name"], r["support_date"],
             r["company"], r["contact_person"], r["address"], r["contact_number"],
             r["client_email"], r["dealer_type"], r["dealer_contact_number"],
             r["dealer_contact_person"], r["issue_description"],
-            r["solution_description"], r["remarks"], r["status"]
+            r["solution_description"], r["remarks"], r["status"], r.get("last_edited", "")
         ])
     cur.close(); conn.close()
     output.seek(0)
@@ -2045,3 +2443,609 @@ def export_support_reports():
         output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition": "attachment;filename=support_reports.csv"}
     )
+
+
+# ══════════════════════════════════════════
+#  PRODUCT CATALOGUE — DB INIT
+# ══════════════════════════════════════════
+def init_products_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS product_brands (
+            id          SERIAL PRIMARY KEY,
+            name        TEXT UNIQUE NOT NULL,
+            description TEXT,
+            logo_url    TEXT,
+            created_at  TEXT,
+            created_by  TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id            SERIAL PRIMARY KEY,
+            brand_id      INTEGER REFERENCES product_brands(id) ON DELETE CASCADE,
+            model_code    TEXT NOT NULL,
+            name          TEXT NOT NULL,
+            category      TEXT,
+            description   TEXT,
+            unit          TEXT DEFAULT 'PCS',
+            price         NUMERIC(12,2) DEFAULT 0,
+            in_stock      INTEGER DEFAULT 0,
+            min_stock     INTEGER DEFAULT 0,
+            is_active     BOOLEAN DEFAULT TRUE,
+            created_at    TEXT,
+            created_by    TEXT,
+            updated_at    TEXT,
+            updated_by    TEXT
+        )
+    """)
+    cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock INTEGER DEFAULT 0")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_products BOOLEAN DEFAULT FALSE")
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_products_db()
+        print("✅ Products table ready")
+    except Exception as e:
+        print(f"⚠️ Products DB init error: {e}")
+
+# ── seed brands from PDF stock data ─────────────────────────────────────────
+def seed_brands_from_stock():
+    """Auto-seeds CONIXA, DAICHI, UNV, ZKTECO, Tplink if missing."""
+    brands = [
+        ("CONIXA", "Networking & CCTV accessories"),
+        ("DAICHI", "CCTV cameras & storage"),
+        ("UNV", "IP cameras & NVR systems"),
+        ("ZKTECO", "Access control & biometric devices"),
+        ("TPLINK", "Networking routers & switches"),
+    ]
+    conn = get_db(); cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for bname, bdesc in brands:
+        cur.execute("INSERT INTO product_brands (name,description,created_at,created_by) VALUES (%s,%s,%s,'system') ON CONFLICT (name) DO NOTHING",
+                    (bname, bdesc, now))
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        seed_brands_from_stock()
+        print("✅ Default brands seeded")
+    except Exception as e:
+        print(f"⚠️ Brand seed error: {e}")
+
+
+# ══════════════════════════════════════════
+#  PRODUCT CATALOGUE — EMPLOYEE VIEW
+# ══════════════════════════════════════════
+@app.route("/products")
+def products():
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_products"): return redirect(url_for("no_access"))
+
+    q      = request.args.get("q", "").strip()
+    brand  = request.args.get("brand", "")
+    cat    = request.args.get("category", "")
+    stock  = request.args.get("stock", "")   # "in","low","out"
+
+    conn = get_db(); cur = conn.cursor()
+
+    # brands for filter
+    cur.execute("SELECT id, name FROM product_brands ORDER BY name")
+    brands = cur.fetchall()
+
+    # categories for filter
+    cur.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category")
+    categories = [r["category"] for r in cur.fetchall()]
+
+    sql = """
+        SELECT p.*, b.name AS brand_name
+        FROM products p
+        JOIN product_brands b ON b.id = p.brand_id
+        WHERE p.is_active = TRUE
+    """
+    params = []
+    if q:
+        params.append(f"%{q}%")
+        sql += f" AND (p.name ILIKE %s OR p.model_code ILIKE %s OR p.description ILIKE %s)"
+        params += [f"%{q}%", f"%{q}%"]
+    if brand:
+        params.append(int(brand))
+        sql += f" AND p.brand_id = %s"
+    if cat:
+        params.append(cat)
+        sql += f" AND p.category = %s"
+    if stock == "in":
+        sql += " AND p.in_stock > p.min_stock"
+    elif stock == "low":
+        sql += " AND p.in_stock > 0 AND p.in_stock <= p.min_stock"
+    elif stock == "out":
+        sql += " AND p.in_stock = 0"
+
+    sql += " ORDER BY b.name, p.category, p.name"
+    cur.execute(sql, params)
+    all_products = cur.fetchall()
+    cur.close(); conn.close()
+
+    # group by brand
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for p in all_products:
+        grouped[p["brand_name"]].append(p)
+
+    return render_template("products.html",
+        name=session["name"], role=session.get("role","employee"),
+        grouped=grouped, brands=brands, categories=categories,
+        filters={"q": q, "brand": brand, "category": cat, "stock": stock},
+        total=len(all_products))
+
+
+# ══════════════════════════════════════════
+#  PRODUCT CATALOGUE — MANAGER (full CRUD)
+# ══════════════════════════════════════════
+@app.route("/manager/products")
+def manager_products():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+
+    q     = request.args.get("q", "").strip()
+    brand = request.args.get("brand", "")
+    cat   = request.args.get("category", "")
+    stock = request.args.get("stock", "")
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT id, name, description FROM product_brands ORDER BY name")
+    brands = cur.fetchall()
+
+    cur.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category")
+    categories = [r["category"] for r in cur.fetchall()]
+
+    sql = """
+        SELECT p.*, b.name AS brand_name
+        FROM products p
+        JOIN product_brands b ON b.id = p.brand_id
+        WHERE 1=1
+    """
+    params = []
+    if q:
+        params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+        sql += " AND (p.name ILIKE %s OR p.model_code ILIKE %s OR p.description ILIKE %s)"
+    if brand:
+        params.append(int(brand))
+        sql += " AND p.brand_id = %s"
+    if cat:
+        params.append(cat)
+        sql += " AND p.category = %s"
+    if stock == "in":
+        sql += " AND p.in_stock > p.min_stock"
+    elif stock == "low":
+        sql += " AND p.in_stock > 0 AND p.in_stock <= p.min_stock"
+    elif stock == "out":
+        sql += " AND p.in_stock = 0"
+
+    sql += " ORDER BY b.name, p.category, p.name"
+    cur.execute(sql, params)
+    products_list = cur.fetchall()
+
+    cur.execute("SELECT COUNT(*) AS c FROM products WHERE is_active=TRUE")
+    active_ct = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM products WHERE in_stock=0 AND is_active=TRUE")
+    out_ct = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM products WHERE in_stock>0 AND in_stock<=min_stock AND is_active=TRUE")
+    low_ct = cur.fetchone()["c"]
+
+    cur.close(); conn.close()
+
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for p in products_list:
+        grouped[p["brand_name"]].append(p)
+
+    flash_msg  = request.args.get("flash", "")
+    flash_type = request.args.get("flash_type", "success")
+
+    return render_template("manager_products.html",
+        name=session["name"],
+        grouped=grouped, brands=brands, categories=categories,
+        filters={"q": q, "brand": brand, "category": cat, "stock": stock},
+        total=len(products_list), active_ct=active_ct, out_ct=out_ct, low_ct=low_ct,
+        flash_msg=flash_msg, flash_type=flash_type)
+
+
+@app.route("/manager/products/brand/add", methods=["POST"])
+def add_brand():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    name = request.form.get("name","").strip().upper()
+    desc = request.form.get("description","").strip()
+    if not name:
+        return redirect(url_for("manager_products", flash="Brand name required.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO product_brands (name,description,created_at,created_by) VALUES (%s,%s,%s,%s)",
+                    (name, desc, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session["name"]))
+        conn.commit()
+        msg = f"Brand '{name}' added."
+    except Exception:
+        conn.rollback(); msg = "Brand already exists."
+    cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash=msg, flash_type="success"))
+
+
+@app.route("/manager/products/brand/<int:brand_id>/edit", methods=["POST"])
+def edit_brand(brand_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    name = request.form.get("name","").strip().upper()
+    desc = request.form.get("description","").strip()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE product_brands SET name=%s, description=%s WHERE id=%s", (name, desc, brand_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Brand updated.", flash_type="success"))
+
+
+@app.route("/manager/products/brand/<int:brand_id>/delete", methods=["POST"])
+def delete_brand(brand_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM product_brands WHERE id=%s", (brand_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Brand deleted.", flash_type="success"))
+
+
+@app.route("/manager/products/add", methods=["POST"])
+def add_product():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    f = request.form
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO products (brand_id, model_code, name, category, description, unit, price, in_stock, min_stock, is_active, created_at, created_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,TRUE,%s,%s)
+    """, (f["brand_id"], f["model_code"].strip(), f["name"].strip(),
+          f.get("category","").strip(), f.get("description","").strip(),
+          f.get("unit","PCS"), float(f.get("price",0) or 0),
+          int(f.get("in_stock",0) or 0), int(f.get("min_stock",0) or 0),
+          now, session["name"]))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Product added.", flash_type="success"))
+
+
+@app.route("/manager/products/<int:product_id>/edit", methods=["POST"])
+def edit_product(product_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    f = request.form
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE products SET brand_id=%s, model_code=%s, name=%s, category=%s,
+            description=%s, unit=%s, price=%s, in_stock=%s, min_stock=%s,
+            updated_at=%s, updated_by=%s
+        WHERE id=%s
+    """, (f["brand_id"], f["model_code"].strip(), f["name"].strip(),
+          f.get("category","").strip(), f.get("description","").strip(),
+          f.get("unit","PCS"), float(f.get("price",0) or 0),
+          int(f.get("in_stock",0) or 0), int(f.get("min_stock",0) or 0),
+          now, session["name"], product_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Product updated.", flash_type="success"))
+
+
+@app.route("/manager/products/<int:product_id>/delete", methods=["POST"])
+def delete_product(product_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM products WHERE id=%s", (product_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Product deleted.", flash_type="success"))
+
+
+@app.route("/manager/products/<int:product_id>/toggle", methods=["POST"])
+def toggle_product(product_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE products SET is_active = NOT is_active WHERE id=%s", (product_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash="Product status toggled.", flash_type="success"))
+
+
+@app.route("/export/products")
+def export_products():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT b.name AS brand, p.model_code, p.name, p.category, p.unit, p.price, p.in_stock, p.min_stock, p.is_active, p.created_at
+        FROM products p JOIN product_brands b ON b.id=p.brand_id ORDER BY b.name, p.name
+    """)
+    rows = cur.fetchall(); cur.close(); conn.close()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Brand","Model Code","Product Name","Category","Unit","Price (₹)","In Stock","Min Stock","Active","Created At"])
+    for r in rows:
+        writer.writerow([r["brand"], r["model_code"], r["name"], r["category"], r["unit"],
+                         r["price"], r["in_stock"], r["min_stock"], r["is_active"], r["created_at"]])
+    output.seek(0)
+    return Response(output.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment;filename=products.csv"})
+
+
+# ══════════════════════════════════════════
+#  STOCK UPLOAD — DB INIT
+# ══════════════════════════════════════════
+def init_stock_upload_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stock_uploads (
+            id           SERIAL PRIMARY KEY,
+            filename     TEXT,
+            report_date  TEXT,
+            uploaded_at  TEXT,
+            uploaded_by  TEXT,
+            total_parsed INTEGER DEFAULT 0,
+            total_matched INTEGER DEFAULT 0,
+            total_new    INTEGER DEFAULT 0,
+            notes        TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stock_upload_log (
+            id          SERIAL PRIMARY KEY,
+            upload_id   INTEGER REFERENCES stock_uploads(id) ON DELETE CASCADE,
+            product_name TEXT,
+            model_code   TEXT,
+            brand        TEXT,
+            qty_closing  INTEGER,
+            unit         TEXT,
+            action       TEXT,
+            product_id   INTEGER
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_stock_upload_db()
+        print("✅ Stock upload tables ready")
+    except Exception as e:
+        print(f"⚠️ Stock upload DB init error: {e}")
+
+
+# ══════════════════════════════════════════
+#  PDF PARSER — extract closing balance
+# ══════════════════════════════════════════
+def parse_stock_pdf(file_bytes):
+    """
+    Parses Tally Godown Summary PDF.
+    Returns list of dicts: {name, qty, unit, brand}
+    Logic: closing balance is the LAST number+unit on a product line.
+    Brand is detected when a line matches a known brand heading (no numbers).
+    """
+    import pdfplumber, re, io
+
+    SKIP_LINES = {
+        "particulars", "quantity", "opening", "inwards", "outwards", "closing",
+        "balance", "carried over", "brought forward", "continued", "grand total",
+        "page", "godown summary", "conneqtor technology", "patuli", "baishnabghata",
+        "kolkata", "chandni chowk", "c-b1",
+    }
+    KNOWN_BRANDS = {"CONIXA", "DAICHI", "UNV", "ZKTECO", "TPLINK", "HIKVISION",
+                    "CP PLUS", "ESSL", "REALTIME", "MATRIX"}
+
+    # Pattern: number (with optional comma) followed by unit
+    NUM_UNIT = re.compile(r'(\d[\d,]*)\s*(PCS|NOS|DRUMS|WIRES|SET|BOX|MTR|RLS|PKT)', re.IGNORECASE)
+
+    results = []
+    current_brand = "UNKNOWN"
+
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text() or ""
+            for raw_line in text.splitlines():
+                line = raw_line.strip()
+                if not line or len(line) < 3:
+                    continue
+
+                line_lower = line.lower()
+                # Skip header/footer lines
+                if any(skip in line_lower for skip in SKIP_LINES):
+                    continue
+
+                # Detect brand heading (line with no numbers, short, ALL CAPS or known)
+                nums = NUM_UNIT.findall(line)
+                upper_line = line.upper().split()[0] if line.split() else ""
+
+                if not nums and line.isupper() and len(line.split()) <= 3:
+                    current_brand = line.strip()
+                    continue
+                if not nums and upper_line in KNOWN_BRANDS:
+                    current_brand = upper_line
+                    continue
+
+                # Lines with numbers — extract product name + closing balance
+                if nums:
+                    # Closing balance = last number+unit pair on the line
+                    closing_qty_str, closing_unit = nums[-1]
+                    closing_qty = int(closing_qty_str.replace(",", ""))
+
+                    # Product name = everything before the first number
+                    first_match = NUM_UNIT.search(line)
+                    name = line[:first_match.start()].strip() if first_match else line
+
+                    # Clean up name — remove trailing punctuation
+                    name = re.sub(r'\s+', ' ', name).strip(' ,.-')
+
+                    if name and closing_qty >= 0:
+                        results.append({
+                            "name": name,
+                            "qty": closing_qty,
+                            "unit": closing_unit.upper(),
+                            "brand": current_brand,
+                        })
+
+    return results
+
+
+def match_products_to_db(parsed_items):
+    """
+    Try to match each parsed item to products table.
+    Match strategy:
+    1. Exact model_code match (case-insensitive)
+    2. Product name contains parsed name (fuzzy)
+    Returns list with match info added.
+    """
+    import re
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT p.id, p.model_code, p.name, p.in_stock, p.price, b.name AS brand_name
+        FROM products p JOIN product_brands b ON b.id = p.brand_id
+    """)
+    db_products = cur.fetchall()
+    cur.close(); conn.close()
+
+    def normalize(s):
+        return re.sub(r'[\s\(\)\-/,\.]+', '', str(s)).upper()
+
+    results = []
+    for item in parsed_items:
+        matched_product = None
+        match_type = None
+        norm_name = normalize(item["name"])
+
+        for dbp in db_products:
+            # Strategy 1: model code exact match
+            if normalize(dbp["model_code"]) == norm_name:
+                matched_product = dbp
+                match_type = "model_code"
+                break
+            # Strategy 2: name contains or is contained
+            norm_db = normalize(dbp["name"])
+            if norm_name in norm_db or norm_db in norm_name:
+                matched_product = dbp
+                match_type = "name"
+                break
+
+        results.append({
+            **item,
+            "matched": matched_product is not None,
+            "match_type": match_type,
+            "product_id": matched_product["id"] if matched_product else None,
+            "db_name": matched_product["name"] if matched_product else None,
+            "current_stock": matched_product["in_stock"] if matched_product else None,
+            "price": matched_product["price"] if matched_product else None,
+        })
+
+    return results
+
+
+# ══════════════════════════════════════════
+#  STOCK UPLOAD ROUTES
+# ══════════════════════════════════════════
+@app.route("/manager/stock-upload", methods=["GET"])
+def stock_upload_page():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM stock_uploads ORDER BY uploaded_at DESC LIMIT 20")
+    history = cur.fetchall()
+    cur.close(); conn.close()
+
+    flash_msg  = request.args.get("flash", "")
+    flash_type = request.args.get("flash_type", "success")
+
+    return render_template("stock_upload.html",
+        name=session["name"], history=history,
+        flash_msg=flash_msg, flash_type=flash_type)
+
+
+@app.route("/manager/stock-upload/parse", methods=["POST"])
+def stock_upload_parse():
+    """Parse PDF and return preview — don't update DB yet."""
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+
+    f = request.files.get("pdf_file")
+    if not f or not f.filename.lower().endswith(".pdf"):
+        return redirect(url_for("stock_upload_page", flash="Please upload a valid PDF file.", flash_type="error"))
+
+    file_bytes = f.read()
+    filename   = f.filename
+
+    try:
+        parsed    = parse_stock_pdf(file_bytes)
+        matched   = match_products_to_db(parsed)
+    except Exception as e:
+        return redirect(url_for("stock_upload_page", flash=f"PDF parse error: {e}", flash_type="error"))
+
+    # Store in session for confirm step
+    import json
+    session["pending_stock"] = json.dumps(matched)
+    session["pending_filename"] = filename
+
+    matched_ct = sum(1 for m in matched if m["matched"])
+    unmatched_ct = len(matched) - matched_ct
+
+    return render_template("stock_upload_preview.html",
+        name=session["name"],
+        items=matched,
+        filename=filename,
+        total=len(matched),
+        matched_ct=matched_ct,
+        unmatched_ct=unmatched_ct,
+    )
+
+
+@app.route("/manager/stock-upload/confirm", methods=["POST"])
+def stock_upload_confirm():
+    """Apply the stock update to the database."""
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+
+    import json
+    raw = session.get("pending_stock")
+    if not raw:
+        return redirect(url_for("stock_upload_page", flash="Session expired. Please upload again.", flash_type="error"))
+
+    items    = json.loads(raw)
+    filename = session.get("pending_filename", "unknown.pdf")
+    now      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Only apply items that are checked (form checkboxes)
+    apply_ids = set(request.form.getlist("apply_ids"))
+
+    conn = get_db(); cur = conn.cursor()
+
+    # Create upload record
+    matched_items = [i for i in items if i["matched"] and str(i["product_id"]) in apply_ids]
+    new_items     = [i for i in items if not i["matched"]]
+
+    cur.execute("""
+        INSERT INTO stock_uploads (filename, uploaded_at, uploaded_by, total_parsed, total_matched, total_new)
+        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id
+    """, (filename, now, session["name"], len(items), len(matched_items), len(new_items)))
+    upload_id = cur.fetchone()["id"]
+
+    # Apply stock updates
+    for item in matched_items:
+        cur.execute("UPDATE products SET in_stock=%s, updated_at=%s, updated_by=%s WHERE id=%s",
+                    (item["qty"], now, f"PDF Upload: {filename}", item["product_id"]))
+        cur.execute("""
+            INSERT INTO stock_upload_log (upload_id, product_name, model_code, brand, qty_closing, unit, action, product_id)
+            VALUES (%s,%s,%s,%s,%s,%s,'updated',%s)
+        """, (upload_id, item["name"], item.get("model_code",""), item["brand"], item["qty"], item["unit"], item["product_id"]))
+
+    conn.commit(); cur.close(); conn.close()
+
+    # Clear session
+    session.pop("pending_stock", None)
+    session.pop("pending_filename", None)
+
+    return redirect(url_for("stock_upload_page",
+        flash=f"✅ Stock updated for {len(matched_items)} products from '{filename}'.",
+        flash_type="success"))
+
+
+@app.route("/manager/stock-upload/<int:upload_id>/log")
+def stock_upload_log(upload_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM stock_uploads WHERE id=%s", (upload_id,))
+    upload = cur.fetchone()
+    cur.execute("SELECT * FROM stock_upload_log WHERE upload_id=%s ORDER BY id", (upload_id,))
+    logs = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("stock_upload_log.html", name=session["name"], upload=upload, logs=logs)

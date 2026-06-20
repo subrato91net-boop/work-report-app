@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Manage Products — Work Report System</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:40px}
+  a{color:inherit;text-decoration:none}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+
+  .main{max-width:1400px;margin:0 auto;padding:1.4rem 1rem}
+
+  .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+  .flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:11px;margin-bottom:1.3rem}
+  .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+  .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .stat-val{font-size:25px;font-weight:800}
+  .blue{color:#2D7FF9}.green{color:#1AAE6F}.amber{color:#FF7A1A}.red{color:#C7333A}.purple{color:#7C5CFC}
+
+  /* Filters */
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.2rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg label{font-size:11px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:130px}
+  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
+  .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;font-weight:700}
+  .btn-export{padding:8px 14px;border:none;border-radius:8px;background:#1AAE6F;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+
+  /* Action buttons */
+  .btn-primary{padding:9px 18px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-primary:hover{background:#0B1228}
+  .btn-orange{background:#FF7A1A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-danger{background:#C7333A;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-ghost{background:#F0EEE6;color:#696B78;border:none;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-green{background:#1AAE6F;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+
+  /* Section cards */
+  .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:8px}
+  .section-title{font-size:16px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:8px}
+
+  /* Brand cards */
+  .brands-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:1.5rem}
+  .brand-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,.04);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand-name{font-size:14px;font-weight:800;color:#10193A}
+  .brand-desc{font-size:11.5px;color:#696B78;margin-top:2px}
+  .brand-actions{display:flex;gap:6px;flex-shrink:0}
+
+  /* Product table */
+  .brand-section{margin-bottom:1.8rem}
+  .brand-pill{background:#10193A;color:#fff;font-size:12px;font-weight:800;padding:5px 14px;border-radius:20px;letter-spacing:.03em}
+
+  .tbl-scroll{overflow-x:auto;border-radius:13px;box-shadow:0 1px 3px rgba(16,25,58,.05)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden}
+  thead tr{background:#F6F4EF}
+  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:9px 12px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  tr.inactive-row{opacity:.5}
+
+  .model-code{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;color:#7C5CFC;font-weight:700;background:#F0EDFF;padding:2px 7px;border-radius:5px}
+  .cat-badge{background:#E8F4FD;color:#1565C0;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px}
+  .price{font-weight:800;color:#10193A}
+  .stock-in{color:#1AAE6F;font-weight:800}
+  .stock-low{color:#FF7A1A;font-weight:800}
+  .stock-out{color:#C7333A;font-weight:800}
+  .sb{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;text-transform:uppercase}
+  .sb-in{background:#D9F5E8;color:#0E6B43}
+  .sb-low{background:#FFF0D9;color:#9A4B0A}
+  .sb-out{background:#FBE2E2;color:#9A2A2D}
+
+  /* Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:1rem}
+  .modal-overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal-hdr{padding:1.1rem 1.3rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+  .modal-title{font-size:16px;font-weight:800;color:#10193A}
+  .modal-close{background:#F1F5F9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;color:#64748b;font-family:inherit}
+  .modal-body{padding:1.3rem}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .form-grid.cols1{grid-template-columns:1fr}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:11px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .field input,.field select,.field textarea{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;color:#14141A}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:#FF7A1A;background:#fff}
+  .field textarea{resize:vertical;min-height:64px}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:1rem}
+
+  .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500;background:#fff;border-radius:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">📦 Manage Products</div>
+  <div class="topbar-right">
+    <a class="btn-sm" href="/manager/stock-upload">📤 Stock Upload</a>
+    <a class="btn-sm" href="/manager">← Manager</a>
+    <a class="btn-sm" href="/logout">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+
+  {% if flash_msg %}
+  <div class="flash flash-{{ flash_type }}">
+    {{ '✅' if flash_type=='success' else '❌' }} {{ flash_msg }}
+  </div>
+  {% endif %}
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total Products</div><div class="stat-val blue">{{ total }}</div></div>
+    <div class="stat"><div class="stat-label">Brands</div><div class="stat-val purple">{{ brands|length }}</div></div>
+    <div class="stat"><div class="stat-label">Active</div><div class="stat-val green">{{ active_ct }}</div></div>
+    <div class="stat"><div class="stat-label">Low Stock</div><div class="stat-val amber">{{ low_ct }}</div></div>
+    <div class="stat"><div class="stat-label">Out of Stock</div><div class="stat-val red">{{ out_ct }}</div></div>
+  </div>
+
+  <!-- Filters -->
+  <form method="GET" class="filters">
+    <div class="fg"><label>Search</label><input name="q" value="{{ filters.q }}" placeholder="Name, model code..."></div>
+    <div class="fg">
+      <label>Brand</label>
+      <select name="brand">
+        <option value="">All Brands</option>
+        {% for b in brands %}<option value="{{ b.id }}" {% if filters.brand==b.id|string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Category</label>
+      <select name="category">
+        <option value="">All Categories</option>
+        {% for c in categories %}<option value="{{ c }}" {% if filters.category==c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="fg">
+      <label>Stock</label>
+      <select name="stock">
+        <option value="">All</option>
+        <option value="in" {% if filters.stock=='in' %}selected{% endif %}>In Stock</option>
+        <option value="low" {% if filters.stock=='low' %}selected{% endif %}>Low Stock</option>
+        <option value="out" {% if filters.stock=='out' %}selected{% endif %}>Out of Stock</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-filter">🔍 Filter</button>
+    <a href="/manager/products" class="btn-clear">Clear</a>
+    <a href="/export/products" class="btn-export">⬇️ Export CSV</a>
+  </form>
+
+  <!-- Brands Section -->
+  <div class="section-hdr">
+    <div class="section-title">🏷️ Brands</div>
+    <button class="btn-orange" onclick="openModal('addBrandModal')">+ Add Brand</button>
+  </div>
+  <div class="brands-grid">
+    {% for b in brands %}
+    <div class="brand-card">
+      <div>
+        <div class="brand-name">{{ b.name }}</div>
+        {% if b.description %}<div class="brand-desc">{{ b.description }}</div>{% endif %}
+      </div>
+      <div class="brand-actions">
+        <button class="btn-ghost" onclick="openEditBrand({{ b.id }},'{{ b.name|e }}','{{ b.description|e }}')">✏️</button>
+        <form method="POST" action="/manager/products/brand/{{ b.id }}/delete" onsubmit="return confirm('Delete brand and ALL its products?')">
+          <button class="btn-danger" type="submit">🗑</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Products Grouped by Brand -->
+  <div class="section-hdr">
+    <div class="section-title">📦 Products ({{ total }})</div>
+    <button class="btn-primary" onclick="openModal('addProductModal')">+ Add Product</button>
+  </div>
+
+  {% if not grouped %}
+  <div class="empty">No products found. Try adjusting your filters or add your first product.</div>
+  {% else %}
+  {% for brand_name, items in grouped.items() %}
+  <div class="brand-section">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.7rem">
+      <span class="brand-pill">{{ brand_name }}</span>
+      <span style="font-size:12px;color:#696B78;font-weight:600">{{ items|length }} item{{ 's' if items|length!=1 }}</span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Model Code</th><th>Product Name</th><th>Category</th>
+            <th>Unit</th><th>Price (₹)</th><th>In Stock</th><th>Min Stock</th>
+            <th>Status</th><th>Active</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in items %}
+          <tr class="{{ 'inactive-row' if not p.is_active }}">
+            <td style="color:#A8A4C4;font-size:11px">{{ loop.index }}</td>
+            <td><span class="model-code">{{ p.model_code }}</span></td>
+            <td>
+              <div style="font-weight:700;color:#10193A">{{ p.name }}</div>
+              {% if p.description %}<div style="font-size:11px;color:#A8A4C4;margin-top:2px">{{ p.description }}</div>{% endif %}
+            </td>
+            <td>{% if p.category %}<span class="cat-badge">{{ p.category }}</span>{% else %}<span style="color:#C4C0D4">—</span>{% endif %}</td>
+            <td style="color:#696B78">{{ p.unit }}</td>
+            <td class="price">₹{{ "{:,.0f}".format(p.price) }}</td>
+            <td>
+              {% if p.in_stock == 0 %}<span class="stock-out">0</span>
+              {% elif p.in_stock <= p.min_stock %}<span class="stock-low">{{ p.in_stock }}</span>
+              {% else %}<span class="stock-in">{{ p.in_stock }}</span>{% endif %}
+            </td>
+            <td style="color:#696B78">{{ p.min_stock }}</td>
+            <td>
+              {% if p.in_stock == 0 %}<span class="sb sb-out">Out</span>
+              {% elif p.in_stock <= p.min_stock %}<span class="sb sb-low">Low</span>
+              {% else %}<span class="sb sb-in">OK</span>{% endif %}
+            </td>
+            <td>
+              <form method="POST" action="/manager/products/{{ p.id }}/toggle">
+                <button type="submit" class="{{ 'btn-green' if not p.is_active else 'btn-ghost' }}" style="font-size:11px;padding:4px 10px">
+                  {{ '▶ Enable' if not p.is_active else '⏸ Disable' }}
+                </button>
+              </form>
+            </td>
+            <td>
+              <div style="display:flex;gap:5px">
+                <button class="btn-orange" style="font-size:11px;padding:4px 10px"
+                  onclick="openEditProduct(
+                    {{ p.id }}, {{ p.brand_id }}, '{{ p.model_code|e }}', '{{ p.name|e }}',
+                    '{{ p.category|e }}', '{{ p.description|e }}', '{{ p.unit }}',
+                    {{ p.price }}, {{ p.in_stock }}, {{ p.min_stock }}
+                  )">✏️ Edit</button>
+                <form method="POST" action="/manager/products/{{ p.id }}/delete" onsubmit="return confirm('Delete this product?')">
+                  <button class="btn-danger" style="font-size:11px;padding:4px 10px" type="submit">🗑</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<!-- ADD BRAND MODAL -->
+<div class="modal-overlay" id="addBrandModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Add New Brand</div>
+      <button class="modal-close" onclick="closeModal('addBrandModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/manager/products/brand/add">
+        <div class="form-grid cols1" style="gap:12px">
+          <div class="field"><label>Brand Name *</label><input name="name" required placeholder="e.g. HIKVISION" style="text-transform:uppercase"></div>
+          <div class="field"><label>Description</label><input name="description" placeholder="Short description"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeModal('addBrandModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Add Brand</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BRAND MODAL -->
+<div class="modal-overlay" id="editBrandModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Edit Brand</div>
+      <button class="modal-close" onclick="closeModal('editBrandModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <form method="POST" id="editBrandForm">
+        <div class="form-grid cols1" style="gap:12px">
+          <div class="field"><label>Brand Name *</label><input name="name" id="eb_name" required></div>
+          <div class="field"><label>Description</label><input name="description" id="eb_desc"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeModal('editBrandModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PRODUCT MODAL -->
+<div class="modal-overlay" id="addProductModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Add New Product</div>
+      <button class="modal-close" onclick="closeModal('addProductModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="/manager/products/add">
+        <div class="form-grid" style="gap:12px;margin-bottom:12px">
+          <div class="field" style="grid-column:1/-1">
+            <label>Brand *</label>
+            <select name="brand_id" required>
+              <option value="">— Select Brand —</option>
+              {% for b in brands %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field"><label>Model Code *</label><input name="model_code" required placeholder="CX-ABC-123"></div>
+          <div class="field"><label>Product Name *</label><input name="name" required placeholder="Full product name"></div>
+          <div class="field"><label>Category</label><input name="category" placeholder="e.g. Camera, Switch, Lock"></div>
+          <div class="field"><label>Unit</label>
+            <select name="unit">
+              <option>PCS</option><option>NOS</option><option>DRUMS</option><option>WIRES</option><option>SET</option><option>BOX</option>
+            </select>
+          </div>
+          <div class="field"><label>Price (₹)</label><input name="price" type="number" step="0.01" placeholder="0.00" value="0"></div>
+          <div class="field"><label>In Stock</label><input name="in_stock" type="number" placeholder="0" value="0"></div>
+          <div class="field"><label>Min Stock (alert level)</label><input name="min_stock" type="number" placeholder="0" value="0"></div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><textarea name="description" placeholder="Optional product description"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeModal('addProductModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Add Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="editProductModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Edit Product</div>
+      <button class="modal-close" onclick="closeModal('editProductModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <form method="POST" id="editProductForm">
+        <div class="form-grid" style="gap:12px;margin-bottom:12px">
+          <div class="field" style="grid-column:1/-1">
+            <label>Brand *</label>
+            <select name="brand_id" id="ep_brand" required>
+              {% for b in brands %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field"><label>Model Code *</label><input name="model_code" id="ep_model" required></div>
+          <div class="field"><label>Product Name *</label><input name="name" id="ep_name" required></div>
+          <div class="field"><label>Category</label><input name="category" id="ep_cat"></div>
+          <div class="field"><label>Unit</label>
+            <select name="unit" id="ep_unit">
+              <option>PCS</option><option>NOS</option><option>DRUMS</option><option>WIRES</option><option>SET</option><option>BOX</option>
+            </select>
+          </div>
+          <div class="field"><label>Price (₹)</label><input name="price" id="ep_price" type="number" step="0.01"></div>
+          <div class="field"><label>In Stock</label><input name="in_stock" id="ep_stock" type="number"></div>
+          <div class="field"><label>Min Stock</label><input name="min_stock" id="ep_minstock" type="number"></div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><textarea name="description" id="ep_desc"></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeModal('editProductModal')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openModal(id){ document.getElementById(id).classList.add('open') }
+function closeModal(id){ document.getElementById(id).classList.remove('open') }
+
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click', e=>{ if(e.target===el) el.classList.remove('open') })
+})
+
+function openEditBrand(id, name, desc){
+  document.getElementById('editBrandForm').action = '/manager/products/brand/'+id+'/edit'
+  document.getElementById('eb_name').value = name
+  document.getElementById('eb_desc').value = desc
+  openModal('editBrandModal')
+}
+
+function openEditProduct(id, brandId, model, name, cat, desc, unit, price, stock, minstock){
+  document.getElementById('editProductForm').action = '/manager/products/'+id+'/edit'
+  document.getElementById('ep_brand').value = brandId
+  document.getElementById('ep_model').value = model
+  document.getElementById('ep_name').value = name
+  document.getElementById('ep_cat').value = cat
+  document.getElementById('ep_desc').value = desc
+  document.getElementById('ep_unit').value = unit
+  document.getElementById('ep_price').value = price
+  document.getElementById('ep_stock').value = stock
+  document.getElementById('ep_minstock').value = minstock
+  openModal('editProductModal')
+}
+</script>
+</body>
+</html>
