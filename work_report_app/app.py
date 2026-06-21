@@ -637,6 +637,8 @@ def employee_form():
     lock_error = False
     if request.method == "POST":
         sup_code = request.form.get("supervisor_code", "")
+        if sup_code == "NA":
+            sup_code = ""
         sup_name = EMPLOYEES.get(sup_code, {}).get("name", "")
         new_status = request.form.get("status")
         # A Completed submission is itself the review request: it locks immediately.

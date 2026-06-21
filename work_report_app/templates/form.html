@@ -125,6 +125,7 @@
         <label>Supervisor <span class="required">*</span></label>
         <select name="supervisor_code" id="f_supervisor_code" required>
           <option value="">Select supervisor...</option>
+          <option value="NA">N/A — no supervisor</option>
           {% for s in supervisor_choices %}
           <option value="{{ s.code }}">{{ s.name }}</option>
           {% endfor %}
@@ -310,7 +311,7 @@
     document.getElementById('f_work_type').value = r.work_type;
     document.getElementById('f_client_name').value = r.client_name;
     document.getElementById('f_location').value = r.location;
-    document.getElementById('f_supervisor_code').value = r.supervisor_code;
+    document.getElementById('f_supervisor_code').value = r.supervisor_code || 'NA';
     document.getElementById('f_summary').value = r.summary;
     document.getElementById('f_remarks').value = r.remarks;
     setStatus(r.status === 'completed' ? 'done' : r.status);
