@@ -133,6 +133,7 @@
   {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab">🔧 Support</a>{% endif %}
   {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
+  {% if perms.get('can_challan', False) %}<a href="/challan" class="nd-tab">🧾 Challan</a>{% endif %}
   </div>
 </div>
 
@@ -327,6 +328,7 @@
   {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
   {% if perms.get('products', True) %}<a href="/products" class="bn-item"><span class="bn-ic">📦</span>Products</a>{% endif %}
+  {% if perms.get('can_challan', False) %}<a href="/challan" class="bn-item"><span class="bn-ic">🧾</span>Challan</a>{% endif %}
 </nav>
 
 <script>

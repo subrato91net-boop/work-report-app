@@ -41,6 +41,8 @@
   tr:hover td{background:#FAFAF7}
   .ch-no{font-weight:800;color:#10193A}
   .ch-buyer{font-weight:600}
+  .client-link{text-decoration:none;margin-left:5px;font-size:12px;opacity:.7}
+  .client-link:hover{opacity:1}
   .row-actions{display:flex;gap:6px;flex-wrap:wrap}
   .btn-mini{padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;text-decoration:none;display:inline-block}
   .btn-view{background:#DCE9FF;color:#1551B5}
@@ -89,7 +91,12 @@
         <tr>
           <td class="ch-no">{{ c.challan_no }}</td>
           <td>{{ c.challan_date }}</td>
-          <td class="ch-buyer">{{ c.buyer_name or '—' }}</td>
+          <td class="ch-buyer">
+            {{ c.buyer_name or '—' }}
+            {% if is_manager and c.company_id %}
+            <a href="/manager/clients/{{ c.company_id }}" class="client-link" title="View client in CRM">🏢</a>
+            {% endif %}
+          </td>
           <td>{{ c.created_by or '—' }}</td>
           <td>
             <div class="row-actions">

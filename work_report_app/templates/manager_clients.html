@@ -123,7 +123,7 @@
     <div class="tbl-scroll">
       {% if companies %}
       <table>
-        <thead><tr><th>#</th><th>Client</th><th>Visits</th><th>Support</th><th>Last visit</th><th>Next follow-up</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Client</th><th>Visits</th><th>Support</th><th>Challans</th><th>Last visit</th><th>Next follow-up</th><th>Status</th></tr></thead>
         <tbody>
         {% for c in companies %}
         <tr class="clickable" onclick="window.location='/manager/clients/{{ c.id }}'">
@@ -133,6 +133,13 @@
           <td>
             {% if c.open_support_count and c.open_support_count > 0 %}
               <span class="badge badge-stale">🎧 {{ c.open_support_count }} open</span>
+            {% else %}
+              <span style="color:#C7C4B8;font-size:11.5px">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if c.challan_count and c.challan_count > 0 %}
+              🧾 {{ c.challan_count }}
             {% else %}
               <span style="color:#C7C4B8;font-size:11.5px">—</span>
             {% endif %}

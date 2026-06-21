@@ -1489,11 +1489,11 @@ def api_companies_search():
     q = request.args.get("q", "").strip()
     conn = get_db(); cur = conn.cursor()
     if q:
-        cur.execute("SELECT name FROM companies WHERE name ILIKE %s ORDER BY name LIMIT 10", (f"%{q}%",))
+        cur.execute("SELECT id, name, address, phone FROM companies WHERE name ILIKE %s ORDER BY name LIMIT 10", (f"%{q}%",))
     else:
-        cur.execute("SELECT name FROM companies ORDER BY name LIMIT 10")
+        cur.execute("SELECT id, name, address, phone FROM companies ORDER BY name LIMIT 10")
     rows = cur.fetchall(); cur.close(); conn.close()
-    return jsonify([r["name"] for r in rows])
+    return jsonify([{"id": r["id"], "name": r["name"], "address": r["address"] or "", "phone": r["phone"] or ""} for r in rows])
 
 
 # ══════════════════════════════════════════
@@ -1946,10 +1946,12 @@ def manager_clients():
                COUNT(DISTINCT v.id)              AS visit_count,
                MAX(v.visit_date)                  AS last_visit_date,
                MAX(v.next_followup_date)          AS latest_followup,
-               COUNT(DISTINCT s.id) FILTER (WHERE LOWER(COALESCE(s.status,'pending')) <> 'complete') AS open_support_count
+               COUNT(DISTINCT s.id) FILTER (WHERE LOWER(COALESCE(s.status,'pending')) <> 'complete') AS open_support_count,
+               COUNT(DISTINCT ch.id)              AS challan_count
         FROM companies c
         LEFT JOIN sales_visits v ON v.company_id = c.id
         LEFT JOIN support_reports s ON s.company_id = c.id
+        LEFT JOIN challans ch ON ch.company_id = c.id
         WHERE 1=1
     """
     params = []
@@ -2016,6 +2018,13 @@ def manager_client_detail(company_id):
         ORDER BY support_date DESC, timestamp DESC
     """, (company_id,))
     support_tickets = cur.fetchall()
+
+    cur.execute("""
+        SELECT * FROM challans
+        WHERE company_id=%s
+        ORDER BY id DESC
+    """, (company_id,))
+    challans = cur.fetchall()
     cur.close(); conn.close()
 
     outcome_counts = {}
@@ -2041,6 +2050,8 @@ def manager_client_detail(company_id):
         support_count=len(support_tickets),
         support_status_counts=support_status_counts,
         open_support_count=open_support_count,
+        challans=challans,
+        challan_count=len(challans),
     )
 
 
@@ -3361,6 +3372,7 @@ def init_challan_db():
             buyer_gstin     TEXT,
             buyer_state     TEXT,
             buyer_state_code TEXT,
+            company_id      INTEGER,
             place_of_supply TEXT,
             delivery_note   TEXT,
             mode_of_payment TEXT,
@@ -3384,6 +3396,7 @@ def init_challan_db():
     """)
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_challan BOOLEAN DEFAULT FALSE")
     cur.execute("ALTER TABLE challans ADD COLUMN IF NOT EXISTS seller_company_key TEXT")
+    cur.execute("ALTER TABLE challans ADD COLUMN IF NOT EXISTS company_id INTEGER")
     conn.commit(); cur.close(); conn.close()
 
 with app.app_context():
@@ -3530,15 +3543,19 @@ def challan_save():
         })
     items_json = json.dumps(items)
 
+    buyer_name_val = f.get("buyer_name", "").strip()
+    owner_code = session.get("emp_code") if not is_manager() else None
+    company_id = get_or_create_company(buyer_name_val, owner_code=owner_code) if buyer_name_val else None
+
     fields = (
         f.get("challan_no","").strip(), f.get("challan_date","").strip(),
         f.get("seller_company_key","").strip(),
         f.get("seller_name","").strip(), f.get("seller_address","").strip(),
         f.get("seller_gstin","").strip(), f.get("seller_state","").strip(),
         f.get("seller_state_code","").strip(), f.get("seller_contact","").strip(),
-        f.get("buyer_name","").strip(), f.get("buyer_address","").strip(),
+        buyer_name_val, f.get("buyer_address","").strip(),
         f.get("buyer_gstin","").strip(), f.get("buyer_state","").strip(),
-        f.get("buyer_state_code","").strip(), f.get("place_of_supply","").strip(),
+        f.get("buyer_state_code","").strip(), company_id, f.get("place_of_supply","").strip(),
         f.get("delivery_note","").strip(), f.get("mode_of_payment","").strip(),
         f.get("reference_no","").strip(), f.get("other_references","").strip(),
         f.get("buyers_order_no","").strip(), f.get("buyers_order_date","").strip(),
@@ -3555,7 +3572,7 @@ def challan_save():
                 challan_no=%s, challan_date=%s, seller_company_key=%s, seller_name=%s, seller_address=%s,
                 seller_gstin=%s, seller_state=%s, seller_state_code=%s, seller_contact=%s,
                 buyer_name=%s, buyer_address=%s, buyer_gstin=%s, buyer_state=%s,
-                buyer_state_code=%s, place_of_supply=%s, delivery_note=%s, mode_of_payment=%s,
+                buyer_state_code=%s, company_id=%s, place_of_supply=%s, delivery_note=%s, mode_of_payment=%s,
                 reference_no=%s, other_references=%s, buyers_order_no=%s, buyers_order_date=%s,
                 dispatch_doc_no=%s, delivery_note_date=%s, dispatched_through=%s, destination=%s,
                 terms_of_delivery=%s, declaration=%s, jurisdiction=%s, items=%s,
@@ -3569,12 +3586,12 @@ def challan_save():
                 challan_no, challan_date, seller_company_key, seller_name, seller_address,
                 seller_gstin, seller_state, seller_state_code, seller_contact,
                 buyer_name, buyer_address, buyer_gstin, buyer_state,
-                buyer_state_code, place_of_supply, delivery_note, mode_of_payment,
+                buyer_state_code, company_id, place_of_supply, delivery_note, mode_of_payment,
                 reference_no, other_references, buyers_order_no, buyers_order_date,
                 dispatch_doc_no, delivery_note_date, dispatched_through, destination,
                 terms_of_delivery, declaration, jurisdiction, items,
                 created_at, created_by
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
         """, fields + (now, who))
     new_id = cur.fetchone()["id"]

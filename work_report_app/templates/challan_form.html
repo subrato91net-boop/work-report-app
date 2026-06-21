@@ -31,6 +31,14 @@
   .fg label{font-size:11px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
   .fg input,.fg textarea{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
   .fg select{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%;cursor:pointer}
+  .suggest-box{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #E7E4DA;border-radius:8px;margin-top:3px;max-height:200px;overflow-y:auto;z-index:20;box-shadow:0 4px 14px rgba(16,25,58,.1);display:none}
+  .suggest-box.show{display:block}
+  .suggest-item{padding:9px 11px;font-size:12.5px;cursor:pointer;border-bottom:1px solid #F0EEE6}
+  .suggest-item:last-child{border-bottom:none}
+  .suggest-item:hover,.suggest-item.active{background:#F6F4EF}
+  .suggest-item .s-name{font-weight:700;color:#10193A}
+  .suggest-item .s-addr{font-size:11px;color:#696B78;margin-top:1px}
+  .suggest-empty{padding:9px 11px;font-size:12px;color:#696B78;font-style:italic}
   .fg select:focus{border-color:#FF7A1A}
   .fg textarea{resize:vertical;min-height:48px}
   .fg input:focus,.fg textarea:focus{border-color:#FF7A1A}
@@ -107,13 +115,18 @@
     <div class="panel">
       <div class="panel-title">👤 Buyer Details (Receiver / Ship To)</div>
       <div class="fgrid">
-        <div class="fg full"><label>Buyer / Company Name</label><input type="text" name="buyer_name" value="{{ c.buyer_name }}"></div>
-        <div class="fg full"><label>Address</label><textarea name="buyer_address">{{ c.buyer_address }}</textarea></div>
+        <div class="fg full" style="position:relative">
+          <label>Buyer / Company Name</label>
+          <input type="text" name="buyer_name" id="buyerName" value="{{ c.buyer_name }}" autocomplete="off" oninput="searchBuyerCompanies(this.value)" onblur="setTimeout(hideBuyerSuggestions, 150)">
+          <div id="buyerSuggestions" class="suggest-box"></div>
+        </div>
+        <div class="fg full"><label>Address</label><textarea name="buyer_address" id="buyerAddress">{{ c.buyer_address }}</textarea></div>
         <div class="fg"><label>GSTIN/UIN</label><input type="text" name="buyer_gstin" value="{{ c.buyer_gstin }}"></div>
         <div class="fg"><label>Place of Supply</label><input type="text" name="place_of_supply" value="{{ c.place_of_supply }}"></div>
         <div class="fg"><label>State Name</label><input type="text" name="buyer_state" value="{{ c.buyer_state }}"></div>
         <div class="fg"><label>State Code</label><input type="text" name="buyer_state_code" value="{{ c.buyer_state_code }}"></div>
       </div>
+      <div style="font-size:11.5px;color:#696B78;margin-top:6px;">Start typing to find an existing client, or enter a new name — it'll be added to your client list automatically.</div>
     </div>
 
     <div class="panel">
@@ -187,6 +200,59 @@ function applyCompanyPreset(){
   document.getElementById('sellerContact').value = p.seller_contact || '';
   document.getElementById('sellerState').value = p.seller_state || '';
   document.getElementById('sellerStateCode').value = p.seller_state_code || '';
+}
+
+let buyerSearchTimer = null;
+let buyerSearchResults = [];
+
+function searchBuyerCompanies(q){
+  clearTimeout(buyerSearchTimer);
+  const box = document.getElementById('buyerSuggestions');
+  q = (q || '').trim();
+  if (q.length < 1) { box.classList.remove('show'); box.innerHTML = ''; buyerSearchResults = []; return; }
+  buyerSearchTimer = setTimeout(() => {
+    fetch('/api/companies-search?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(results => {
+        buyerSearchResults = results || [];
+        box.innerHTML = '';
+        if (!buyerSearchResults.length) { box.classList.remove('show'); return; }
+        buyerSearchResults.forEach((c, idx) => {
+          const item = document.createElement('div');
+          item.className = 'suggest-item';
+          item.addEventListener('mousedown', () => selectBuyerCompany(idx));
+
+          const nameEl = document.createElement('div');
+          nameEl.className = 's-name';
+          nameEl.textContent = c.name || '';
+          item.appendChild(nameEl);
+
+          const addr = (c.address || '').split('\n')[0];
+          if (addr) {
+            const addrEl = document.createElement('div');
+            addrEl.className = 's-addr';
+            addrEl.textContent = addr;
+            item.appendChild(addrEl);
+          }
+          box.appendChild(item);
+        });
+        box.classList.add('show');
+      })
+      .catch(() => { box.classList.remove('show'); });
+  }, 200);
+}
+
+function selectBuyerCompany(idx){
+  const c = buyerSearchResults[idx];
+  if (!c) return;
+  document.getElementById('buyerName').value = c.name || '';
+  document.getElementById('buyerAddress').value = c.address || '';
+  hideBuyerSuggestions();
+}
+
+function hideBuyerSuggestions(){
+  const box = document.getElementById('buyerSuggestions');
+  box.classList.remove('show');
 }
 
 let rowCount = document.querySelectorAll('#itemsBody tr').length;

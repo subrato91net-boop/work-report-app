@@ -99,6 +99,7 @@
     <div class="stat"><div class="stat-label">Salespeople</div><div class="stat-val amber">{{ salespeople|length }}</div></div>
     <div class="stat"><div class="stat-label">Support tickets</div><div class="stat-val purple">{{ support_count }}</div></div>
     <div class="stat"><div class="stat-label">Open tickets</div><div class="stat-val {% if open_support_count > 0 %}red{% else %}green{% endif %}">{{ open_support_count }}</div></div>
+    <div class="stat"><div class="stat-label">Challans</div><div class="stat-val" style="color:#FF7A1A">{{ challan_count }}</div></div>
     {% for outcome, ct in outcome_counts.items() %}
     <div class="stat"><div class="stat-label">{{ outcome }}</div><div class="stat-val green">{{ ct }}</div></div>
     {% endfor %}
@@ -129,6 +130,7 @@
       <div class="tabswitch">
         <button type="button" class="active" id="tabBtnVisits" onclick="showTab('visits')">🤝 Visits ({{ visit_count }})</button>
         <button type="button" id="tabBtnSupport" onclick="showTab('support')">🎧 Support ({{ support_count }})</button>
+        <button type="button" id="tabBtnChallans" onclick="showTab('challans')">🧾 Challans ({{ challan_count }})</button>
       </div>
 
       <div id="tabVisits">
@@ -184,6 +186,30 @@
           <div class="empty">No support tickets logged yet for this client.</div>
         {% endif %}
       </div>
+
+      <div id="tabChallans" style="display:none">
+        <div class="card-title">Challans ({{ challan_count }})</div>
+        {% if challans %}
+          {% for ch in challans %}
+          <div class="timeline-item">
+            <div class="t-dot" style="background:#FF7A1A"></div>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <span class="t-emp">{{ ch.challan_no or 'Untitled' }}</span>
+                <span class="t-date">{{ ch.challan_date }}</span>
+              </div>
+              <div class="t-summary">{{ ch.seller_name }}</div>
+              <div class="t-meta">
+                <a href="/challan/{{ ch.id }}/pdf" target="_blank" class="pill" style="text-decoration:none">📄 View PDF</a>
+                <a href="/challan/{{ ch.id }}/edit" class="pill" style="text-decoration:none">✏️ Edit</a>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">No challans issued to this client yet.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -200,19 +226,21 @@
 </nav>
 <script>
 function showTab(which){
-  const visitsTab = document.getElementById('tabVisits');
-  const supportTab = document.getElementById('tabSupport');
-  const btnV = document.getElementById('tabBtnVisits');
-  const btnS = document.getElementById('tabBtnSupport');
-  if(which === 'visits'){
-    visitsTab.style.display = 'block';
-    supportTab.style.display = 'none';
-    btnV.classList.add('active'); btnS.classList.remove('active');
-  } else {
-    visitsTab.style.display = 'none';
-    supportTab.style.display = 'block';
-    btnS.classList.add('active'); btnV.classList.remove('active');
-  }
+  const tabs = {
+    visits:   { panel: document.getElementById('tabVisits'),   btn: document.getElementById('tabBtnVisits') },
+    support:  { panel: document.getElementById('tabSupport'),  btn: document.getElementById('tabBtnSupport') },
+    challans: { panel: document.getElementById('tabChallans'), btn: document.getElementById('tabBtnChallans') },
+  };
+  Object.keys(tabs).forEach(key => {
+    const t = tabs[key];
+    if (key === which) {
+      t.panel.style.display = 'block';
+      t.btn.classList.add('active');
+    } else {
+      t.panel.style.display = 'none';
+      t.btn.classList.remove('active');
+    }
+  });
 }
 
 if ('serviceWorker' in navigator) {
