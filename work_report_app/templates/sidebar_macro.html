@@ -100,6 +100,7 @@ body{padding-left:0;transition:padding-left .25s}
 
     <div class="sb-section">Admin</div>
     <a href="/manager/users" class="sb-item {{ 'active' if active_page=='users' }}"><span class="sb-ic">👤</span>User Management</a>
+    <a href="/manager/departments" class="sb-item {{ 'active' if active_page=='departments' }}"><span class="sb-ic">🏷️</span>Departments</a>
     <a href="/manager/supervisors" class="sb-item {{ 'active' if active_page=='supervisors' }}"><span class="sb-ic">🛡️</span>Supervisors</a>
     <a href="/manager/employee-profiles" class="sb-item {{ 'active' if active_page=='profiles' }}"><span class="sb-ic">🪪</span>Employee Profiles</a>
     <a href="/stock-upload-log" class="sb-item {{ 'active' if active_page=='upload_log' }}"><span class="sb-ic">📜</span>Upload Log</a>
@@ -154,6 +155,9 @@ body{padding-left:0;transition:padding-left .25s}
     {% endif %}
     {% if sup_perms.get('can_view_users', True) %}
     <a href="/supervisor/users" class="sb-item {{ 'active' if active_page=='users' }}"><span class="sb-ic">👥</span>Team Members</a>
+    {% endif %}
+    {% if sup_perms.get('can_add_employees', False) %}
+    <a href="/supervisor/add-employee" class="sb-item {{ 'active' if active_page=='add_employee' }}"><span class="sb-ic">🪪</span>Add Employee</a>
     {% endif %}
 
     {# ── EMPLOYEE ── #}

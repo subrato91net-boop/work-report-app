@@ -99,6 +99,7 @@
         <th>Permissions</th>
         <th>Status</th>
         <th>Change Role</th>
+        <th>Profile</th>
       </tr>
     </thead>
     <tbody>
@@ -140,6 +141,9 @@
           </select>
           <button type="submit" class="btn-role">Set</button>
         </form>
+      </td>
+      <td>
+        <a href="/manager/employee-profiles/{{ u.emp_code }}" class="btn-sm" style="background:#10193A;color:#fff;display:inline-block">🪪 View</a>
       </td>
     </tr>
     {% endfor %}

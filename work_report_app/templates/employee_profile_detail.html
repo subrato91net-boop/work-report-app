@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ user.name }} — Employee Profile</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:32px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .badge-admin{background:#FF7A1A;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;text-decoration:none;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+  .main{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+  .back-link{font-size:12.5px;color:#696B78;font-weight:600;margin-bottom:.8rem;display:inline-block}
+  .profile-head{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.4rem;display:flex;align-items:center;gap:16px;margin-bottom:1.2rem;flex-wrap:wrap}
+  .avatar{width:60px;height:60px;border-radius:16px;background:#FF7A1A;color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ph-name{font-size:19px;font-weight:800}
+  .ph-meta{font-size:13px;color:#696B78;margin-top:3px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;margin-right:4px}
+  .badge-sup{background:#EDE7F6;color:#4527A0}
+  .badge-emp{background:#E3F2FD;color:#0D47A1}
+  .badge-active{background:#E8F5E9;color:#1B5E20}
+  .badge-inactive{background:#F5F5F5;color:#9E9E9E;border:1px solid #E0E0E0}
+  .badge-dept{background:#FFF3E0;color:#E65100}
+  .flash{padding:12px 16px;border-radius:10px;margin-bottom:1rem;font-size:13px;font-weight:600}
+  .flash.success{background:#E8F5E9;color:#1B5E20;border:1px solid #C8E6C9}
+  .flash.error{background:#FEECEC;color:#B71C1C;border:1px solid #FFCDD2}
+  .card{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.25rem;margin-bottom:1.1rem}
+  .card-title{font-size:14px;font-weight:800;margin-bottom:1rem;display:flex;align-items:center;gap:8px;color:#10193A}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .field{margin-bottom:12px}
+  .field label{font-size:11.5px;font-weight:700;color:#696B78;text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff}
+  .field textarea{min-height:64px;resize:vertical}
+  .btn{padding:10px 22px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-pri{background:#10193A;color:#fff}
+  .btn-pri:hover{background:#1a2654}
+  .recent-sup{font-size:12.5px;color:#696B78;background:#F6F4EF;border-radius:10px;padding:.7rem 1rem}
+</style>
+</head>
+<body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('manager', {}, 'profiles', name|default('')) }}
+<div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
+  <div class="topbar-title">
+    🪪 WorkReport
+    <span class="badge-admin">Super Admin</span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="/dashboard" class="btn-sm">← Dashboard</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+  <a href="/manager/employee-profiles" class="back-link">← Back to Employee Profiles</a>
+
+  {% if flash %}
+  <div class="flash {{ flash_type }}">{{ flash }}</div>
+  {% endif %}
+
+  <div class="profile-head">
+    <div class="avatar">{{ (user.name or 'U')[:2].upper() }}</div>
+    <div style="flex:1">
+      <div class="ph-name">{{ user.name }}</div>
+      <div class="ph-meta">{{ user.emp_code }} · @{{ user.username }} · {{ user.company or 'No company set' }}</div>
+      <div style="margin-top:8px">
+        <span class="badge {% if (user.user_role or 'employee') == 'supervisor' %}badge-sup{% else %}badge-emp{% endif %}">
+          {{ (user.user_role or 'employee')|title }}
+        </span>
+        <span class="badge {% if user.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+          {% if user.is_active %}Active{% else %}Inactive{% endif %}
+        </span>
+        {% if user.department_name %}<span class="badge badge-dept">🏷️ {{ user.department_name }}</span>{% endif %}
+        {% if profile.position %}<span class="badge badge-dept" style="background:#E3F2FD;color:#0D47A1">💼 {{ profile.position }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if recent_supervisors %}
+  <div class="recent-sup" style="margin-bottom:1.1rem">
+    <strong>Recently reported to:</strong> {{ recent_supervisors|join(', ') }}
+    <div style="margin-top:3px;color:#9CA3AF">(based on supervisor selected on this employee's own work reports — not a fixed assignment)</div>
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/manager/employee-profiles/{{ user.emp_code }}/update">
+    <div class="card">
+      <div class="card-title">💼 Job Details</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Position / Job Title</label>
+          <input name="position" value="{{ profile.position or '' }}" placeholder="e.g. Field Technician">
+        </div>
+        <div class="field">
+          <label>Department</label>
+          <select name="department_id">
+            <option value="">— No department —</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {% if user.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Joining Date</label>
+          <input type="date" name="joining_date" value="{{ profile.joining_date or '' }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👤 Personal Information</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Phone Number</label>
+          <input name="phone" value="{{ profile.phone or '' }}" placeholder="e.g. +91 98765 43210">
+        </div>
+        <div class="field">
+          <label>Personal Email</label>
+          <input type="email" name="personal_email" value="{{ profile.personal_email or '' }}">
+        </div>
+        <div class="field">
+          <label>Date of Birth</label>
+          <input type="date" name="dob" value="{{ profile.dob or '' }}">
+        </div>
+        <div class="field">
+          <label>Gender</label>
+          <select name="gender">
+            <option value="">— Not specified —</option>
+            <option value="Male" {% if profile.gender=='Male' %}selected{% endif %}>Male</option>
+            <option value="Female" {% if profile.gender=='Female' %}selected{% endif %}>Female</option>
+            <option value="Other" {% if profile.gender=='Other' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Blood Group</label>
+          <select name="blood_group">
+            <option value="">— Not specified —</option>
+            {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+            <option value="{{ bg }}" {% if profile.blood_group==bg %}selected{% endif %}>{{ bg }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <textarea name="address" placeholder="Full residential address">{{ profile.address or '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚨 Emergency Contact</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Contact Name</label>
+          <input name="emergency_contact_name" value="{{ profile.emergency_contact_name or '' }}">
+        </div>
+        <div class="field">
+          <label>Contact Phone</label>
+          <input name="emergency_contact_phone" value="{{ profile.emergency_contact_phone or '' }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🪪 ID Proof</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>ID Type</label>
+          <select name="id_proof_type">
+            <option value="">— Not specified —</option>
+            {% for t in ['Aadhaar','PAN','Passport','Driving License','Voter ID','Other'] %}
+            <option value="{{ t }}" {% if profile.id_proof_type==t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>ID Number</label>
+          <input name="id_proof_number" value="{{ profile.id_proof_number or '' }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 Notes</div>
+      <div class="field">
+        <textarea name="notes" placeholder="Any other notes about this employee (optional)">{{ profile.notes or '' }}</textarea>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-pri">💾 Save Profile</button>
+  </form>
+</div>
+</body>
+</html>

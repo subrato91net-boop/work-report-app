@@ -163,6 +163,16 @@ a{color:inherit;text-decoration:none}
           <div class="field"><label>Full Name</label><input name="name" placeholder="e.g. Priya Sharma" required></div>
           <div class="field"><label>Username</label><input name="username" placeholder="e.g. priya" required><small>Used to login</small></div>
           <div class="field"><label>Company</label><input name="company" placeholder="e.g. imaxsol"></div>
+          <div class="field">
+            <label>Department</label>
+            <select name="department_id">
+              <option value="">— No department —</option>
+              {% for d in department_choices %}
+              <option value="{{ d.id }}">{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field"><label>Position / Job Title</label><input name="position" placeholder="e.g. Field Technician"></div>
           <div class="field"><label>Password</label><input name="password" placeholder="Min 6 chars" required minlength="6"></div>
           <div class="field">
             <label>Role</label>
