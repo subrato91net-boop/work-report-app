@@ -409,6 +409,7 @@ def get_supervisor_perms(emp_code):
             "can_view_ta": True,       "can_approve_ta": False,
             "can_view_users": False,   "can_view_sales": True,
             "can_view_support": False, "can_view_clients": False,
+            "can_add_employees": False,
         }
     return dict(row)
 
@@ -1247,7 +1248,8 @@ def supervisor_dashboard():
     cur.close(); conn.close()
     return render_template("supervisor_dashboard.html",
         name=session.get("name", "Supervisor"),
-        sp=sp, stats=stats, today=today)
+        sp=sp, stats=stats, today=today,
+        perms=session.get("perms", {}), sup_perms=sp)
 
 
 @app.route("/supervisor/reports")
@@ -1266,7 +1268,9 @@ def supervisor_reports():
     cur.close(); conn.close()
     can_approve = session.get("sup_perms", {}).get("can_approve_reports", False)
     return render_template("supervisor_reports.html",
-        reports=reports, date_filter=date_filter, can_approve=can_approve)
+        reports=reports, date_filter=date_filter, can_approve=can_approve,
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
 
 
 @app.route("/supervisor/reports/<int:report_id>/approve", methods=["POST"])
@@ -1306,7 +1310,9 @@ def supervisor_users():
     cur.execute("SELECT * FROM users WHERE is_active=TRUE ORDER BY name")
     users = cur.fetchall()
     cur.close(); conn.close()
-    return render_template("supervisor_users.html", users=users)
+    return render_template("supervisor_users.html", users=users,
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
 
 
 
@@ -1345,6 +1351,8 @@ def manage_users():
     active_count = cur.fetchone()["c"]
     cur.execute("SELECT COUNT(*) AS c FROM users WHERE COALESCE(user_role,'employee')='supervisor'")
     supervisor_count = cur.fetchone()["c"]
+    cur.execute("SELECT id, name FROM departments WHERE is_active=TRUE ORDER BY name")
+    department_choices = cur.fetchall()
     cur.close(); conn.close()
 
     return render_template("manage_users.html",
@@ -1352,6 +1360,7 @@ def manage_users():
         users=users, total_count=total_count, active_count=active_count,
         inactive_count=total_count - active_count,
         supervisor_count=supervisor_count,
+        department_choices=department_choices,
         filters={"status": status_filter, "search": search, "role": role_filter},
         record_count=len(users),
         flash=request.args.get("flash", ""),
@@ -1369,6 +1378,8 @@ def create_user():
     username = request.form.get("username", "").strip().lower()
     company  = request.form.get("company", "").strip()
     password = request.form.get("password", "").strip()
+    department_id = request.form.get("department_id", "").strip() or None
+    position = request.form.get("position", "").strip()
     user_role_new = request.form.get("user_role", "employee").strip()
     if user_role_new not in ("employee", "supervisor"): user_role_new = "employee"
     can_work_report = "can_work_report" in request.form
@@ -1393,11 +1404,11 @@ def create_user():
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
-            INSERT INTO users (emp_code, name, username, password_hash, company,
+            INSERT INTO users (emp_code, name, username, password_hash, company, department_id,
                                 is_active, user_role, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan,
                                 created_at, created_by)
-            VALUES (%s,%s,%s,%s,%s, TRUE, %s, %s,%s,%s,%s,%s,%s,%s, %s,%s)
-        """, (emp_code, name, username, hash_password(password), company,
+            VALUES (%s,%s,%s,%s,%s,%s, TRUE, %s, %s,%s,%s,%s,%s,%s,%s, %s,%s)
+        """, (emp_code, name, username, hash_password(password), company, department_id,
               user_role_new,
               can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan, now, session.get("name", "manager")))
         conn.commit()
@@ -1407,6 +1418,14 @@ def create_user():
                 INSERT INTO supervisor_permissions (emp_code, updated_at, updated_by)
                 VALUES (%s, %s, %s) ON CONFLICT (emp_code) DO NOTHING
             """, (emp_code, now, session.get("name","manager")))
+            conn.commit()
+        if position:
+            cur.execute("""
+                INSERT INTO employee_profiles (emp_code, position, joining_date, updated_at, updated_by)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (emp_code) DO UPDATE SET position=%s, updated_at=%s, updated_by=%s
+            """, (emp_code, position, now[:10], now, session.get("name","manager"),
+                  position, now, session.get("name","manager")))
             conn.commit()
         refresh_employees()
         return redirect(url_for("manage_users", flash=f"User '{name}' created as {user_role_new}.", flash_type="success"))
@@ -1521,6 +1540,7 @@ def manage_supervisors():
                sp.can_view_ta, sp.can_approve_ta,
                sp.can_view_users, sp.can_view_sales,
                sp.can_view_support, sp.can_view_clients,
+               sp.can_add_employees,
                sp.updated_at, sp.updated_by
         FROM users u
         LEFT JOIN supervisor_permissions sp ON sp.emp_code = u.emp_code
@@ -1551,32 +1571,33 @@ def update_supervisor_permissions(emp_code):
         "can_view_sales":      "can_view_sales"      in request.form,
         "can_view_support":    "can_view_support"    in request.form,
         "can_view_clients":    "can_view_clients"    in request.form,
+        "can_add_employees":   "can_add_employees"   in request.form,
     }
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
         INSERT INTO supervisor_permissions
             (emp_code, can_view_reports, can_approve_reports, can_view_jobs, can_assign_jobs,
              can_view_ta, can_approve_ta, can_view_users, can_view_sales, can_view_support,
-             can_view_clients, updated_at, updated_by)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+             can_view_clients, can_add_employees, updated_at, updated_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (emp_code) DO UPDATE SET
             can_view_reports=%s, can_approve_reports=%s, can_view_jobs=%s, can_assign_jobs=%s,
             can_view_ta=%s, can_approve_ta=%s, can_view_users=%s, can_view_sales=%s,
-            can_view_support=%s, can_view_clients=%s, updated_at=%s, updated_by=%s
+            can_view_support=%s, can_view_clients=%s, can_add_employees=%s, updated_at=%s, updated_by=%s
     """, (
         emp_code,
         perms["can_view_reports"], perms["can_approve_reports"],
         perms["can_view_jobs"], perms["can_assign_jobs"],
         perms["can_view_ta"], perms["can_approve_ta"],
         perms["can_view_users"], perms["can_view_sales"],
-        perms["can_view_support"], perms["can_view_clients"],
+        perms["can_view_support"], perms["can_view_clients"], perms["can_add_employees"],
         now, session.get("name","Super Admin"),
         # ON CONFLICT UPDATE values:
         perms["can_view_reports"], perms["can_approve_reports"],
         perms["can_view_jobs"], perms["can_assign_jobs"],
         perms["can_view_ta"], perms["can_approve_ta"],
         perms["can_view_users"], perms["can_view_sales"],
-        perms["can_view_support"], perms["can_view_clients"],
+        perms["can_view_support"], perms["can_view_clients"], perms["can_add_employees"],
         now, session.get("name","Super Admin"),
     ))
     conn.commit(); cur.close(); conn.close()
@@ -4265,3 +4286,304 @@ def challan_pdf(challan_id):
     pdf_buf = _build_challan_pdf(c, items)
     fname = (c.get("challan_no") or f"challan_{challan_id}").replace("/", "-") + ".pdf"
     return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
+
+
+# ══════════════════════════════════════════
+#  ADVANCED EMPLOYEE MANAGEMENT — DEPARTMENTS + HR PROFILES
+# ══════════════════════════════════════════
+def init_employee_management_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS departments (
+            id              SERIAL PRIMARY KEY,
+            name            TEXT UNIQUE NOT NULL,
+            description     TEXT,
+            head_emp_code   TEXT REFERENCES users(emp_code) ON DELETE SET NULL,
+            is_active       BOOLEAN DEFAULT TRUE,
+            created_at      TEXT,
+            created_by      TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS employee_profiles (
+            emp_code                TEXT PRIMARY KEY REFERENCES users(emp_code) ON DELETE CASCADE,
+            position                TEXT,
+            phone                   TEXT,
+            personal_email          TEXT,
+            dob                     TEXT,
+            gender                  TEXT,
+            blood_group             TEXT,
+            address                 TEXT,
+            emergency_contact_name  TEXT,
+            emergency_contact_phone TEXT,
+            id_proof_type           TEXT,
+            id_proof_number         TEXT,
+            joining_date            TEXT,
+            notes                   TEXT,
+            updated_at              TEXT,
+            updated_by              TEXT
+        )
+    """)
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL")
+    cur.execute("ALTER TABLE supervisor_permissions ADD COLUMN IF NOT EXISTS can_add_employees BOOLEAN DEFAULT FALSE")
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_employee_management_db()
+        print("✅ Department + Employee HR profile tables ready")
+    except Exception as e:
+        print(f"⚠️ Employee management init error: {e}")
+
+
+# ══════════════════════════════════════════
+#  ROUTES — DEPARTMENTS (SUPER ADMIN)
+# ══════════════════════════════════════════
+@app.route("/manager/departments")
+def manage_departments():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT d.*, h.name AS head_name,
+               (SELECT COUNT(*) FROM users u WHERE u.department_id = d.id AND u.is_active = TRUE) AS member_count
+        FROM departments d
+        LEFT JOIN users h ON h.emp_code = d.head_emp_code
+        ORDER BY d.name
+    """)
+    departments = cur.fetchall()
+    cur.execute("SELECT emp_code, name FROM users WHERE is_active=TRUE ORDER BY name")
+    employee_choices = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("manage_departments.html",
+        departments=departments, employee_choices=employee_choices,
+        flash=request.args.get("flash",""), flash_type=request.args.get("flash_type","success"))
+
+
+@app.route("/manager/departments/create", methods=["POST"])
+def create_department():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    name = request.form.get("name","").strip()
+    description = request.form.get("description","").strip()
+    head_emp_code = request.form.get("head_emp_code","").strip() or None
+    if not name:
+        return redirect(url_for("manage_departments", flash="Department name is required.", flash_type="error"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO departments (name, description, head_emp_code, created_at, created_by)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (name, description, head_emp_code, now, session.get("name","manager")))
+        conn.commit()
+        return redirect(url_for("manage_departments", flash=f"Department '{name}' created.", flash_type="success"))
+    except Exception as e:
+        conn.rollback()
+        return redirect(url_for("manage_departments", flash=f"Error: a department with this name may already exist.", flash_type="error"))
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/manager/departments/<int:dept_id>/update", methods=["POST"])
+def update_department(dept_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    name = request.form.get("name","").strip()
+    description = request.form.get("description","").strip()
+    head_emp_code = request.form.get("head_emp_code","").strip() or None
+    if not name:
+        return redirect(url_for("manage_departments", flash="Department name is required.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE departments SET name=%s, description=%s, head_emp_code=%s
+            WHERE id=%s
+        """, (name, description, head_emp_code, dept_id))
+        conn.commit()
+        return redirect(url_for("manage_departments", flash=f"Department updated.", flash_type="success"))
+    except Exception as e:
+        conn.rollback()
+        return redirect(url_for("manage_departments", flash=f"Error updating department.", flash_type="error"))
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/manager/departments/<int:dept_id>/toggle-active", methods=["POST"])
+def toggle_department_active(dept_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT is_active FROM departments WHERE id=%s", (dept_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_departments", flash="Department not found.", flash_type="error"))
+    new_status = not row["is_active"]
+    cur.execute("UPDATE departments SET is_active=%s WHERE id=%s", (new_status, dept_id))
+    conn.commit(); cur.close(); conn.close()
+    verb = "reactivated" if new_status else "archived"
+    return redirect(url_for("manage_departments", flash=f"Department {verb}.", flash_type="success"))
+
+
+# ══════════════════════════════════════════
+#  ROUTES — EMPLOYEE PROFILE DETAIL (SUPER ADMIN)
+# ══════════════════════════════════════════
+@app.route("/manager/employee-profiles/<emp_code>")
+def employee_profile_detail(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT u.*, d.name AS department_name
+        FROM users u
+        LEFT JOIN departments d ON d.id = u.department_id
+        WHERE u.emp_code = %s
+    """, (emp_code,))
+    user = cur.fetchone()
+    if not user:
+        cur.close(); conn.close()
+        return redirect(url_for("employee_profiles", flash="Employee not found.", flash_type="error"))
+    cur.execute("SELECT * FROM employee_profiles WHERE emp_code=%s", (emp_code,))
+    profile = cur.fetchone()
+    cur.execute("SELECT id, name FROM departments WHERE is_active=TRUE ORDER BY name")
+    departments = cur.fetchall()
+    # Supervisors currently reporting-to relationships are inferred ad hoc from
+    # reports/jobs elsewhere in this app (no fixed org-chart field), so here we
+    # just show whichever supervisor(s) this employee has most recently logged
+    # work reports against, as a read-only hint.
+    cur.execute("""
+        SELECT DISTINCT supervisor_name FROM reports
+        WHERE emp_code=%s AND supervisor_name IS NOT NULL AND supervisor_name != ''
+        ORDER BY supervisor_name LIMIT 5
+    """, (emp_code,))
+    recent_supervisors = [r["supervisor_name"] for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return render_template("employee_profile_detail.html",
+        user=user, profile=profile or {}, departments=departments,
+        recent_supervisors=recent_supervisors,
+        flash=request.args.get("flash",""), flash_type=request.args.get("flash_type","success"))
+
+
+@app.route("/manager/employee-profiles/<emp_code>/update", methods=["POST"])
+def update_employee_profile(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM users WHERE emp_code=%s", (emp_code,))
+    if not cur.fetchone():
+        cur.close(); conn.close()
+        return redirect(url_for("employee_profiles", flash="Employee not found.", flash_type="error"))
+
+    department_id = request.form.get("department_id","").strip() or None
+    cur.execute("UPDATE users SET department_id=%s WHERE emp_code=%s", (department_id, emp_code))
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fields = {
+        "position":                request.form.get("position","").strip(),
+        "phone":                   request.form.get("phone","").strip(),
+        "personal_email":          request.form.get("personal_email","").strip(),
+        "dob":                     request.form.get("dob","").strip(),
+        "gender":                  request.form.get("gender","").strip(),
+        "blood_group":             request.form.get("blood_group","").strip(),
+        "address":                 request.form.get("address","").strip(),
+        "emergency_contact_name":  request.form.get("emergency_contact_name","").strip(),
+        "emergency_contact_phone": request.form.get("emergency_contact_phone","").strip(),
+        "id_proof_type":           request.form.get("id_proof_type","").strip(),
+        "id_proof_number":         request.form.get("id_proof_number","").strip(),
+        "joining_date":            request.form.get("joining_date","").strip(),
+        "notes":                   request.form.get("notes","").strip(),
+    }
+    cur.execute("""
+        INSERT INTO employee_profiles
+            (emp_code, position, phone, personal_email, dob, gender, blood_group,
+             address, emergency_contact_name, emergency_contact_phone,
+             id_proof_type, id_proof_number, joining_date, notes, updated_at, updated_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (emp_code) DO UPDATE SET
+            position=%s, phone=%s, personal_email=%s, dob=%s, gender=%s, blood_group=%s,
+            address=%s, emergency_contact_name=%s, emergency_contact_phone=%s,
+            id_proof_type=%s, id_proof_number=%s, joining_date=%s, notes=%s,
+            updated_at=%s, updated_by=%s
+    """, (
+        emp_code, fields["position"], fields["phone"], fields["personal_email"], fields["dob"],
+        fields["gender"], fields["blood_group"], fields["address"],
+        fields["emergency_contact_name"], fields["emergency_contact_phone"],
+        fields["id_proof_type"], fields["id_proof_number"], fields["joining_date"], fields["notes"],
+        now, session.get("name","Super Admin"),
+        fields["position"], fields["phone"], fields["personal_email"], fields["dob"],
+        fields["gender"], fields["blood_group"], fields["address"],
+        fields["emergency_contact_name"], fields["emergency_contact_phone"],
+        fields["id_proof_type"], fields["id_proof_number"], fields["joining_date"], fields["notes"],
+        now, session.get("name","Super Admin"),
+    ))
+    conn.commit(); cur.close(); conn.close()
+    refresh_employees()
+    return redirect(url_for("employee_profile_detail", emp_code=emp_code,
+        flash="Profile updated.", flash_type="success"))
+
+
+# ══════════════════════════════════════════
+#  ROUTES — SUPERVISOR: ADD EMPLOYEE
+# ══════════════════════════════════════════
+@app.route("/supervisor/add-employee", methods=["GET", "POST"])
+def supervisor_add_employee():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_add_employees"): return redirect(url_for("no_access"))
+
+    conn = get_db(); cur = conn.cursor()
+
+    if request.method == "POST":
+        emp_code = request.form.get("emp_code", "").strip()
+        name     = request.form.get("name", "").strip()
+        username = request.form.get("username", "").strip().lower()
+        company  = request.form.get("company", "").strip()
+        password = request.form.get("password", "").strip()
+        department_id = request.form.get("department_id", "").strip() or None
+        position = request.form.get("position", "").strip()
+        # Supervisors can only create plain employees — no role escalation.
+        can_work_report = "can_work_report" in request.form
+        can_sales_visit = "can_sales_visit" in request.form
+        can_my_jobs     = "can_my_jobs" in request.form
+        can_ta          = "can_ta" in request.form
+        can_support     = "can_support" in request.form
+
+        if not emp_code or not name or not username or not password:
+            cur.close(); conn.close()
+            return redirect(url_for("supervisor_add_employee", flash="All fields are required.", flash_type="error"))
+        if len(password) < 6:
+            cur.close(); conn.close()
+            return redirect(url_for("supervisor_add_employee", flash="Password must be at least 6 characters.", flash_type="error"))
+
+        try:
+            cur.execute("SELECT 1 FROM users WHERE emp_code=%s OR username=%s", (emp_code, username))
+            if cur.fetchone():
+                cur.close(); conn.close()
+                return redirect(url_for("supervisor_add_employee", flash="Employee code or username already exists.", flash_type="error"))
+
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("""
+                INSERT INTO users (emp_code, name, username, password_hash, company, department_id,
+                                    is_active, user_role, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support,
+                                    created_at, created_by)
+                VALUES (%s,%s,%s,%s,%s,%s, TRUE, 'employee', %s,%s,%s,%s,%s, %s,%s)
+            """, (emp_code, name, username, hash_password(password), company, department_id,
+                  can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support,
+                  now, session.get("name", "supervisor")))
+            conn.commit()
+            if position:
+                cur.execute("""
+                    INSERT INTO employee_profiles (emp_code, position, joining_date, updated_at, updated_by)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (emp_code, position, now[:10], now, session.get("name","supervisor")))
+                conn.commit()
+            refresh_employees()
+            cur.close(); conn.close()
+            return redirect(url_for("supervisor_add_employee", flash=f"Employee '{name}' created.", flash_type="success"))
+        except Exception as e:
+            conn.rollback()
+            cur.close(); conn.close()
+            return redirect(url_for("supervisor_add_employee", flash=f"Error creating employee: {e}", flash_type="error"))
+
+    cur.execute("SELECT id, name FROM departments WHERE is_active=TRUE ORDER BY name")
+    department_choices = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_add_employee.html",
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}),
+        department_choices=department_choices,
+        flash=request.args.get("flash",""), flash_type=request.args.get("flash_type","success"))
