@@ -3,3 +3,4 @@ gunicorn
 requests
 psycopg2-binary
 pdfplumber
+reportlab

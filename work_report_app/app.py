@@ -559,6 +559,8 @@ def login():
                         "my_jobs":     emp["can_my_jobs"],
                         "ta":          emp["can_ta"],
                         "support":     emp.get("can_support", True),
+                        "can_products": emp.get("can_products", False),
+                        "can_challan":  emp.get("can_challan", False),
                     },
                 })
                 return redirect(url_for("index"))
@@ -1234,6 +1236,7 @@ def create_user():
     can_ta          = "can_ta" in request.form
     can_support     = "can_support" in request.form
     can_products    = "can_products" in request.form
+    can_challan     = "can_challan" in request.form
 
     if not emp_code or not name or not username or not password:
         return redirect(url_for("manage_users", flash="All fields are required to create a user.", flash_type="error"))
@@ -1250,11 +1253,11 @@ def create_user():
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
             INSERT INTO users (emp_code, name, username, password_hash, company,
-                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products,
+                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan,
                                 created_at, created_by)
-            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s,%s, %s,%s)
+            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s,%s,%s, %s,%s)
         """, (emp_code, name, username, hash_password(password), company,
-              can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, now, session.get("name", "manager")))
+              can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan, now, session.get("name", "manager")))
         conn.commit()
         refresh_employees()
         return redirect(url_for("manage_users", flash=f"User '{name}' created successfully.", flash_type="success"))
@@ -1298,16 +1301,17 @@ def update_user_permissions(emp_code):
     can_ta          = "can_ta" in request.form
     can_support     = "can_support" in request.form
     can_products    = "can_products" in request.form
+    can_challan     = "can_challan" in request.form
     name            = request.form.get("name", "").strip()
     company         = request.form.get("company", "").strip()
 
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
-        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s, can_support=%s, can_products=%s,
+        UPDATE users SET can_work_report=%s, can_sales_visit=%s, can_my_jobs=%s, can_ta=%s, can_support=%s, can_products=%s, can_challan=%s,
                           name=COALESCE(NULLIF(%s,''), name),
                           company=COALESCE(NULLIF(%s,''), company)
         WHERE emp_code=%s
-    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, name, company, emp_code))
+    """, (can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan, name, company, emp_code))
     conn.commit(); cur.close(); conn.close()
     refresh_employees()
 
@@ -2259,10 +2263,16 @@ _orig_refresh = refresh_employees
 def refresh_employees():
     global EMPLOYEES, USERNAME_MAP
     conn = get_db(); cur = conn.cursor()
-    cur.execute("""
+    has_products_col = _column_exists(cur, "users", "can_products")
+    has_challan_col  = _column_exists(cur, "users", "can_challan")
+    products_select = "COALESCE(can_products, FALSE) AS can_products" if has_products_col else "FALSE AS can_products"
+    challan_select  = "COALESCE(can_challan, FALSE) AS can_challan"   if has_challan_col  else "FALSE AS can_challan"
+    cur.execute(f"""
         SELECT emp_code, name, username, password_hash, company,
                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
-               COALESCE(can_support, TRUE) AS can_support
+               COALESCE(can_support, TRUE) AS can_support,
+               {products_select},
+               {challan_select}
         FROM users WHERE is_active = TRUE
     """)
     rows = cur.fetchall()
@@ -2276,6 +2286,8 @@ def refresh_employees():
             "can_work_report": r["can_work_report"], "can_sales_visit": r["can_sales_visit"],
             "can_my_jobs": r["can_my_jobs"], "can_ta": r["can_ta"],
             "can_support": r["can_support"],
+            "can_products": r["can_products"],
+            "can_challan": r["can_challan"],
         }
         new_username_map[r["username"]] = r["emp_code"]
     EMPLOYEES = new_employees
@@ -3326,3 +3338,604 @@ def stock_upload_log(upload_id):
     logs = cur.fetchall()
     cur.close(); conn.close()
     return render_template("stock_upload_log.html", name=session["name"], upload=upload, logs=logs)
+
+# ══════════════════════════════════════════
+#  CHALLAN / INVOICE GENERATOR
+# ══════════════════════════════════════════
+def init_challan_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS challans (
+            id              SERIAL PRIMARY KEY,
+            challan_no      TEXT,
+            challan_date    TEXT,
+            seller_company_key TEXT,
+            seller_name     TEXT,
+            seller_address  TEXT,
+            seller_gstin    TEXT,
+            seller_state    TEXT,
+            seller_state_code TEXT,
+            seller_contact  TEXT,
+            buyer_name      TEXT,
+            buyer_address   TEXT,
+            buyer_gstin     TEXT,
+            buyer_state     TEXT,
+            buyer_state_code TEXT,
+            place_of_supply TEXT,
+            delivery_note   TEXT,
+            mode_of_payment TEXT,
+            reference_no    TEXT,
+            other_references TEXT,
+            buyers_order_no TEXT,
+            buyers_order_date TEXT,
+            dispatch_doc_no TEXT,
+            delivery_note_date TEXT,
+            dispatched_through TEXT,
+            destination     TEXT,
+            terms_of_delivery TEXT,
+            declaration     TEXT,
+            jurisdiction    TEXT,
+            items           TEXT,
+            created_at      TEXT,
+            created_by      TEXT,
+            updated_at      TEXT,
+            updated_by      TEXT
+        )
+    """)
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_challan BOOLEAN DEFAULT FALSE")
+    cur.execute("ALTER TABLE challans ADD COLUMN IF NOT EXISTS seller_company_key TEXT")
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_challan_db()
+        print("✅ Challan table ready")
+    except Exception as e:
+        print(f"⚠️ Challan DB init error: {e}")
+
+CHALLAN_COMPANIES = {
+    "conneqtor": {
+        "label": "Conneqtor Technology Pvt Ltd",
+        "seller_name": "CONNEQTOR TECHNOLOGY PVT.LTD. (KOLKATA)",
+        "seller_address": "C-B1, 1/30 PATULI TOWNSHIP BAISHNABGHATA\nKOLKATA-700094",
+        "seller_gstin": "19AAICC3755D1ZN",
+        "seller_state": "West Bengal",
+        "seller_state_code": "19",
+        "seller_contact": "9830895433",
+    },
+    "imax": {
+        "label": "Imax Solutions",
+        "seller_name": "IMAX SOLUTIONS",
+        "seller_address": "C-B1, 1/30 PATULI TOWNSHIP BAISHNABGHATA\nKOLKATA-700094",
+        "seller_gstin": "",
+        "seller_state": "",
+        "seller_state_code": "",
+        "seller_contact": "",
+    },
+}
+CHALLAN_DEFAULT_COMPANY_KEY = "conneqtor"
+
+def _next_challan_no():
+    """Look at the highest existing CHALAN/### number and bump it by one."""
+    import re
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT challan_no FROM challans WHERE challan_no LIKE 'CHALAN/%'")
+    rows = cur.fetchall(); cur.close(); conn.close()
+    best = 0
+    for r in rows:
+        m = re.search(r"(\d+)\s*$", r["challan_no"] or "")
+        if m:
+            best = max(best, int(m.group(1)))
+    return f"CHALAN/{best + 1}"
+
+@app.route("/challan")
+def challan_list():
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    q = request.args.get("q", "").strip()
+    conn = get_db(); cur = conn.cursor()
+    if q:
+        cur.execute("""
+            SELECT * FROM challans
+            WHERE challan_no ILIKE %s OR buyer_name ILIKE %s
+            ORDER BY id DESC LIMIT 200
+        """, (f"%{q}%", f"%{q}%"))
+    else:
+        cur.execute("SELECT * FROM challans ORDER BY id DESC LIMIT 200")
+    rows = cur.fetchall(); cur.close(); conn.close()
+    return render_template("challan_list.html", name=session.get("name"), is_manager=is_manager(),
+                            challans=rows, q=q)
+
+@app.route("/challan/new", methods=["GET"])
+def challan_new():
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    company_key = request.args.get("company", "")
+    if company_key not in CHALLAN_COMPANIES:
+        company_key = ""
+    draft = dict(CHALLAN_COMPANIES[company_key]) if company_key else {}
+    draft.pop("label", None)
+    draft.update({
+        "id": None,
+        "seller_company_key": company_key,
+        "seller_name": draft.get("seller_name", ""),
+        "seller_address": draft.get("seller_address", ""),
+        "seller_gstin": draft.get("seller_gstin", ""),
+        "seller_state": draft.get("seller_state", ""),
+        "seller_state_code": draft.get("seller_state_code", ""),
+        "seller_contact": draft.get("seller_contact", ""),
+        "challan_no": "",
+        "challan_date": "",
+        "buyer_name": "", "buyer_address": "", "buyer_gstin": "",
+        "buyer_state": "", "buyer_state_code": "", "place_of_supply": "",
+        "delivery_note": "", "mode_of_payment": "", "reference_no": "",
+        "other_references": "", "buyers_order_no": "", "buyers_order_date": "",
+        "dispatch_doc_no": "", "delivery_note_date": "", "dispatched_through": "",
+        "destination": "", "terms_of_delivery": "",
+        "declaration": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+        "jurisdiction": "SUBJECT TO KOLKATA JURISDICTION",
+        "items": [{"description": "", "hsn": "", "qty": "", "unit": "", "disc": "", "amount": ""}],
+    })
+    return render_template("challan_form.html", name=session.get("name"), is_manager=is_manager(),
+                            c=draft, mode="new", companies=CHALLAN_COMPANIES)
+
+
+@app.route("/challan/<int:challan_id>/edit", methods=["GET"])
+def challan_edit(challan_id):
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    import json
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM challans WHERE id=%s", (challan_id,))
+    row = cur.fetchone(); cur.close(); conn.close()
+    if not row:
+        return redirect(url_for("challan_list"))
+    c = dict(row)
+    try:
+        c["items"] = json.loads(c["items"]) if c["items"] else []
+    except Exception:
+        c["items"] = []
+    if not c["items"]:
+        c["items"] = [{"description": "", "hsn": "", "qty": "", "unit": "", "disc": "", "amount": ""}]
+    return render_template("challan_form.html", name=session.get("name"), is_manager=is_manager(),
+                            c=c, mode="edit", companies=CHALLAN_COMPANIES)
+
+@app.route("/challan/save", methods=["POST"])
+def challan_save():
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    import json
+    f = request.form
+    challan_id = f.get("id", "").strip()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    who = session.get("name", "")
+
+    descs  = request.form.getlist("item_description")
+    hsns   = request.form.getlist("item_hsn")
+    qtys   = request.form.getlist("item_qty")
+    units  = request.form.getlist("item_unit")
+    discs  = request.form.getlist("item_disc")
+    amts   = request.form.getlist("item_amount")
+    items = []
+    for i in range(len(descs)):
+        if not (descs[i] or "").strip():
+            continue
+        items.append({
+            "description": descs[i].strip(),
+            "hsn": hsns[i].strip() if i < len(hsns) else "",
+            "qty": qtys[i].strip() if i < len(qtys) else "",
+            "unit": units[i].strip() if i < len(units) else "",
+            "disc": discs[i].strip() if i < len(discs) else "",
+            "amount": amts[i].strip() if i < len(amts) else "",
+        })
+    items_json = json.dumps(items)
+
+    fields = (
+        f.get("challan_no","").strip(), f.get("challan_date","").strip(),
+        f.get("seller_company_key","").strip(),
+        f.get("seller_name","").strip(), f.get("seller_address","").strip(),
+        f.get("seller_gstin","").strip(), f.get("seller_state","").strip(),
+        f.get("seller_state_code","").strip(), f.get("seller_contact","").strip(),
+        f.get("buyer_name","").strip(), f.get("buyer_address","").strip(),
+        f.get("buyer_gstin","").strip(), f.get("buyer_state","").strip(),
+        f.get("buyer_state_code","").strip(), f.get("place_of_supply","").strip(),
+        f.get("delivery_note","").strip(), f.get("mode_of_payment","").strip(),
+        f.get("reference_no","").strip(), f.get("other_references","").strip(),
+        f.get("buyers_order_no","").strip(), f.get("buyers_order_date","").strip(),
+        f.get("dispatch_doc_no","").strip(), f.get("delivery_note_date","").strip(),
+        f.get("dispatched_through","").strip(), f.get("destination","").strip(),
+        f.get("terms_of_delivery","").strip(), f.get("declaration","").strip(),
+        f.get("jurisdiction","").strip(), items_json,
+    )
+
+    conn = get_db(); cur = conn.cursor()
+    if challan_id:
+        cur.execute("""
+            UPDATE challans SET
+                challan_no=%s, challan_date=%s, seller_company_key=%s, seller_name=%s, seller_address=%s,
+                seller_gstin=%s, seller_state=%s, seller_state_code=%s, seller_contact=%s,
+                buyer_name=%s, buyer_address=%s, buyer_gstin=%s, buyer_state=%s,
+                buyer_state_code=%s, place_of_supply=%s, delivery_note=%s, mode_of_payment=%s,
+                reference_no=%s, other_references=%s, buyers_order_no=%s, buyers_order_date=%s,
+                dispatch_doc_no=%s, delivery_note_date=%s, dispatched_through=%s, destination=%s,
+                terms_of_delivery=%s, declaration=%s, jurisdiction=%s, items=%s,
+                updated_at=%s, updated_by=%s
+            WHERE id=%s
+        """, fields + (now, who, challan_id))
+        cur.execute("SELECT id FROM challans WHERE id=%s", (challan_id,))
+    else:
+        cur.execute("""
+            INSERT INTO challans (
+                challan_no, challan_date, seller_company_key, seller_name, seller_address,
+                seller_gstin, seller_state, seller_state_code, seller_contact,
+                buyer_name, buyer_address, buyer_gstin, buyer_state,
+                buyer_state_code, place_of_supply, delivery_note, mode_of_payment,
+                reference_no, other_references, buyers_order_no, buyers_order_date,
+                dispatch_doc_no, delivery_note_date, dispatched_through, destination,
+                terms_of_delivery, declaration, jurisdiction, items,
+                created_at, created_by
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, fields + (now, who))
+    new_id = cur.fetchone()["id"]
+    conn.commit(); cur.close(); conn.close()
+
+    action = request.form.get("action", "save")
+    if action == "save_pdf":
+        return redirect(url_for("challan_pdf", challan_id=new_id))
+    return redirect(url_for("challan_list", flash=f"✅ Challan {fields[0]} saved", flash_type="success"))
+
+@app.route("/challan/<int:challan_id>/delete", methods=["POST"])
+def challan_delete(challan_id):
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM challans WHERE id=%s", (challan_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("challan_list"))
+
+def _build_challan_pdf(c, items):
+    """Generates the Challan PDF bytes in a grid layout matching the company's Excel format.
+    Supports multi-page output when the header content or item list is long."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.lib.utils import simpleSplit
+
+    buf = io.BytesIO()
+    W, H = A4
+    cv = pdfcanvas.Canvas(buf, pagesize=A4)
+
+    margin = 12 * mm
+    left = margin
+    right = W - margin
+    top = H - margin
+    bottom_limit = margin
+    box_w = right - left
+
+    FONT = "Helvetica"
+    FONT_B = "Helvetica-Bold"
+
+    def text(x, y, s, font=FONT, size=8.5, leading=None, max_w=None):
+        cv.setFont(font, size)
+        if max_w:
+            lines = simpleSplit(s, font, size, max_w)
+            ld = leading if leading is not None else (size * 0.46) * mm
+            for i, ln in enumerate(lines):
+                cv.drawString(x, y - i * ld, ln)
+            return len(lines) * ld
+        else:
+            cv.drawString(x, y, s)
+            return (size * 0.46) * mm
+
+    def measure_lines(s, font, size, max_w):
+        return max(len(simpleSplit(s or "", font, size, max_w)), 1)
+
+    def center(x, y, s, font=FONT_B, size=14):
+        cv.setFont(font, size)
+        cv.drawCentredString(x, y, s)
+
+    # ---- Layout constants shared across pages ----
+    left_w = box_w * 0.565
+    right_w = box_w - left_w
+    rx = left + left_w
+    mid = rx + right_w / 2
+    title_h = 9 * mm
+
+    col_w = {"sl": 9*mm, "desc": 0, "hsn": 22*mm, "qty": 20*mm, "disc": 16*mm, "amount": 28*mm}
+    fixed_cols = col_w["sl"] + col_w["hsn"] + col_w["qty"] + col_w["disc"] + col_w["amount"]
+    col_w["desc"] = box_w - fixed_cols
+    cols = ["sl", "desc", "hsn", "qty", "disc", "amount"]
+    headers = {"sl": "Sl\nNo", "desc": "Description of Goods", "hsn": "HSN/SAC",
+               "qty": "Quantity", "disc": "Disc. %", "amount": "Amount"}
+    tbl_hdr_h = 9*mm
+    base_row_h = 7*mm
+    line_h = 3.6*mm
+    desc_w = col_w["desc"] - 3*mm
+
+    # ---- Pre-measure header block height (seller + buyer column), so the box
+    #      grows to fit content instead of clipping it ----
+    seller_name_lines = measure_lines(c.get("seller_name",""), FONT_B, 10.5, left_w - 4*mm)
+    seller_addr_lines = [ln.strip() for ln in (c.get("seller_address") or "").split("\n") if ln.strip()]
+    seller_addr_wrapped_lines = sum(measure_lines(ln, FONT, 8.3, left_w - 4*mm) for ln in seller_addr_lines)
+    seller_block_h = (seller_name_lines * 4.2*mm + 1.2*mm
+                       + seller_addr_wrapped_lines * 4*mm
+                       + (4*mm if c.get("seller_gstin") else 0)
+                       + (4*mm if c.get("seller_state") else 0)
+                       + 4*mm)  # top padding
+
+    buyer_name_lines = measure_lines(c.get("buyer_name",""), FONT_B, 9.5, left_w - 4*mm)
+    buyer_addr_lines = [ln.strip() for ln in (c.get("buyer_address") or "").split("\n") if ln.strip()]
+    buyer_addr_wrapped_lines = sum(measure_lines(ln, FONT, 8.3, left_w - 4*mm) for ln in buyer_addr_lines)
+    buyer_block_h = (4.3*mm  # "Details of Receiver" label
+                      + buyer_name_lines * 4*mm + 0.8*mm
+                      + buyer_addr_wrapped_lines * 3.8*mm
+                      + (4*mm if c.get("buyer_gstin") else 0)
+                      + (4*mm if c.get("buyer_state") else 0)
+                      + (4*mm if c.get("place_of_supply") else 0)
+                      + 4.2*mm)  # top padding before label
+
+    left_col_h = seller_block_h + buyer_block_h
+    right_col_h = 6 * 9.2*mm + 8.5*mm + 4.5*mm  # 6 meta rows + terms-of-delivery row
+    header_h = max(left_col_h, right_col_h, 55*mm)
+
+    def draw_page_border_placeholder():
+        # Outer page content area border is drawn implicitly via component rects.
+        pass
+
+    def draw_title(y):
+        cv.setLineWidth(1)
+        cv.rect(left, y - title_h, box_w, title_h)
+        center(W / 2, y - title_h + 2.8 * mm, "CHALLAN", size=16)
+        return y - title_h
+
+    def draw_header_block(y):
+        """Draws the seller/buyer/meta box. Returns new y (bottom of this block)."""
+        cv.setLineWidth(1)
+        cv.rect(left, y - header_h, box_w, header_h)
+        cv.line(rx, y - header_h, rx, y)
+
+        # Seller block
+        sy = y - 4 * mm
+        name_h = text(left + 2*mm, sy, c.get("seller_name","") or "", font=FONT_B, size=10.5,
+                       max_w=left_w - 4*mm, leading=4.2*mm)
+        sy -= max(name_h, 4.2*mm) + 1.2*mm
+        for ln in seller_addr_lines:
+            consumed = text(left + 2*mm, sy, ln, size=8.3, max_w=left_w - 4*mm, leading=4*mm)
+            sy -= max(consumed, 4*mm)
+        if c.get("seller_gstin"):
+            text(left + 2*mm, sy, f"GSTIN/UIN: {c['seller_gstin']}", size=8.3); sy -= 4*mm
+        if c.get("seller_state"):
+            text(left + 2*mm, sy, f"State Name: {c['seller_state']}, Code: {c.get('seller_state_code','')}"
+                 + (f"  Contact: {c['seller_contact']}" if c.get('seller_contact') else ""), size=8.3); sy -= 4*mm
+
+        div_y = y - seller_block_h
+        cv.line(left, div_y, rx, div_y)
+
+        by = div_y - 4.2*mm
+        text(left + 2*mm, by, "Details of Receiver (Ship to)", size=8.3); by -= 4.3*mm
+        buyer_name_h = text(left + 2*mm, by, c.get("buyer_name","") or "", font=FONT_B, size=9.5,
+                             max_w=left_w - 4*mm, leading=4*mm)
+        by -= max(buyer_name_h, 4*mm) + 0.8*mm
+        for ln in buyer_addr_lines:
+            consumed = text(left + 2*mm, by, ln, size=8.3, max_w=left_w - 4*mm, leading=3.8*mm)
+            by -= max(consumed, 3.8*mm)
+        if c.get("buyer_gstin"):
+            text(left + 2*mm, by, f"GSTIN/UIN: {c['buyer_gstin']}", size=8.3); by -= 4*mm
+        if c.get("buyer_state"):
+            text(left + 2*mm, by, f"State Name: {c['buyer_state']}, Code: {c.get('buyer_state_code','')}", size=8.3); by -= 4*mm
+        if c.get("place_of_supply"):
+            text(left + 2*mm, by, f"Place of Supply: {c['place_of_supply']}", size=8.3); by -= 4*mm
+
+        # Right meta grid: 6 rows x 2 cols + terms-of-delivery row
+        meta_rows = [
+            ("Invoice No.", c.get("challan_no","")), ("Dated", c.get("challan_date","")),
+            ("Delivery Note", c.get("delivery_note","")), ("Mode/Terms of Payment", c.get("mode_of_payment","")),
+            ("Reference No. & Date.", c.get("reference_no","")), ("Other References", c.get("other_references","")),
+            ("Buyer's Order No.", c.get("buyers_order_no","")), ("Dated", c.get("buyers_order_date","")),
+            ("Dispatch Doc No.", c.get("dispatch_doc_no","")), ("Delivery Note Date", c.get("delivery_note_date","")),
+            ("Dispatched through", c.get("dispatched_through","")), ("Destination", c.get("destination","")),
+        ]
+        terms_h = 8.5*mm + 4.5*mm
+        meta_row_h = (header_h - terms_h) / 6.0
+        for i in range(6):
+            ry_top = y - i*meta_row_h
+            if i > 0:
+                cv.line(rx, ry_top, right, ry_top)
+            cv.line(mid, ry_top - meta_row_h, mid, ry_top)
+            lbl1, val1 = meta_rows[i*2]
+            lbl2, val2 = meta_rows[i*2+1]
+            text(rx + 1.5*mm, ry_top - 3.3*mm, lbl1, size=7.6)
+            text(rx + 1.5*mm, ry_top - 7.2*mm, val1, font=FONT_B, size=8.3, max_w=mid - rx - 3*mm)
+            text(mid + 1.5*mm, ry_top - 3.3*mm, lbl2, size=7.6)
+            text(mid + 1.5*mm, ry_top - 7.2*mm, val2, font=FONT_B, size=8.3, max_w=right - mid - 3*mm)
+        terms_top = y - 6*meta_row_h
+        cv.line(rx, terms_top, right, terms_top)
+        text(rx + 1.5*mm, terms_top - 4.2*mm, "Terms of Delivery", size=7.8)
+        text(rx + 1.5*mm, terms_top - 8.5*mm, c.get("terms_of_delivery","") or "", size=8.3, max_w=right_w - 3*mm)
+
+        return y - header_h
+
+    def draw_table_header(y):
+        cv.setLineWidth(1)
+        cv.rect(left, y - tbl_hdr_h, box_w, tbl_hdr_h)
+        x = left
+        for col in cols:
+            if x > left:
+                cv.line(x, y - tbl_hdr_h, x, y)
+            lines = headers[col].split("\n")
+            ly = y - 3.6*mm
+            for ln in lines:
+                text(x + 1.5*mm, ly, ln, font=FONT_B, size=8.2)
+                ly -= 3.6*mm
+            x += col_w[col]
+        return y - tbl_hdr_h
+
+    def draw_footer(y):
+        """Declaration / signatory / jurisdiction strip. Returns new y."""
+        footer_h = 22*mm
+        cv.setLineWidth(1)
+        cv.rect(left, y - footer_h, box_w, footer_h)
+        fx = left + box_w*0.55
+        cv.line(fx, y - footer_h, fx, y)
+        text(left + 2*mm, y - 4*mm, "Declaration", font=FONT_B, size=8)
+        cv.setLineWidth(0.6)
+        cv.line(left + 2*mm, y - 5*mm, left + 22*mm, y - 5*mm)
+        cv.setLineWidth(1)
+        text(left + 2*mm, y - 8.5*mm, c.get("declaration","") or "", size=7.8, max_w=fx - left - 4*mm, leading=3.6*mm)
+
+        sig_w = right - fx - 4*mm
+        sig_cx = fx + (right - fx) / 2
+        sig_text = f"for {c.get('seller_name','')}"
+        sig_lines = simpleSplit(sig_text, FONT_B, 8.5, sig_w)
+        sig_y = y - 4.5*mm
+        cv.setFont(FONT_B, 8.5)
+        for ln in sig_lines:
+            cv.drawCentredString(sig_cx, sig_y, ln)
+            sig_y -= 3.6*mm
+        cv.setFont(FONT, 8.5)
+        cv.drawCentredString(sig_cx, y - footer_h + 4.5*mm, "Authorised Signatory")
+        y -= footer_h
+
+        jur_h = 7*mm
+        cv.rect(left, y - jur_h, box_w, jur_h)
+        cv.setFont(FONT, 9)
+        cv.drawCentredString(W/2, y - jur_h/2 - 1.2*mm, c.get("jurisdiction","") or "")
+        y -= jur_h
+        return y
+
+    # ---- Pre-measure every item row's height (may need multiple lines) ----
+    item_row_heights = []
+    for it in items:
+        n_lines = measure_lines(it.get("description",""), FONT, 8.5, desc_w)
+        item_row_heights.append(max(base_row_h, n_lines * line_h + 3.4*mm))
+
+    footer_reserve_first_page = 22*mm + 7*mm  # declaration + jurisdiction, only reserved on the last page
+
+    # ---- Page 1: title + header block + start of items table ----
+    page_num = 1
+    y = top
+    y = draw_title(y)
+    y = draw_header_block(y)
+    y = draw_table_header(y)
+    table_top_of_page = y
+
+    idx = 0
+    n_items = len(items)
+    min_blank_rows_total = max(16 - n_items, 0)  # keep a similar "blank rows" feel to the original on short lists
+    blanks_drawn = 0
+
+    while True:
+        # How much vertical room is left on this page for item rows?
+        is_last_chunk_guess = False
+        avail_h = (y - bottom_limit) - footer_reserve_first_page
+        rows_drawn_this_page = []
+
+        while idx < n_items:
+            rh = item_row_heights[idx]
+            if rh > avail_h:
+                break
+            rows_drawn_this_page.append((idx, rh))
+            avail_h -= rh
+            idx += 1
+
+        # If nothing fit at all (shouldn't normally happen), force at least one row to avoid an infinite loop
+        if not rows_drawn_this_page and idx < n_items:
+            rows_drawn_this_page.append((idx, item_row_heights[idx]))
+            avail_h -= item_row_heights[idx]
+            idx += 1
+
+        all_items_done = idx >= n_items
+
+        # On the page that finishes all items, also pad with blank rows (like the original blank-row look)
+        blanks_this_page = 0
+        if all_items_done:
+            remaining_blanks = max(min_blank_rows_total - blanks_drawn, 0)
+            while remaining_blanks > 0 and avail_h >= base_row_h:
+                blanks_this_page += 1
+                remaining_blanks -= 1
+                avail_h -= base_row_h
+            blanks_drawn += blanks_this_page
+
+        rows_h_total = sum(rh for _, rh in rows_drawn_this_page) + blanks_this_page * base_row_h
+        table_bottom = table_top_of_page - rows_h_total
+
+        # Draw table outer rect + column separators for this page's chunk
+        cv.setLineWidth(1)
+        cv.rect(left, table_bottom, box_w, table_top_of_page - table_bottom)
+        x = left
+        for col in cols:
+            if x > left:
+                cv.line(x, table_bottom, x, table_top_of_page)
+            x += col_w[col]
+
+        # Row gridlines + cell text
+        cv.setLineWidth(0.4)
+        cv.setStrokeColor(colors.Color(0.75, 0.75, 0.75))
+        ry = table_top_of_page
+        row_tops = []
+        for _, rh in rows_drawn_this_page:
+            row_tops.append(ry)
+            ry -= rh
+            cv.line(left, ry, right, ry)
+        for _ in range(blanks_this_page):
+            ry -= base_row_h
+            cv.line(left, ry, right, ry)
+        cv.setStrokeColor(colors.black)
+        cv.setLineWidth(1)
+
+        for (item_idx, rh), ry_top in zip(rows_drawn_this_page, row_tops):
+            it = items[item_idx]
+            x = left
+            text(x + col_w["sl"]/2 - 1.5*mm, ry_top - 4.6*mm, str(item_idx+1), size=8.5)
+            x += col_w["sl"]
+            text(x + 1.5*mm, ry_top - 4.6*mm, it.get("description",""), size=8.5, max_w=desc_w, leading=line_h)
+            x += col_w["desc"]
+            cv.drawCentredString(x + col_w["hsn"]/2, ry_top - 4.6*mm, it.get("hsn","") or "")
+            x += col_w["hsn"]
+            cv.drawCentredString(x + col_w["qty"]/2, ry_top - 4.6*mm, it.get("qty","") or "")
+            x += col_w["qty"]
+            cv.drawCentredString(x + col_w["disc"]/2, ry_top - 4.6*mm, it.get("disc","") or "")
+            x += col_w["disc"]
+            amt = it.get("amount","") or ""
+            cv.setFont(FONT, 8.5)
+            cv.drawRightString(right - 2*mm, ry_top - 4.6*mm, amt)
+
+        y = table_bottom
+
+        if all_items_done:
+            y = draw_footer(y)
+            break
+        else:
+            # More items remain: start a new page with a repeated table header
+            cv.showPage()
+            page_num += 1
+            y = top
+            y = draw_table_header(y)
+            table_top_of_page = y
+
+    cv.save()
+    buf.seek(0)
+    return buf
+
+
+@app.route("/challan/<int:challan_id>/pdf")
+def challan_pdf(challan_id):
+    if not logged_in(): return redirect(url_for("login"))
+    if not has_perm("can_challan"): return redirect(url_for("no_access"))
+    import json
+    from flask import send_file
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM challans WHERE id=%s", (challan_id,))
+    row = cur.fetchone(); cur.close(); conn.close()
+    if not row:
+        return redirect(url_for("challan_list"))
+    c = dict(row)
+    try:
+        items = json.loads(c["items"]) if c["items"] else []
+    except Exception:
+        items = []
+    pdf_buf = _build_challan_pdf(c, items)
+    fname = (c.get("challan_no") or f"challan_{challan_id}").replace("/", "-") + ".pdf"
+    return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
