@@ -140,33 +140,9 @@ def init_users_db():
 
     cur.close(); conn.close()
 
-def refresh_employees():
-    """Reload the EMPLOYEES / USERNAME_MAP globals from the users table.
-    Keeps the dict-shaped 'EMPLOYEES[code][\"name\"/\"company\"/\"password\"]' contract
-    used throughout the rest of the app, for active users only."""
-    global EMPLOYEES, USERNAME_MAP
-    conn = get_db(); cur = conn.cursor()
-    cur.execute("""
-        SELECT emp_code, name, username, password_hash, company,
-               is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
-               COALESCE(user_role, 'employee') AS user_role
-        FROM users WHERE is_active = TRUE
-    """)
-    rows = cur.fetchall()
-    cur.close(); conn.close()
-    new_employees = {}
-    new_username_map = {}
-    for r in rows:
-        new_employees[r["emp_code"]] = {
-            "name": r["name"], "company": r["company"] or "",
-            "username": r["username"], "password_hash": r["password_hash"],
-            "can_work_report": r["can_work_report"], "can_sales_visit": r["can_sales_visit"],
-            "can_my_jobs": r["can_my_jobs"], "can_ta": r["can_ta"],
-            "user_role": r["user_role"],
-        }
-        new_username_map[r["username"]] = r["emp_code"]
-    EMPLOYEES = new_employees
-    USERNAME_MAP = new_username_map
+# refresh_employees() is defined once, further down in this file (it needs
+# columns like can_support/can_products/can_challan/user_role). Do not add
+# a second definition here — Python silently keeps only the last one.
 
 # ══════════════════════════════════════════
 #  DATABASE HELPERS
@@ -462,6 +438,7 @@ def index():
     if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
     if has_perm("my_jobs"):     return redirect(url_for("my_jobs"))
     if has_perm("ta"):          return redirect(url_for("ta_report"))
+    if has_perm("support"):     return redirect(url_for("support_report"))
     return redirect(url_for("no_access"))
 
 @app.route("/dashboard")
@@ -2583,6 +2560,7 @@ def refresh_employees():
         SELECT emp_code, name, username, password_hash, company,
                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
                COALESCE(can_support, TRUE) AS can_support,
+               COALESCE(user_role, 'employee') AS user_role,
                {products_select},
                {challan_select}
         FROM users WHERE is_active = TRUE
@@ -2600,6 +2578,7 @@ def refresh_employees():
             "can_support": r["can_support"],
             "can_products": r["can_products"],
             "can_challan": r["can_challan"],
+            "user_role": r["user_role"],
         }
         new_username_map[r["username"]] = r["emp_code"]
     EMPLOYEES = new_employees
@@ -2612,21 +2591,12 @@ with app.app_context():
     except Exception as e:
         print(f"⚠️ Refresh error: {e}")
 
-
-# patch login to include can_support in session perms
-_orig_index = app.view_functions.get("index")
-
-# Override index to handle support perm redirect
-@app.route("/", endpoint="index_override")
-def index_override():
-    if not logged_in(): return redirect(url_for("login"))
-    if is_manager(): return redirect(url_for("dashboard"))
-    if has_perm("work_report"): return redirect(url_for("employee_form"))
-    if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
-    if has_perm("my_jobs"):     return redirect(url_for("my_jobs"))
-    if has_perm("ta"):          return redirect(url_for("ta_report"))
-    if has_perm("support"):     return redirect(url_for("support_report"))
-    return redirect(url_for("no_access"))
+# NOTE: an old duplicate "/" route + support-perm patch used to live here.
+# It was dead code (Flask serves whichever route for a given path was
+# registered first, which is the real index() far above, the one with the
+# is_supervisor() branch) and also out of date, so it has been removed.
+# can_support is already handled by the index() function near the top of
+# this file and by has_perm("support") elsewhere — no patch needed.
 
 
 # ══════════════════════════════════════════
