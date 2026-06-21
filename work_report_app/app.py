@@ -1332,7 +1332,8 @@ def manage_users():
     if not logged_in() or not is_manager(): return redirect(url_for("index"))
     refresh_employees()
 
-    status_filter = request.args.get("status", "")   # '', 'active', 'inactive'
+    status_filter = request.args.get("status", "")
+    role_filter   = request.args.get("role", "")
     search        = request.args.get("search", "")
 
     conn  = get_db(); cur = conn.cursor()
@@ -1342,10 +1343,13 @@ def manage_users():
         query += " AND is_active = TRUE"
     elif status_filter == "inactive":
         query += " AND is_active = FALSE"
+    if role_filter in ("employee", "supervisor"):
+        query += " AND COALESCE(user_role,'employee') = %s"
+        params.append(role_filter)
     if search:
         query += " AND (name ILIKE %s OR username ILIKE %s OR emp_code ILIKE %s)"
         s = f"%{search}%"; params += [s, s, s]
-    query += " ORDER BY is_active DESC, name ASC"
+    query += " ORDER BY COALESCE(user_role,'employee') DESC, is_active DESC, name ASC"
     cur.execute(query, params)
     users = cur.fetchall()
 
@@ -1353,12 +1357,16 @@ def manage_users():
     total_count = cur.fetchone()["c"]
     cur.execute("SELECT COUNT(*) AS c FROM users WHERE is_active = TRUE")
     active_count = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE COALESCE(user_role,'employee')='supervisor'")
+    supervisor_count = cur.fetchone()["c"]
     cur.close(); conn.close()
 
     return render_template("manage_users.html",
+        name=session.get("name",""),
         users=users, total_count=total_count, active_count=active_count,
         inactive_count=total_count - active_count,
-        filters={"status": status_filter, "search": search},
+        supervisor_count=supervisor_count,
+        filters={"status": status_filter, "search": search, "role": role_filter},
         record_count=len(users),
         flash=request.args.get("flash", ""),
         flash_type=request.args.get("flash_type", "success"),
@@ -1375,6 +1383,8 @@ def create_user():
     username = request.form.get("username", "").strip().lower()
     company  = request.form.get("company", "").strip()
     password = request.form.get("password", "").strip()
+    user_role_new = request.form.get("user_role", "employee").strip()
+    if user_role_new not in ("employee", "supervisor"): user_role_new = "employee"
     can_work_report = "can_work_report" in request.form
     can_sales_visit = "can_sales_visit" in request.form
     can_my_jobs     = "can_my_jobs" in request.form
@@ -1398,14 +1408,22 @@ def create_user():
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
             INSERT INTO users (emp_code, name, username, password_hash, company,
-                                is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan,
+                                is_active, user_role, can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan,
                                 created_at, created_by)
-            VALUES (%s,%s,%s,%s,%s, TRUE, %s,%s,%s,%s,%s,%s,%s, %s,%s)
+            VALUES (%s,%s,%s,%s,%s, TRUE, %s, %s,%s,%s,%s,%s,%s,%s, %s,%s)
         """, (emp_code, name, username, hash_password(password), company,
+              user_role_new,
               can_work_report, can_sales_visit, can_my_jobs, can_ta, can_support, can_products, can_challan, now, session.get("name", "manager")))
         conn.commit()
+        # create supervisor_permissions row if role is supervisor
+        if user_role_new == "supervisor":
+            cur.execute("""
+                INSERT INTO supervisor_permissions (emp_code, updated_at, updated_by)
+                VALUES (%s, %s, %s) ON CONFLICT (emp_code) DO NOTHING
+            """, (emp_code, now, session.get("name","manager")))
+            conn.commit()
         refresh_employees()
-        return redirect(url_for("manage_users", flash=f"User '{name}' created successfully.", flash_type="success"))
+        return redirect(url_for("manage_users", flash=f"User '{name}' created as {user_role_new}.", flash_type="success"))
     except Exception as e:
         conn.rollback()
         return redirect(url_for("manage_users", flash=f"Error creating user: {e}", flash_type="error"))

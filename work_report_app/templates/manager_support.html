@@ -21,11 +21,6 @@
   .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;font-weight:600}
   .btn-sm:hover{background:rgba(255,255,255,0.14)}
 
-  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;overflow-x:auto;position:sticky;top:56px;z-index:19}
-  .nav-tab{padding:13px 16px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;white-space:nowrap}
-  .nav-tab:hover{color:#10193A}
-  .nav-tab.active{color:#6C3EE8;border-bottom-color:#6C3EE8}
-
   .main{max-width:1200px;margin:0 auto;padding:1.4rem 1rem}
 
   /* ── stat cards ── */
@@ -117,8 +112,11 @@
 </style>
 </head>
 <body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('manager', {}, 'support', name|default('')) }}
 
 <div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">🔧 Support Reports</div>
   <div class="topbar-right">
     <span style="font-size:12px;color:#A8A4C4;font-weight:700">{{ name }}</span>
@@ -126,19 +124,6 @@
   </div>
 </div>
 
-<div class="nav-tabs">
-  <a href="/dashboard"               class="nav-tab">🏠 Dashboard</a>
-  <a href="/manager"                 class="nav-tab">📋 Work Reports</a>
-  <a href="/assign-job"              class="nav-tab">📌 Assign Jobs</a>
-  <a href="/attendance"              class="nav-tab">🕐 Attendance</a>
-  <a href="/manager/sales-visits"    class="nav-tab">🤝 Sales Visits</a>
-  <a href="/manager/clients"         class="nav-tab">🏢 Clients</a>
-  <a href="/manager/ta-reports"      class="nav-tab">🧾 Travel Expenses</a>
-  <a href="/manager/support-reports" class="nav-tab active">🔧 Support</a>
-  <a href="/manager/users" class="nav-tab">👤 Users</a>
-  <a href="/manager/products" class="nav-tab">📦 Products</a>
-  <a href="/manager/stock-upload" class="nav-tab">📤 Stock Upload</a>
-</div>
 
 <div class="main">
 

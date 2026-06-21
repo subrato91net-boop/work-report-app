@@ -36,7 +36,10 @@
 </style>
 </head>
 <body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('supervisor', perms|default({}), 'reports', name|default(''), sup_perms|default({})) }}
 <div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">📋 Work Reports<span class="badge-sup">Supervisor</span></div>
   <div style="display:flex;gap:8px">
     <a href="/supervisor/dashboard" class="btn-sm">← Dashboard</a>

@@ -88,8 +88,11 @@
 </style>
 </head>
 <body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('employee', perms|default({}), 'support', name|default(''), {}) }}
 
 <div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-left">
     <div class="avatar">{{ name[:2].upper() }}</div>
     <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
@@ -97,16 +100,6 @@
   <a href="/logout" class="logout">Logout</a>
 </div>
 
-<div class="nav-tabs-desktop">
-  <div class="nd-inner">
-  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
-  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab">📌 My Jobs</a>{% endif %}
-  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
-  {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab active">🔧 Support</a>{% endif %}
-  {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
-  {% if perms.get('can_challan', False) %}<a href="/challan" class="nd-tab">🧾 Challan</a>{% endif %}
-  </div>
 </div>
 
 <div class="main">
@@ -458,15 +451,6 @@
 
 </div><!-- /main -->
 
-<nav class="bottom-nav">
-  {% if perms.get('work_report', True) %}<a href="/form" class="bn-item"><span class="bn-ic">📋</span>Report</a>{% endif %}
-  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="bn-item"><span class="bn-ic">📌</span>My Jobs</a>{% endif %}
-  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
-  {% if perms.get('support', True) %}<a href="/support-report" class="bn-item active"><span class="bn-ic">🔧</span>Support</a>{% endif %}
-  {% if perms.get('products', True) %}<a href="/products" class="bn-item"><span class="bn-ic">📦</span>Products</a>{% endif %}
-  {% if perms.get('can_challan', False) %}<a href="/challan" class="bn-item"><span class="bn-ic">🧾</span>Challan</a>{% endif %}
-</nav>
 
 <script>
 function addDevice(model, serial) {

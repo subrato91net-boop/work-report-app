@@ -1,0 +1,173 @@
+{# ─────────────────────────────────────────────────────────
+   SHARED SIDEBAR + TOPBAR MACRO  (include in every page)
+   Usage:
+     {% from "sidebar_macro.html" import sidebar, topbar_btn %}
+     {{ sidebar(role, perms, active_page, name) }}
+   ───────────────────────────────────────────────────────── #}
+{% macro sidebar(role, perms, active_page, name, sup_perms={}) %}
+<style>
+/* ── Sidebar Shell ── */
+:root{--sb-w:260px;--sb-collapsed:0px;--navy:#10193A;--orange:#FF7A1A}
+#sb-overlay{display:none;position:fixed;inset:0;background:rgba(10,14,34,.5);z-index:199;backdrop-filter:blur(2px)}
+#sb-overlay.open{display:block}
+#sidebar{position:fixed;top:0;left:0;height:100%;width:var(--sb-w);background:var(--navy);z-index:200;
+  transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden}
+#sidebar.open{transform:translateX(0)}
+@media(min-width:1024px){
+  #sidebar{transform:translateX(0)}
+  body{padding-left:var(--sb-w)!important}
+  #sb-overlay{display:none!important}
+  #sb-toggle{display:none!important}
+}
+/* ── Sidebar Header ── */
+.sb-head{padding:0 1.1rem;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.sb-logo{font-size:15px;font-weight:800;color:#fff;display:flex;align-items:center;gap:9px}
+.sb-logo span{font-size:20px}
+.sb-close{width:32px;height:32px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.sb-close:hover{background:rgba(255,255,255,.16)}
+/* ── User pill ── */
+.sb-user{margin:12px 10px;background:rgba(255,255,255,.07);border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sb-avatar{width:34px;height:34px;border-radius:9px;background:#FF7A1A;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-uname{font-size:12.5px;font-weight:700;color:#fff;line-height:1.2}
+.sb-role{font-size:10px;font-weight:600;color:#A8B4D8;margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
+/* ── Nav items ── */
+.sb-nav{flex:1;overflow-y:auto;padding:8px 8px 16px;scrollbar-width:none}
+.sb-nav::-webkit-scrollbar{display:none}
+.sb-section{font-size:9.5px;font-weight:800;color:#5A6585;letter-spacing:.08em;text-transform:uppercase;padding:12px 10px 5px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;text-decoration:none;color:#A8B4D8;font-size:13px;font-weight:600;transition:background .12s,color .12s;margin-bottom:1px}
+.sb-item:hover{background:rgba(255,255,255,.08);color:#fff}
+.sb-item.active{background:rgba(255,122,26,.18);color:#FF7A1A;font-weight:700}
+.sb-item .sb-ic{font-size:17px;width:24px;text-align:center;flex-shrink:0}
+.sb-item .sb-badge{margin-left:auto;background:rgba(255,122,26,.25);color:#FF7A1A;font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px}
+/* ── Bottom ── */
+.sb-footer{padding:12px 8px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.sb-logout{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;text-decoration:none;color:#A8B4D8;font-size:13px;font-weight:600;transition:background .12s}
+.sb-logout:hover{background:rgba(239,68,68,.15);color:#f87171}
+/* ── Topbar ── */
+.topbar{background:var(--navy);padding:0 1.1rem;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.18);gap:10px}
+#sb-toggle{width:38px;height:38px;background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#sb-toggle:hover{background:rgba(255,255,255,.16)}
+.topbar-title{font-size:14px;font-weight:800;color:#fff;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tb-logout{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
+.tb-logout:hover{background:rgba(255,255,255,.14)}
+/* ── Body offset ── */
+body{padding-left:0;transition:padding-left .25s}
+</style>
+
+<!-- Overlay -->
+<div id="sb-overlay" onclick="closeSB()"></div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sb-head">
+    <div class="sb-logo"><span>📦</span>WorkReport</div>
+    <button class="sb-close" onclick="closeSB()">✕</button>
+  </div>
+
+  <div class="sb-user">
+    <div class="sb-avatar">{{ (name or 'U')[:2].upper() }}</div>
+    <div>
+      <div class="sb-uname">{{ name or 'User' }}</div>
+      <div class="sb-role">
+        {% if role == 'manager' %}👑 Super Admin
+        {% elif role == 'supervisor' %}👔 Supervisor
+        {% else %}👤 Employee{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+
+    {# ── MANAGER / SUPER ADMIN ── #}
+    {% if role == 'manager' %}
+    <div class="sb-section">Overview</div>
+    <a href="/dashboard" class="sb-item {{ 'active' if active_page=='dashboard' }}"><span class="sb-ic">🏠</span>Dashboard</a>
+
+    <div class="sb-section">Operations</div>
+    <a href="/manager" class="sb-item {{ 'active' if active_page=='reports' }}"><span class="sb-ic">📋</span>Work Reports</a>
+    <a href="/assign-job" class="sb-item {{ 'active' if active_page=='assign_job' }}"><span class="sb-ic">📌</span>Assign Jobs</a>
+    <a href="/attendance" class="sb-item {{ 'active' if active_page=='attendance' }}"><span class="sb-ic">🕐</span>Attendance</a>
+    <a href="/manager/sales-visits" class="sb-item {{ 'active' if active_page=='sales' }}"><span class="sb-ic">🤝</span>Sales Visits</a>
+    <a href="/manager/clients" class="sb-item {{ 'active' if active_page=='clients' }}"><span class="sb-ic">🏢</span>Clients</a>
+    <a href="/manager/ta-reports" class="sb-item {{ 'active' if active_page=='ta' }}"><span class="sb-ic">🧾</span>Travel Expenses</a>
+    <a href="/manager/support-reports" class="sb-item {{ 'active' if active_page=='support' }}"><span class="sb-ic">🔧</span>Support</a>
+
+    <div class="sb-section">Products</div>
+    <a href="/manager/products" class="sb-item {{ 'active' if active_page=='products' }}"><span class="sb-ic">📦</span>Manage Products</a>
+    <a href="/manager/stock-upload" class="sb-item {{ 'active' if active_page=='stock_upload' }}"><span class="sb-ic">📤</span>Stock Upload</a>
+
+    <div class="sb-section">Admin</div>
+    <a href="/manager/users" class="sb-item {{ 'active' if active_page=='users' }}"><span class="sb-ic">👤</span>User Management</a>
+    <a href="/manager/supervisors" class="sb-item {{ 'active' if active_page=='supervisors' }}"><span class="sb-ic">🛡️</span>Supervisors</a>
+    <a href="/manager/employee-profiles" class="sb-item {{ 'active' if active_page=='profiles' }}"><span class="sb-ic">🪪</span>Employee Profiles</a>
+    <a href="/stock-upload-log" class="sb-item {{ 'active' if active_page=='upload_log' }}"><span class="sb-ic">📜</span>Upload Log</a>
+    <a href="/challan" class="sb-item {{ 'active' if active_page=='challan' }}"><span class="sb-ic">🧾</span>Challan</a>
+
+    {# ── SUPERVISOR ── #}
+    {% elif role == 'supervisor' %}
+    <div class="sb-section">Overview</div>
+    <a href="/supervisor" class="sb-item {{ 'active' if active_page=='dashboard' }}"><span class="sb-ic">🏠</span>Dashboard</a>
+
+    <div class="sb-section">Team</div>
+    {% if sup_perms.get('can_view_reports', True) %}
+    <a href="/supervisor/reports" class="sb-item {{ 'active' if active_page=='reports' }}"><span class="sb-ic">📋</span>Work Reports</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_jobs', True) %}
+    <a href="/supervisor/jobs" class="sb-item {{ 'active' if active_page=='assign_job' }}"><span class="sb-ic">📌</span>Jobs</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_ta', True) %}
+    <a href="/supervisor/ta" class="sb-item {{ 'active' if active_page=='ta' }}"><span class="sb-ic">🧾</span>Travel Expenses</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_sales', True) %}
+    <a href="/supervisor/sales" class="sb-item {{ 'active' if active_page=='sales' }}"><span class="sb-ic">🤝</span>Sales</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_support', True) %}
+    <a href="/supervisor/support" class="sb-item {{ 'active' if active_page=='support' }}"><span class="sb-ic">🔧</span>Support</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_clients', True) %}
+    <a href="/supervisor/clients" class="sb-item {{ 'active' if active_page=='clients' }}"><span class="sb-ic">🏢</span>Clients</a>
+    {% endif %}
+    {% if sup_perms.get('can_view_users', True) %}
+    <a href="/supervisor/users" class="sb-item {{ 'active' if active_page=='users' }}"><span class="sb-ic">👥</span>Team Members</a>
+    {% endif %}
+
+    {# ── EMPLOYEE ── #}
+    {% else %}
+    <div class="sb-section">My Work</div>
+    {% if perms.get('work_report', True) %}
+    <a href="/form" class="sb-item {{ 'active' if active_page=='form' }}"><span class="sb-ic">📋</span>Work Report</a>
+    {% endif %}
+    {% if perms.get('my_jobs', True) %}
+    <a href="/my-jobs" class="sb-item {{ 'active' if active_page=='my_jobs' }}"><span class="sb-ic">📌</span>My Jobs</a>
+    {% endif %}
+    {% if perms.get('sales_visit', True) %}
+    <a href="/sales-visit" class="sb-item {{ 'active' if active_page=='sales' }}"><span class="sb-ic">🤝</span>Sales Report</a>
+    {% endif %}
+    {% if perms.get('ta', True) %}
+    <a href="/ta-report" class="sb-item {{ 'active' if active_page=='ta' }}"><span class="sb-ic">🧾</span>Travel Expenses</a>
+    {% endif %}
+    {% if perms.get('support', True) %}
+    <a href="/support-report" class="sb-item {{ 'active' if active_page=='support' }}"><span class="sb-ic">🔧</span>Support</a>
+    {% endif %}
+    {% if perms.get('products', True) %}
+    <a href="/products" class="sb-item {{ 'active' if active_page=='products' }}"><span class="sb-ic">📦</span>Products</a>
+    {% endif %}
+    {% if perms.get('can_challan', False) %}
+    <a href="/challan" class="sb-item {{ 'active' if active_page=='challan' }}"><span class="sb-ic">🧾</span>Challan</a>
+    {% endif %}
+    {% endif %}
+
+  </nav>
+
+  <div class="sb-footer">
+    <a href="/logout" class="sb-logout"><span style="font-size:17px">🚪</span>Logout</a>
+  </div>
+</div>
+
+<script>
+function openSB(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sb-overlay').classList.add('open') }
+function closeSB(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sb-overlay').classList.remove('open') }
+</script>
+{% endmacro %}

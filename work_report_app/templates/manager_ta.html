@@ -13,7 +13,7 @@
 <title>Travel Expense Reports — Manager</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:0}
   a{color:inherit}
 
   .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
@@ -21,16 +21,6 @@
   .topbar-right{display:flex;gap:8px}
   .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
   .btn-sm:hover{background:rgba(255,255,255,0.14)}
-
-  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:none;overflow-x:auto}
-  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
-  .nav-tab:hover{color:#10193A}
-  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
-
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em;min-width:58px}
-  .bn-item .bn-ic{font-size:18px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
 
   .main{max-width:1400px;margin:0 auto;padding:1.4rem 1rem}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px;margin-bottom:1.3rem}
@@ -92,8 +82,6 @@
   .btn-secondary{padding:10px 16px;border:1.5px solid #E7E4DA;border-radius:9px;background:#fff;color:#696B78;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
 
   @media(min-width:860px){
-    .nav-tabs{display:flex}
-    .bottom-nav{display:none}
     body{padding-bottom:0}
   }
   .bulk-bar{display:none;align-items:center;gap:12px;background:#10193A;color:#fff;border-radius:13px;padding:11px 16px;margin-bottom:1.1rem;flex-wrap:wrap;font-size:12.5px;font-weight:700}
@@ -107,25 +95,15 @@
 </style>
 </head>
 <body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('manager', {}, 'ta', name|default('')) }}
 <div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">🧾 Travel Expense Reports</div>
   <div class="topbar-right">
     <a href="/export/ta-reports" class="btn-sm">⬇ Export CSV</a>
     <a href="/logout" class="btn-sm">Logout</a>
   </div>
-</div>
-<div class="nav-tabs">
-  <a href="/dashboard" class="nav-tab">🏠 Dashboard</a>
-  <a href="/manager"              class="nav-tab">📋 Work Reports</a>
-  <a href="/assign-job"           class="nav-tab">📌 Assign Jobs</a>
-  <a href="/attendance"           class="nav-tab">🕐 Attendance</a>
-  <a href="/manager/sales-visits" class="nav-tab">🤝 Sales Visits</a>
-  <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
-  <a href="/manager/ta-reports"   class="nav-tab active">🧾 Travel Expenses</a>
-  <a href="/manager/support-reports" class="nav-tab">🔧 Support</a>
-  <a href="/manager/users" class="nav-tab">👤 Users</a>
-  <a href="/manager/products" class="nav-tab">📦 Products</a>
-  <a href="/manager/stock-upload" class="nav-tab">📤 Stock Upload</a>
 </div>
 <div class="main">
   <div class="stats">
@@ -277,16 +255,6 @@
   </div>
 </div>
 
-<nav class="bottom-nav">
-  <a href="/dashboard" class="bn-item"><span class="bn-ic">🏠</span>Home</a>
-  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
-  <a href="/assign-job"           class="bn-item"><span class="bn-ic">📌</span>Assign</a>
-  <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
-  <a href="/manager/sales-visits" class="bn-item"><span class="bn-ic">🤝</span>Sales</a>
-  <a href="/manager/clients" class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
-  <a href="/manager/ta-reports"   class="bn-item active"><span class="bn-ic">🧾</span>TA</a>
-  <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
-</nav>
 
 <script>
 function getChecked(){

@@ -13,7 +13,7 @@
 <title>Manager — Sales Visits</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:0}
   a{color:inherit}
 
   .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
@@ -24,15 +24,6 @@
   .btn-export{background:#1AAE6F;border-color:#1AAE6F;padding:6px 15px}
 
   /* PAGE TABS */
-  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;overflow-x:auto}
-  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;transition:all .15s;white-space:nowrap}
-  .nav-tab:hover{color:#10193A}
-  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
-
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
-  .bn-item .bn-ic{font-size:18px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
 
   .main{max-width:1400px;margin:0 auto;padding:1.4rem 1rem}
 
@@ -80,13 +71,15 @@
 
   @media(min-width:860px){
     body{padding-bottom:0}
-    .bottom-nav{display:none}
   }
 </style>
 </head>
 <body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('manager', {}, 'sales', name|default('')) }}
 
 <div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">🤝 Sales Visit Reports</div>
   <div class="topbar-right">
     <a href="/export/sales-visits{% if request.query_string %}?{{ request.query_string.decode() }}{% endif %}"
@@ -96,19 +89,6 @@
 </div>
 
 <!-- MANAGER NAV TABS -->
-<div class="nav-tabs">
-  <a href="/dashboard" class="nav-tab">🏠 Dashboard</a>
-  <a href="/manager"            class="nav-tab">📋 Work Reports</a>
-  <a href="/assign-job"         class="nav-tab">🗂️ Assign Jobs</a>
-  <a href="/attendance"         class="nav-tab">🕐 Attendance</a>
-  <a href="/manager/sales-visits" class="nav-tab active">🤝 Sales Visits</a>
-  <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
-  <a href="/manager/ta-reports"   class="nav-tab">🧾 Travel Expenses</a>
-  <a href="/manager/support-reports" class="nav-tab">🔧 Support</a>
-  <a href="/manager/users" class="nav-tab">👤 Users</a>
-  <a href="/manager/products" class="nav-tab">📦 Products</a>
-  <a href="/manager/stock-upload" class="nav-tab">📤 Stock Upload</a>
-</div>
 
 <div class="main">
 
@@ -244,16 +224,6 @@
 </div><!-- /main -->
 
 <!-- MOBILE BOTTOM NAV -->
-<nav class="bottom-nav">
-  <a href="/dashboard" class="bn-item"><span class="bn-ic">🏠</span>Home</a>
-  <a href="/manager"              class="bn-item"><span class="bn-ic">📋</span>Reports</a>
-  <a href="/assign-job"           class="bn-item"><span class="bn-ic">🗂️</span>Jobs</a>
-  <a href="/attendance"           class="bn-item"><span class="bn-ic">🕐</span>Attend.</a>
-  <a href="/manager/sales-visits" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>
-  <a href="/manager/clients" class="bn-item"><span class="bn-ic">🏢</span>Clients</a>
-  <a href="/manager/ta-reports"   class="bn-item"><span class="bn-ic">🧾</span>TA</a>
-  <a href="/manager/users"        class="bn-item"><span class="bn-ic">👤</span>Users</a>
-</nav>
 
 <script>
 if ('serviceWorker' in navigator) {
