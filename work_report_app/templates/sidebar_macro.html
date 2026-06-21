@@ -110,12 +110,35 @@ body{padding-left:0;transition:padding-left .25s}
     <div class="sb-section">Overview</div>
     <a href="/supervisor" class="sb-item {{ 'active' if active_page=='dashboard' }}"><span class="sb-ic">🏠</span>Dashboard</a>
 
+    <div class="sb-section">My Work</div>
+    {% if perms.get('work_report', True) %}
+    <a href="/form" class="sb-item {{ 'active' if active_page=='form' }}"><span class="sb-ic">📋</span>Work Report</a>
+    {% endif %}
+    {% if perms.get('my_jobs', True) %}
+    <a href="/my-jobs" class="sb-item {{ 'active' if active_page=='my_jobs' }}"><span class="sb-ic">📌</span>My Jobs</a>
+    {% endif %}
+    {% if perms.get('sales_visit', True) %}
+    <a href="/sales-visit" class="sb-item {{ 'active' if active_page=='sales' }}"><span class="sb-ic">🤝</span>Sales Report</a>
+    {% endif %}
+    {% if perms.get('ta', True) %}
+    <a href="/ta-report" class="sb-item {{ 'active' if active_page=='ta' }}"><span class="sb-ic">🧾</span>Travel Expenses</a>
+    {% endif %}
+    {% if perms.get('support', True) %}
+    <a href="/support-report" class="sb-item {{ 'active' if active_page=='support' }}"><span class="sb-ic">🔧</span>Support</a>
+    {% endif %}
+    {% if perms.get('products', True) %}
+    <a href="/products" class="sb-item {{ 'active' if active_page=='products' }}"><span class="sb-ic">📦</span>Products</a>
+    {% endif %}
+
     <div class="sb-section">Team</div>
     {% if sup_perms.get('can_view_reports', True) %}
     <a href="/supervisor/reports" class="sb-item {{ 'active' if active_page=='reports' }}"><span class="sb-ic">📋</span>Work Reports</a>
     {% endif %}
     {% if sup_perms.get('can_view_jobs', True) %}
     <a href="/supervisor/jobs" class="sb-item {{ 'active' if active_page=='assign_job' }}"><span class="sb-ic">📌</span>Jobs</a>
+    {% endif %}
+    {% if sup_perms.get('can_assign_jobs', False) %}
+    <a href="/assign-job" class="sb-item {{ 'active' if active_page=='assign_job_full' }}"><span class="sb-ic">📌</span>Assign Jobs</a>
     {% endif %}
     {% if sup_perms.get('can_view_ta', True) %}
     <a href="/supervisor/ta" class="sb-item {{ 'active' if active_page=='ta' }}"><span class="sb-ic">🧾</span>Travel Expenses</a>

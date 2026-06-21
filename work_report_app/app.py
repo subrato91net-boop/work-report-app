@@ -721,6 +721,7 @@ def employee_form():
     return render_template("form.html", name=session["name"], success=success, lock_error=lock_error, recent=recent,
                             att_today=att_today, supervisor_choices=supervisor_choices,
                             record_count=len(recent), perms=session.get("perms", {}),
+                            role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
                             filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
@@ -789,6 +790,7 @@ def my_jobs():
         employee_choices=employee_choices,
         recent_results=recent_results,
         submitted=request.args.get("submitted") == "1",
+        user_role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
         filters={"status": f_status, "search": f_search, "from_d": f_from, "to_d": f_to},
     )
 
@@ -871,7 +873,9 @@ def reject_report(report_id):
 # ══════════════════════════════════════════
 @app.route("/assign-job", methods=["GET", "POST"])
 def assign_job():
-    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    if not logged_in(): return redirect(url_for("index"))
+    if not is_manager() and not (is_supervisor() and has_sup_perm("can_assign_jobs")):
+        return redirect(url_for("index"))
     success = False
     error   = None
 
@@ -969,6 +973,9 @@ def assign_job():
         jobs=jobs, record_count=len(jobs),
         pending_edits_ct=pending_edits_ct,
         pending_requests=pending_requests,
+        name=session.get("name", ""),
+        role=session.get("role", "manager"), perms=session.get("perms", {}),
+        sup_perms=session.get("sup_perms", {}),
         filters={"emp": f_emp, "status": f_status, "search": f_search,
                  "from_d": f_from, "to_d": f_to, "review": f_review}
     )
@@ -979,7 +986,7 @@ def assign_job():
 # ══════════════════════════════════════════
 @app.route("/edit-job/<int:job_id>", methods=["POST"])
 def edit_job(job_id):
-    if not logged_in() or not is_manager():
+    if not logged_in() or not (is_manager() or (is_supervisor() and has_sup_perm("can_assign_jobs"))):
         return jsonify({"ok": False, "error": "Unauthorised"}), 403
 
     emp_codes = request.form.getlist("emp_codes")
@@ -1029,7 +1036,7 @@ def edit_job(job_id):
 
 @app.route("/jobs/bulk-status", methods=["POST"])
 def bulk_job_status():
-    if not logged_in() or not is_manager():
+    if not logged_in() or not (is_manager() or (is_supervisor() and has_sup_perm("can_assign_jobs"))):
         return jsonify({"ok": False, "error": "Unauthorised"}), 403
 
     ids = request.form.getlist("selected_ids")
@@ -1098,7 +1105,7 @@ def employee_submit_job_edit(job_id):
 # ══════════════════════════════════════════
 @app.route("/manager/jobs/<int:req_id>/finalize", methods=["POST"])
 def finalize_job_edit(req_id):
-    if not logged_in() or not is_manager():
+    if not logged_in() or not (is_manager() or (is_supervisor() and has_sup_perm("can_assign_jobs"))):
         return redirect(url_for("login"))
     conn = get_db(); cur = conn.cursor()
     cur.execute("SELECT * FROM job_edit_requests WHERE id=%s", (req_id,))
@@ -1135,7 +1142,7 @@ def finalize_job_edit(req_id):
 
 @app.route("/manager/jobs/<int:req_id>/decline", methods=["POST"])
 def decline_job_edit(req_id):
-    if not logged_in() or not is_manager():
+    if not logged_in() or not (is_manager() or (is_supervisor() and has_sup_perm("can_assign_jobs"))):
         return redirect(url_for("login"))
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     manager_note = request.form.get("manager_note", "")
@@ -1868,6 +1875,7 @@ def sales_visit():
         salesperson_choices=salesperson_choices,
         current_code=code,
         perms=session.get("perms", {}),
+        role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
         filters={"vtype": f_vtype, "outcome": f_outcome, "from_d": f_from, "to_d": f_to, "search": f_search},
     )
 
@@ -2076,6 +2084,7 @@ def ta_report():
         name=session["name"], success=success, lock_error=lock_error, reports=reports,
         record_count=len(reports), own_total=own_total, filtered_total=filtered_total,
         perms=session.get("perms", {}),
+        role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
         filters={"status": f_status, "approval": f_approval, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
@@ -2830,6 +2839,7 @@ def support_report():
         history=history_with_devices,
         record_count=len(history_with_devices),
         perms=session.get("perms", {}),
+        role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
         filters={"status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search},
     )
 
@@ -3093,7 +3103,7 @@ def products():
         name=session["name"], role=session.get("role","employee"),
         grouped=grouped, brands=brands, categories=categories,
         filters={"q": q, "brand": brand, "category": cat, "stock": stock},
-        total=len(all_products), perms=session.get("perms", {}))
+        total=len(all_products), perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
 
 
 # ══════════════════════════════════════════

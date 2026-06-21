@@ -89,13 +89,13 @@
 </head>
 <body>
 {% from 'sidebar_macro.html' import sidebar %}
-{{ sidebar('employee', perms|default({}), 'support', name|default(''), {}) }}
+{{ sidebar(role|default('employee'), perms|default({}), 'support', name|default(''), sup_perms|default({})) }}
 
 <div class="topbar">
   <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-left">
     <div class="avatar">{{ name[:2].upper() }}</div>
-    <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
+    <div><div class="tname">{{ name }}</div><div class="trole">{{ 'Supervisor' if role=='supervisor' else 'Employee' }}</div></div>
   </div>
   <a href="/logout" class="logout">Logout</a>
 </div>

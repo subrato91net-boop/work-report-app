@@ -180,7 +180,7 @@
 </head>
 <body>
 {% from 'sidebar_macro.html' import sidebar %}
-{{ sidebar('manager', {}, 'assign_job', name|default('')) }}
+{{ sidebar(role|default('manager'), perms|default({}), 'assign_job_full', name|default(''), sup_perms|default({})) }}
 <div class="topbar">
   <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">📊 Work Report System V3</div>
