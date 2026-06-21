@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>{{ 'Edit' if mode=='edit' else 'New' }} Challan — Work Report System</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:60px}
+  a{color:inherit;text-decoration:none}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+
+  .main{max-width:980px;margin:0 auto;padding:1.4rem 1rem}
+
+  .section-title{font-size:19px;font-weight:800;color:#10193A;margin-bottom:1.1rem}
+
+  .panel{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.2rem;box-shadow:0 1px 3px rgba(16,25,58,.04);margin-bottom:1.1rem}
+  .panel-title{font-size:13.5px;font-weight:800;color:#10193A;margin-bottom:.9rem;display:flex;align-items:center;gap:7px}
+
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+  @media(max-width:640px){.fgrid{grid-template-columns:1fr}}
+  .fg{display:flex;flex-direction:column;gap:4px}
+  .fg.full{grid-column:1/-1}
+  .fg label{font-size:11px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .fg input,.fg textarea{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
+  .fg select{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%;cursor:pointer}
+  .fg select:focus{border-color:#FF7A1A}
+  .fg textarea{resize:vertical;min-height:48px}
+  .fg input:focus,.fg textarea:focus{border-color:#FF7A1A}
+
+  table.items{width:100%;border-collapse:collapse;margin-top:.3rem}
+  table.items th{font-size:10.5px;color:#696B78;font-weight:800;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:6px 6px;border-bottom:1px solid #E7E4DA}
+  table.items td{padding:5px 6px;vertical-align:top}
+  table.items input{padding:7px 8px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:7px;background:#F6F4EF;font-family:inherit;width:100%;outline:none}
+  table.items input:focus{border-color:#FF7A1A}
+  .col-sl{width:30px;text-align:center;font-weight:700;padding-top:10px;font-size:12.5px}
+  .col-rm{width:34px;text-align:center}
+  .btn-rm{background:#FBE2E2;color:#9A2A2D;border:none;border-radius:7px;width:26px;height:26px;cursor:pointer;font-weight:800;font-size:13px;margin-top:3px}
+  .btn-add{margin-top:.7rem;background:#F0EEE6;color:#10193A;border:none;border-radius:8px;padding:8px 14px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:1.2rem}
+  .btn-primary{padding:11px 22px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-primary:hover{background:#0B1228}
+  .btn-orange{background:#FF7A1A;color:#fff;border:none;border-radius:9px;padding:11px 22px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-ghost{background:#F0EEE6;color:#696B78;border:none;border-radius:9px;padding:11px 18px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:700;text-decoration:none;display:inline-flex;align-items:center}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">🧾 {{ 'Edit' if mode=='edit' else 'New' }} Challan</div>
+  <a href="/challan" class="btn-sm">← All Challans</a>
+</div>
+
+<div class="main">
+  <form method="post" action="/challan/save" id="challanForm">
+    <input type="hidden" name="id" value="{{ c.id or '' }}">
+
+    <div class="panel">
+      <div class="panel-title">📌 Challan Details</div>
+      <div class="fgrid">
+        <div class="fg"><label>Invoice / Challan No.</label><input type="text" name="challan_no" value="{{ c.challan_no }}" required></div>
+        <div class="fg"><label>Date</label><input type="text" name="challan_date" value="{{ c.challan_date }}" placeholder="16-Mar-26"></div>
+        <div class="fg"><label>Delivery Note</label><input type="text" name="delivery_note" value="{{ c.delivery_note }}"></div>
+        <div class="fg"><label>Mode/Terms of Payment</label><input type="text" name="mode_of_payment" value="{{ c.mode_of_payment }}"></div>
+        <div class="fg"><label>Reference No. & Date</label><input type="text" name="reference_no" value="{{ c.reference_no }}"></div>
+        <div class="fg"><label>Other References</label><input type="text" name="other_references" value="{{ c.other_references }}"></div>
+        <div class="fg"><label>Buyer's Order No.</label><input type="text" name="buyers_order_no" value="{{ c.buyers_order_no }}"></div>
+        <div class="fg"><label>Buyer's Order Date</label><input type="text" name="buyers_order_date" value="{{ c.buyers_order_date }}"></div>
+        <div class="fg"><label>Dispatch Doc No.</label><input type="text" name="dispatch_doc_no" value="{{ c.dispatch_doc_no }}"></div>
+        <div class="fg"><label>Delivery Note Date</label><input type="text" name="delivery_note_date" value="{{ c.delivery_note_date }}"></div>
+        <div class="fg"><label>Dispatched Through</label><input type="text" name="dispatched_through" value="{{ c.dispatched_through }}"></div>
+        <div class="fg"><label>Destination</label><input type="text" name="destination" value="{{ c.destination }}"></div>
+        <div class="fg full"><label>Terms of Delivery</label><input type="text" name="terms_of_delivery" value="{{ c.terms_of_delivery }}"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">🏢 Seller Details (Your Company)</div>
+      <div class="fgrid">
+        <div class="fg full">
+          <label>Select Company</label>
+          <select id="companySelect" onchange="applyCompanyPreset()" required>
+            <option value="" {% if not c.seller_company_key and not c.seller_name %}selected{% endif %} disabled>— Select a company —</option>
+            {% for key, comp in companies.items() %}
+            <option value="{{ key }}" {% if c.seller_company_key == key %}selected{% endif %}>{{ comp.label }}</option>
+            {% endfor %}
+            <option value="custom" {% if not c.seller_company_key and c.seller_name %}selected{% endif %}>— Custom / Other —</option>
+          </select>
+        </div>
+        <input type="hidden" name="seller_company_key" id="sellerCompanyKey" value="{{ c.seller_company_key or '' }}">
+        <div class="fg full"><label>Company Name</label><input type="text" name="seller_name" id="sellerName" value="{{ c.seller_name }}"></div>
+        <div class="fg full"><label>Address</label><textarea name="seller_address" id="sellerAddress">{{ c.seller_address }}</textarea></div>
+        <div class="fg"><label>GSTIN/UIN</label><input type="text" name="seller_gstin" id="sellerGstin" value="{{ c.seller_gstin }}"></div>
+        <div class="fg"><label>Contact</label><input type="text" name="seller_contact" id="sellerContact" value="{{ c.seller_contact }}"></div>
+        <div class="fg"><label>State Name</label><input type="text" name="seller_state" id="sellerState" value="{{ c.seller_state }}"></div>
+        <div class="fg"><label>State Code</label><input type="text" name="seller_state_code" id="sellerStateCode" value="{{ c.seller_state_code }}"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">👤 Buyer Details (Receiver / Ship To)</div>
+      <div class="fgrid">
+        <div class="fg full"><label>Buyer / Company Name</label><input type="text" name="buyer_name" value="{{ c.buyer_name }}"></div>
+        <div class="fg full"><label>Address</label><textarea name="buyer_address">{{ c.buyer_address }}</textarea></div>
+        <div class="fg"><label>GSTIN/UIN</label><input type="text" name="buyer_gstin" value="{{ c.buyer_gstin }}"></div>
+        <div class="fg"><label>Place of Supply</label><input type="text" name="place_of_supply" value="{{ c.place_of_supply }}"></div>
+        <div class="fg"><label>State Name</label><input type="text" name="buyer_state" value="{{ c.buyer_state }}"></div>
+        <div class="fg"><label>State Code</label><input type="text" name="buyer_state_code" value="{{ c.buyer_state_code }}"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📦 Items</div>
+      <table class="items" id="itemsTable">
+        <thead>
+          <tr>
+            <th class="col-sl">Sl</th>
+            <th>Description of Goods</th>
+            <th style="width:110px">HSN/SAC</th>
+            <th style="width:90px">Quantity</th>
+            <th style="width:80px">Disc. %</th>
+            <th style="width:120px">Amount</th>
+            <th class="col-rm"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          {% for it in c['items'] %}
+          <tr>
+            <td class="col-sl">{{ loop.index }}</td>
+            <td><input type="text" name="item_description" value="{{ it.description }}" placeholder="e.g. E FACE 10 — S/N HDP1251000682"></td>
+            <td><input type="text" name="item_hsn" value="{{ it.hsn }}"></td>
+            <td><input type="text" name="item_qty" value="{{ it.qty }}"></td>
+            <td><input type="text" name="item_disc" value="{{ it.disc }}"></td>
+            <td><input type="text" name="item_amount" value="{{ it.amount }}" placeholder="NA"></td>
+            <td class="col-rm"><button type="button" class="btn-rm" onclick="removeRow(this)">✕</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="button" class="btn-add" onclick="addRow()">+ Add Item</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">📝 Declaration & Footer</div>
+      <div class="fgrid">
+        <div class="fg full"><label>Declaration</label><textarea name="declaration">{{ c.declaration }}</textarea></div>
+        <div class="fg full"><label>Jurisdiction Line</label><input type="text" name="jurisdiction" value="{{ c.jurisdiction }}"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" name="action" value="save" class="btn-primary">💾 Save</button>
+      <button type="submit" name="action" value="save_pdf" class="btn-orange">📄 Save & Generate PDF</button>
+      <a href="/challan" class="btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const COMPANY_PRESETS = {{ companies | tojson }};
+
+function applyCompanyPreset(){
+  const key = document.getElementById('companySelect').value;
+  if (key === 'custom') {
+    document.getElementById('sellerCompanyKey').value = '';
+    document.getElementById('sellerName').value = '';
+    document.getElementById('sellerAddress').value = '';
+    document.getElementById('sellerGstin').value = '';
+    document.getElementById('sellerContact').value = '';
+    document.getElementById('sellerState').value = '';
+    document.getElementById('sellerStateCode').value = '';
+    return;
+  }
+  document.getElementById('sellerCompanyKey').value = key;
+  if (!key || !COMPANY_PRESETS[key]) return;
+  const p = COMPANY_PRESETS[key];
+  document.getElementById('sellerName').value = p.seller_name || '';
+  document.getElementById('sellerAddress').value = p.seller_address || '';
+  document.getElementById('sellerGstin').value = p.seller_gstin || '';
+  document.getElementById('sellerContact').value = p.seller_contact || '';
+  document.getElementById('sellerState').value = p.seller_state || '';
+  document.getElementById('sellerStateCode').value = p.seller_state_code || '';
+}
+
+let rowCount = document.querySelectorAll('#itemsBody tr').length;
+
+function addRow(){
+  rowCount++;
+  const tbody = document.getElementById('itemsBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="col-sl">${rowCount}</td>
+    <td><input type="text" name="item_description" placeholder="Item description"></td>
+    <td><input type="text" name="item_hsn"></td>
+    <td><input type="text" name="item_qty"></td>
+    <td><input type="text" name="item_disc"></td>
+    <td><input type="text" name="item_amount" placeholder="NA"></td>
+    <td class="col-rm"><button type="button" class="btn-rm" onclick="removeRow(this)">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function removeRow(btn){
+  const tbody = document.getElementById('itemsBody');
+  if (tbody.querySelectorAll('tr').length <= 1) return;
+  btn.closest('tr').remove();
+  renumber();
+}
+
+function renumber(){
+  document.querySelectorAll('#itemsBody tr').forEach((tr, i) => {
+    tr.querySelector('.col-sl').textContent = i + 1;
+  });
+  rowCount = document.querySelectorAll('#itemsBody tr').length;
+}
+</script>
+</body>
+</html>

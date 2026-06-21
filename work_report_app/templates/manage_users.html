@@ -197,6 +197,7 @@
           <label class="perm-chk"><input type="checkbox" name="can_ta" checked> 🧾 Travel Expenses</label>
           <label class="perm-chk"><input type="checkbox" name="can_support" checked> 🔧 Support</label>
           <label class="perm-chk"><input type="checkbox" name="can_products"> 📦 Products</label>
+          <label class="perm-chk"><input type="checkbox" name="can_challan"> 🧾 Challan</label>
         </div>
         <button type="submit" class="btn-primary">Create User</button>
       </form>
@@ -259,6 +260,9 @@
                 </label>
                 <label class="ptoggle {{ 'on' if u.get('can_products', False) }}">
                   <input type="checkbox" name="can_products" onchange="this.form.requestSubmit()" {% if u.get('can_products', False) %}checked{% endif %}> 📦 Products
+                </label>
+                <label class="ptoggle {{ 'on' if u.get('can_challan', False) }}">
+                  <input type="checkbox" name="can_challan" onchange="this.form.requestSubmit()" {% if u.get('can_challan', False) %}checked{% endif %}> 🧾 Challan
                 </label>
                 </label>
                 </label>

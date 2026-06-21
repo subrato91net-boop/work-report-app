@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Challans — Work Report System</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:40px}
+  a{color:inherit;text-decoration:none}
+
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
+  .topbar-right{display:flex;gap:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+
+  .main{max-width:1200px;margin:0 auto;padding:1.4rem 1rem}
+
+  .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+
+  .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px}
+  .section-title{font-size:19px;font-weight:800;color:#10193A}
+
+  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:.9rem 1rem;margin-bottom:1.1rem;display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+  .filters input{padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:200px;flex:1}
+  .filters input:focus{border-color:#FF7A1A}
+  .btn-primary{padding:9px 18px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-primary:hover{background:#0B1228}
+  .btn-orange{background:#FF7A1A;color:#fff;border:none;border-radius:9px;padding:9px 18px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+
+  .table-wrap{background:#fff;border:1px solid #E7E4DA;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+  table{width:100%;border-collapse:collapse}
+  th{background:#F6F4EF;text-align:left;padding:10px 12px;font-size:10.5px;color:#696B78;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #E7E4DA}
+  td{padding:11px 12px;font-size:13px;border-bottom:1px solid #F0EEE6;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#FAFAF7}
+  .ch-no{font-weight:800;color:#10193A}
+  .ch-buyer{font-weight:600}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .btn-mini{padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;text-decoration:none;display:inline-block}
+  .btn-view{background:#DCE9FF;color:#1551B5}
+  .btn-edit{background:#FFE4CC;color:#B85C00}
+  .btn-del{background:#FBE2E2;color:#9A2A2D}
+  .empty{padding:3rem 1rem;text-align:center;color:#696B78;font-weight:500;font-size:13px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">🧾 Challans</div>
+  <div class="topbar-right">
+    <a href="/dashboard" class="btn-sm">🏠 Dashboard</a>
+  </div>
+</div>
+
+<div class="main">
+  {% if request.args.get('flash') %}
+  <div class="flash flash-{{ request.args.get('flash_type','success') }}">{{ request.args.get('flash') }}</div>
+  {% endif %}
+
+  <div class="section-hdr">
+    <div class="section-title">🧾 Challans</div>
+    <a href="/challan/new" class="btn-orange">+ New Challan</a>
+  </div>
+
+  <form class="filters" method="get">
+    <input type="text" name="q" placeholder="Search challan no. or buyer name…" value="{{ q }}">
+    <button class="btn-primary" type="submit">Search</button>
+  </form>
+
+  <div class="table-wrap">
+    {% if challans %}
+    <table>
+      <thead>
+        <tr>
+          <th>Challan No.</th>
+          <th>Date</th>
+          <th>Buyer</th>
+          <th>Created By</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in challans %}
+        <tr>
+          <td class="ch-no">{{ c.challan_no }}</td>
+          <td>{{ c.challan_date }}</td>
+          <td class="ch-buyer">{{ c.buyer_name or '—' }}</td>
+          <td>{{ c.created_by or '—' }}</td>
+          <td>
+            <div class="row-actions">
+              <a class="btn-mini btn-view" href="/challan/{{ c.id }}/pdf" target="_blank">📄 PDF</a>
+              <a class="btn-mini btn-edit" href="/challan/{{ c.id }}/edit">✏️ Edit</a>
+              <form method="post" action="/challan/{{ c.id }}/delete" style="display:inline" onsubmit="return confirm('Delete challan {{ c.challan_no }}?');">
+                <button class="btn-mini btn-del" type="submit">🗑 Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No challans yet. Click "+ New Challan" to create your first one.</div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>
