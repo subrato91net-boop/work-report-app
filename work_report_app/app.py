@@ -2547,8 +2547,7 @@ with app.app_context():
         print(f"⚠️ Support permission migration error: {e}")
 
 
-# patch refresh_employees to include can_support
-_orig_refresh = refresh_employees
+# refresh_employees() is redefined below to also include can_support.
 def refresh_employees():
     global EMPLOYEES, USERNAME_MAP
     conn = get_db(); cur = conn.cursor()
