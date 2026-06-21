@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Profiles — Super Admin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:32px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .badge-admin{background:#FF7A1A;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;text-decoration:none;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+  .nav-tabs{background:#fff;border-bottom:1px solid #E7E4DA;padding:0 1.25rem;display:flex;overflow-x:auto}
+  .nav-tab{padding:13px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:3px solid transparent;font-weight:700;white-space:nowrap}
+  .nav-tab:hover{color:#10193A}
+  .nav-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A}
+  .main{max-width:1100px;margin:0 auto;padding:1.5rem 1rem}
+  h1{font-size:22px;font-weight:800;margin-bottom:.3rem}
+  .sub{color:#696B78;font-size:14px;margin-bottom:1.2rem}
+  .flash{padding:12px 16px;border-radius:10px;margin-bottom:1rem;font-size:13px;font-weight:600}
+  .flash.success{background:#E8F5E9;color:#1B5E20;border:1px solid #C8E6C9}
+  .flash.error{background:#FEECEC;color:#B71C1C;border:1px solid #FFCDD2}
+  .stats-row{display:flex;gap:12px;margin-bottom:1.2rem;flex-wrap:wrap}
+  .stat-pill{background:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+  .stat-pill .n{color:#10193A}
+  .stat-pill .lbl{color:#696B78;font-weight:500}
+  .filter-bar{display:flex;gap:10px;margin-bottom:1.2rem;flex-wrap:wrap}
+  .filter-bar input,.filter-bar select{padding:8px 12px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13px;font-family:inherit;background:#fff}
+  .btn{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-pri{background:#10193A;color:#fff}
+  .btn-out{background:#fff;color:#10193A;border:1.5px solid #E7E4DA}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  th{background:#F0EDE6;font-size:11px;font-weight:700;color:#696B78;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;text-align:left}
+  td{padding:10px 14px;font-size:13px;border-top:1px solid #F0EDE6}
+  tr:hover td{background:#FAFAF8}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .badge-sup{background:#EDE7F6;color:#4527A0}
+  .badge-emp{background:#E3F2FD;color:#0D47A1}
+  .badge-active{background:#E8F5E9;color:#1B5E20}
+  .badge-inactive{background:#F5F5F5;color:#9E9E9E;border:1px solid #E0E0E0}
+  .role-form{display:inline-flex;align-items:center;gap:6px}
+  .role-select{padding:4px 8px;border:1.5px solid #E7E4DA;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;background:#fff}
+  .btn-role{background:#7C3AED;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-role:hover{background:#6D28D9}
+  .perm-chips{display:flex;flex-wrap:wrap;gap:4px;max-width:220px}
+  .chip{background:#F0EDE6;color:#696B78;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+  .chip.on{background:#EDE7F6;color:#4527A0}
+  .empty{text-align:center;padding:3rem;color:#696B78}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">
+    ⚙️ WorkReport
+    <span class="badge-admin">Super Admin</span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="/dashboard" class="btn-sm">← Dashboard</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="nav-tabs">
+  <a href="/dashboard" class="nav-tab">🏠 Dashboard</a>
+  <a href="/manager" class="nav-tab">📋 Work Reports</a>
+  <a href="/manager/users" class="nav-tab">👤 Users</a>
+  <a href="/manager/employee-profiles" class="nav-tab active">🪪 Profiles</a>
+  <a href="/manager/supervisors" class="nav-tab">🛡️ Supervisors</a>
+  <a href="/assign-job" class="nav-tab">📌 Jobs</a>
+  <a href="/manager/ta-reports" class="nav-tab">🧾 TA</a>
+  <a href="/manager/clients" class="nav-tab">🏢 Clients</a>
+</div>
+
+<div class="main">
+  <h1>🪪 Employee Profiles</h1>
+  <p class="sub">Manage all employees and assign roles. Promote employees to Supervisor to give them management access.</p>
+
+  {% if flash %}
+  <div class="flash {{ flash_type }}">{{ flash }}</div>
+  {% endif %}
+
+  <div class="stats-row">
+    <div class="stat-pill"><span class="n">{{ total }}</span> <span class="lbl">Total Users</span></div>
+    <div class="stat-pill"><span class="n">{{ emp_count }}</span> <span class="lbl">Employees</span></div>
+    <div class="stat-pill" style="border-left:3px solid #7C3AED"><span class="n">{{ sup_count }}</span> <span class="lbl">Supervisors</span></div>
+  </div>
+
+  <form method="get" class="filter-bar">
+    <input type="text" name="search" value="{{ filters.search }}" placeholder="Search name / code / username…" style="min-width:220px">
+    <select name="role">
+      <option value="">All Roles</option>
+      <option value="employee" {% if filters.role=='employee' %}selected{% endif %}>Employee</option>
+      <option value="supervisor" {% if filters.role=='supervisor' %}selected{% endif %}>Supervisor</option>
+    </select>
+    <button type="submit" class="btn btn-pri">Search</button>
+    {% if filters.search or filters.role %}<a href="/manager/employee-profiles" class="btn btn-out">Clear</a>{% endif %}
+  </form>
+
+  {% if users %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Employee</th>
+        <th>Username</th>
+        <th>Company</th>
+        <th>Role</th>
+        <th>Permissions</th>
+        <th>Status</th>
+        <th>Change Role</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td style="color:#9CA3AF;font-size:12px">{{ loop.index }}</td>
+      <td>
+        <strong>{{ u.name }}</strong>
+        <div style="font-size:11px;color:#696B78">{{ u.emp_code }}</div>
+      </td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.company or '—' }}</td>
+      <td>
+        <span class="badge {% if (u.user_role or 'employee') == 'supervisor' %}badge-sup{% else %}badge-emp{% endif %}">
+          {{ (u.user_role or 'employee')|title }}
+        </span>
+      </td>
+      <td>
+        <div class="perm-chips">
+          {% if u.can_work_report %}<span class="chip on">Reports</span>{% endif %}
+          {% if u.can_sales_visit %}<span class="chip on">Sales</span>{% endif %}
+          {% if u.can_my_jobs %}<span class="chip on">Jobs</span>{% endif %}
+          {% if u.can_ta %}<span class="chip on">TA</span>{% endif %}
+          {% if u.can_support %}<span class="chip on">Support</span>{% endif %}
+          {% if u.can_products %}<span class="chip on">Products</span>{% endif %}
+          {% if u.can_challan %}<span class="chip on">Challan</span>{% endif %}
+        </div>
+      </td>
+      <td>
+        <span class="badge {% if u.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+          {% if u.is_active %}Active{% else %}Inactive{% endif %}
+        </span>
+      </td>
+      <td>
+        <form method="post" action="/manager/users/{{ u.emp_code }}/set-role" class="role-form">
+          <select name="user_role" class="role-select">
+            <option value="employee" {% if (u.user_role or 'employee') == 'employee' %}selected{% endif %}>Employee</option>
+            <option value="supervisor" {% if u.user_role == 'supervisor' %}selected{% endif %}>Supervisor</option>
+          </select>
+          <button type="submit" class="btn-role">Set</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No users found matching your search.</div>
+  {% endif %}
+
+  <div style="margin-top:1.2rem;padding:1rem;background:#EDE7F6;border-radius:12px;font-size:13px;color:#4527A0">
+    <strong>💡 Tip:</strong> After promoting an employee to Supervisor, go to <a href="/manager/supervisors" style="color:#7C3AED;font-weight:700">Supervisor Permissions</a> to configure exactly what they can view and approve.
+  </div>
+</div>
+</body>
+</html>

@@ -45,6 +45,14 @@
   .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;font-weight:700}
   .btn-export{padding:8px 14px;border:none;border-radius:8px;background:#1AAE6F;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
 
+  /* Brand quick-filter pills for manager */
+  .mgr-brand-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.1rem;align-items:center}
+  .mgr-bpill{display:inline-block;padding:5px 14px;border-radius:20px;font-size:11.5px;font-weight:800;cursor:pointer;text-decoration:none;border:1.5px solid transparent;transition:all .13s;letter-spacing:.02em}
+  .mgr-bpill-all{background:#F0EEE6;color:#14141A;border-color:#E0DDD5}
+  .mgr-bpill-all:hover,.mgr-bpill-all.active{background:#10193A;color:#fff;border-color:#10193A}
+  .mgr-bpill-brand{background:#F0EDFF;color:#5A3FC0;border-color:#DDD8FF}
+  .mgr-bpill-brand:hover,.mgr-bpill-brand.active{background:#10193A;color:#fff;border-color:#10193A}
+
   /* Action buttons */
   .btn-primary{padding:9px 18px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
   .btn-primary:hover{background:#0B1228}
@@ -106,6 +114,18 @@
   .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:1rem}
 
   .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500;background:#fff;border-radius:13px}
+
+  /* Bulk actions bar */
+  .bulk-bar{background:#10193A;color:#fff;border-radius:12px;padding:10px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:700}
+  .bulk-bar.hidden{display:none}
+  .bulk-count{background:rgba(255,255,255,.15);border-radius:8px;padding:3px 10px;font-size:12px}
+  .btn-bulk-danger{background:#C7333A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-bulk-move{background:#FF7A1A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .btn-bulk-cancel{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700}
+  .bulk-move-select{padding:6px 10px;font-size:12.5px;border:1.5px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-family:inherit;outline:none}
+  .bulk-move-select option{background:#10193A;color:#fff}
+  th.chk-col, td.chk-col{width:36px;text-align:center;padding-left:10px}
+  .row-checkbox{width:16px;height:16px;cursor:pointer;accent-color:#FF7A1A}
 </style>
 </head>
 <body>
@@ -178,6 +198,16 @@
     <a href="/export/products" class="btn-export">⬇️ Export CSV</a>
   </form>
 
+  <!-- Brand quick-filter pills -->
+  <div class="mgr-brand-pills">
+    <a href="/manager/products?q={{ filters.q }}&category={{ filters.category }}&stock={{ filters.stock }}"
+       class="mgr-bpill mgr-bpill-all {% if not filters.brand %}active{% endif %}">All Brands</a>
+    {% for b in brands %}
+    <a href="/manager/products?q={{ filters.q }}&brand={{ b.id }}&category={{ filters.category }}&stock={{ filters.stock }}"
+       class="mgr-bpill mgr-bpill-brand {% if filters.brand==b.id|string %}active{% endif %}">{{ b.name }}</a>
+    {% endfor %}
+  </div>
+
   <!-- Brands Section -->
   <div class="section-hdr">
     <div class="section-title">🏷️ Brands</div>
@@ -204,7 +234,23 @@
   <!-- Products Grouped by Brand -->
   <div class="section-hdr">
     <div class="section-title">📦 Products ({{ total }})</div>
-    <button class="btn-primary" onclick="openModal('addProductModal')">+ Add Product</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-ghost" id="toggleSelectBtn" onclick="toggleSelectMode()" style="font-size:12px;padding:7px 13px">☑ Select</button>
+      <button class="btn-primary" onclick="openModal('addProductModal')">+ Add Product</button>
+    </div>
+  </div>
+
+  <!-- Bulk Actions Bar (hidden until items selected) -->
+  <div class="bulk-bar hidden" id="bulkBar">
+    <span>Bulk Actions</span>
+    <span class="bulk-count" id="bulkCount">0 selected</span>
+    <select class="bulk-move-select" id="bulkMoveTarget">
+      <option value="">— Move to Brand —</option>
+      {% for b in brands %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+    </select>
+    <button class="btn-bulk-move" onclick="bulkMove()">↪ Move</button>
+    <button class="btn-bulk-danger" onclick="bulkDelete()">🗑 Delete</button>
+    <button class="btn-bulk-cancel" onclick="cancelSelect()">✕ Cancel</button>
   </div>
 
   {% if not grouped %}
@@ -220,6 +266,7 @@
       <table>
         <thead>
           <tr>
+            <th class="chk-col select-col" style="display:none"><input type="checkbox" class="row-checkbox" id="selectAll_{{ brand_name|replace(' ','_') }}" onchange="toggleBrandAll(this,'{{ brand_name }}')"></th>
             <th>#</th><th>Model Code</th><th>Product Name</th><th>Category</th>
             <th>Unit</th><th>Price (₹)</th><th>In Stock</th><th>Min Stock</th>
             <th>Status</th><th>Active</th><th>Actions</th>
@@ -228,6 +275,7 @@
         <tbody>
           {% for p in items %}
           <tr class="{{ 'inactive-row' if not p.is_active }}">
+            <td class="chk-col select-col" style="display:none"><input type="checkbox" class="row-checkbox product-check" data-id="{{ p.id }}" data-brand="{{ p.brand_id }}" onchange="updateBulkBar()"></td>
             <td style="color:#A8A4C4;font-size:11px">{{ loop.index }}</td>
             <td><span class="model-code">{{ p.model_code }}</span></td>
             <td>
@@ -448,6 +496,78 @@ function openEditProduct(id, brandId, model, name, cat, desc, unit, price, stock
 function openEditProductFromBtn(btn){
   const d = btn.dataset
   openEditProduct(d.id, d.brand, d.model, d.name, d.category, d.description, d.unit, d.price, d.stock, d.minstock)
+}
+
+/* ── Bulk Selection ── */
+let selectMode = false
+
+function toggleSelectMode(){
+  selectMode = !selectMode
+  document.querySelectorAll('.select-col').forEach(el=>el.style.display = selectMode ? '' : 'none')
+  document.getElementById('toggleSelectBtn').textContent = selectMode ? '✕ Cancel' : '☑ Select'
+  if(!selectMode) cancelSelect()
+}
+
+function toggleBrandAll(cb, brandName){
+  document.querySelectorAll('.product-check').forEach(chk=>{
+    if(chk.dataset.brand == cb.dataset.bid || true){
+      // find only checkboxes in the same table section by traversing
+    }
+  })
+  // Find the table this belongs to
+  const table = cb.closest('table')
+  table.querySelectorAll('.product-check').forEach(chk=>{ chk.checked = cb.checked })
+  updateBulkBar()
+}
+
+function updateBulkBar(){
+  const checked = document.querySelectorAll('.product-check:checked')
+  const bar = document.getElementById('bulkBar')
+  document.getElementById('bulkCount').textContent = checked.length + ' selected'
+  if(checked.length > 0){ bar.classList.remove('hidden') }
+  else { bar.classList.add('hidden') }
+}
+
+function cancelSelect(){
+  selectMode = false
+  document.querySelectorAll('.select-col').forEach(el=>el.style.display='none')
+  document.querySelectorAll('.product-check, [id^=selectAll_]').forEach(chk=>chk.checked=false)
+  document.getElementById('bulkBar').classList.add('hidden')
+  document.getElementById('toggleSelectBtn').textContent = '☑ Select'
+}
+
+function getSelectedIds(){
+  return [...document.querySelectorAll('.product-check:checked')].map(c=>c.dataset.id)
+}
+
+function bulkDelete(){
+  const ids = getSelectedIds()
+  if(!ids.length){ alert('No products selected.'); return }
+  if(!confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)) return
+  submitBulkForm('/manager/products/bulk-delete', {ids: ids.join(',')})
+}
+
+function bulkMove(){
+  const ids = getSelectedIds()
+  const targetBrand = document.getElementById('bulkMoveTarget').value
+  if(!ids.length){ alert('No products selected.'); return }
+  if(!targetBrand){ alert('Please select a target brand.'); return }
+  const brandName = document.getElementById('bulkMoveTarget').selectedOptions[0].text
+  if(!confirm(`Move ${ids.length} product(s) to brand "${brandName}"?`)) return
+  submitBulkForm('/manager/products/bulk-move', {ids: ids.join(','), brand_id: targetBrand})
+}
+
+function submitBulkForm(action, data){
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = action
+  Object.entries(data).forEach(([k,v])=>{
+    const inp = document.createElement('input')
+    inp.type='hidden'; inp.name=k; inp.value=v
+    form.appendChild(inp)
+  })
+  document.body.appendChild(form)
+  form.submit()
 }
 </script>
 </body>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Supervisor Dashboard</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:24px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .badge-sup{background:#7C3AED;color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;letter-spacing:.03em}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .btn-sm:hover{background:rgba(255,255,255,.14)}
+  .main{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+  h1{font-size:22px;font-weight:800;margin-bottom:4px}
+  .sub{color:#696B78;font-size:14px;margin-bottom:1.5rem}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:1.8rem}
+  .card{background:#fff;border-radius:14px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  .card-num{font-size:32px;font-weight:800;color:#10193A}
+  .card-lbl{font-size:12px;color:#696B78;font-weight:600;margin-top:2px}
+  .nav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .nav-card{background:#fff;border-radius:14px;padding:1.1rem;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:2px solid transparent;transition:border-color .15s}
+  .nav-card:hover{border-color:#7C3AED}
+  .nav-card .icon{font-size:26px}
+  .nav-card .label{font-size:13px;font-weight:700;color:#14141A}
+  .nav-card .desc{font-size:11px;color:#696B78}
+  .locked{opacity:.45;cursor:default;pointer-events:none}
+  .section-title{font-size:13px;font-weight:700;color:#696B78;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">
+    👔 WorkReport
+    <span class="badge-sup">Supervisor</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span style="color:#fff;font-size:13px;font-weight:600">{{ name }}</span>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+  <h1>Hello, {{ name }} 👋</h1>
+  <p class="sub">{{ today }} — Supervisor Dashboard</p>
+
+  {% if stats %}
+  <div class="section-title">Today at a Glance</div>
+  <div class="cards">
+    {% if 'reports_today' in stats %}
+    <div class="card">
+      <div class="card-num">{{ stats.reports_today }}</div>
+      <div class="card-lbl">Reports Submitted Today</div>
+    </div>
+    {% endif %}
+    {% if 'reports_pending_review' in stats %}
+    <div class="card">
+      <div class="card-num">{{ stats.reports_pending_review }}</div>
+      <div class="card-lbl">Awaiting Review</div>
+    </div>
+    {% endif %}
+    {% if 'open_jobs' in stats %}
+    <div class="card">
+      <div class="card-num">{{ stats.open_jobs }}</div>
+      <div class="card-lbl">Open Jobs</div>
+    </div>
+    {% endif %}
+    {% if 'pending_ta' in stats %}
+    <div class="card">
+      <div class="card-num">{{ stats.pending_ta }}</div>
+      <div class="card-lbl">Pending TA Approvals</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="section-title">My Access</div>
+  <div class="nav-grid">
+    <a href="/supervisor/reports" class="nav-card {% if not sp.can_view_reports %}locked{% endif %}">
+      <div class="icon">📋</div>
+      <div class="label">Work Reports</div>
+      <div class="desc">{% if sp.can_approve_reports %}View & Approve{% else %}View only{% endif %}</div>
+    </a>
+    <a href="/assign-job" class="nav-card {% if not sp.can_view_jobs %}locked{% endif %}">
+      <div class="icon">📌</div>
+      <div class="label">Jobs</div>
+      <div class="desc">{% if sp.can_assign_jobs %}Assign & Manage{% else %}View only{% endif %}</div>
+    </a>
+    <a href="/manager/ta-reports" class="nav-card {% if not sp.can_view_ta %}locked{% endif %}">
+      <div class="icon">🧾</div>
+      <div class="label">Travel Expenses</div>
+      <div class="desc">{% if sp.can_approve_ta %}View & Approve{% else %}View only{% endif %}</div>
+    </a>
+    <a href="/manager/sales-visits" class="nav-card {% if not sp.can_view_sales %}locked{% endif %}">
+      <div class="icon">🤝</div>
+      <div class="label">Sales Visits</div>
+      <div class="desc">View only</div>
+    </a>
+    <a href="/supervisor/users" class="nav-card {% if not sp.can_view_users %}locked{% endif %}">
+      <div class="icon">👥</div>
+      <div class="label">Employee List</div>
+      <div class="desc">View only</div>
+    </a>
+    <a href="/manager/clients" class="nav-card {% if not sp.can_view_clients %}locked{% endif %}">
+      <div class="icon">🏢</div>
+      <div class="label">Clients</div>
+      <div class="desc">View only</div>
+    </a>
+    <a href="/manager/support-reports" class="nav-card {% if not sp.can_view_support %}locked{% endif %}">
+      <div class="icon">🔧</div>
+      <div class="label">Support</div>
+      <div class="desc">View only</div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

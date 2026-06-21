@@ -18,6 +18,15 @@
   .brand-pill{background:var(--navy);color:#fff;font-size:11.5px;font-weight:800;padding:5px 14px;border-radius:var(--r-pill);letter-spacing:.04em}
   .brand-count{font-size:12px;color:var(--text-soft);font-weight:600}
 
+  /* Brand filter pills */
+  .brand-filter-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:1rem;align-items:center}
+  .brand-filter-label{font-size:11px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
+  .bfpill{display:inline-block;padding:6px 15px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;border:1.5px solid transparent;transition:all .15s;letter-spacing:.02em}
+  .bfpill-all{background:#F0EEE6;color:#14141A;border-color:#E0DDD5}
+  .bfpill-all.active, .bfpill-all:hover{background:#10193A;color:#fff;border-color:#10193A}
+  .bfpill-brand{background:#F0EDFF;color:#5A3FC0;border-color:#DDD8FF}
+  .bfpill-brand.active, .bfpill-brand:hover{background:#10193A;color:#fff;border-color:#10193A}
+
   .prod-name{font-weight:700;color:var(--navy);font-size:13px}
   .model{font-size:11px;color:var(--text-faint);margin-top:2px;font-family:'SF Mono',Consolas,monospace}
   .price{font-weight:800;color:var(--navy);font-size:14px}
@@ -67,13 +76,6 @@
   <form method="GET" class="filters">
     <div class="fg"><label>Search</label><input name="q" value="{{ filters.q }}" placeholder="Product name or code..."></div>
     <div class="fg">
-      <label>Brand</label>
-      <select name="brand">
-        <option value="">All Brands</option>
-        {% for b in brands %}<option value="{{ b.id }}" {% if filters.brand==b.id|string %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="fg">
       <label>Stock</label>
       <select name="stock">
         <option value="">All</option>
@@ -87,6 +89,17 @@
       <a href="/products" class="btn-clear">Clear</a>
     </div>
   </form>
+
+  <!-- Brand filter pills -->
+  <div class="brand-filter-row">
+    <span class="brand-filter-label">Brand:</span>
+    <a href="/products?q={{ filters.q }}&stock={{ filters.stock }}"
+       class="bfpill bfpill-all {% if not filters.brand %}active{% endif %}">All</a>
+    {% for b in brands %}
+    <a href="/products?q={{ filters.q }}&brand={{ b.id }}&stock={{ filters.stock }}"
+       class="bfpill bfpill-brand {% if filters.brand==b.id|string %}active{% endif %}">{{ b.name }}</a>
+    {% endfor %}
+  </div>
 
   {% if not grouped %}
   <div class="empty">No products found.</div>

@@ -84,12 +84,34 @@ def init_users_db():
             password_hash   TEXT NOT NULL,
             company         TEXT,
             is_active       BOOLEAN DEFAULT TRUE,
+            user_role       TEXT DEFAULT 'employee',
             can_work_report BOOLEAN DEFAULT TRUE,
             can_sales_visit BOOLEAN DEFAULT TRUE,
             can_my_jobs     BOOLEAN DEFAULT TRUE,
             can_ta          BOOLEAN DEFAULT TRUE,
             created_at      TEXT,
             created_by      TEXT
+        )
+    """)
+    # Add user_role column if upgrading from older schema
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_role TEXT DEFAULT 'employee'")
+
+    # Supervisor permission sets (what a supervisor is allowed to see/do)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS supervisor_permissions (
+            emp_code            TEXT PRIMARY KEY REFERENCES users(emp_code) ON DELETE CASCADE,
+            can_view_reports    BOOLEAN DEFAULT TRUE,
+            can_approve_reports BOOLEAN DEFAULT FALSE,
+            can_view_jobs       BOOLEAN DEFAULT TRUE,
+            can_assign_jobs     BOOLEAN DEFAULT FALSE,
+            can_view_ta         BOOLEAN DEFAULT TRUE,
+            can_approve_ta      BOOLEAN DEFAULT FALSE,
+            can_view_users      BOOLEAN DEFAULT FALSE,
+            can_view_sales      BOOLEAN DEFAULT TRUE,
+            can_view_support    BOOLEAN DEFAULT FALSE,
+            can_view_clients    BOOLEAN DEFAULT FALSE,
+            updated_at          TEXT,
+            updated_by          TEXT
         )
     """)
     # In case upgrading from an even older partial schema
@@ -126,7 +148,8 @@ def refresh_employees():
     conn = get_db(); cur = conn.cursor()
     cur.execute("""
         SELECT emp_code, name, username, password_hash, company,
-               is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta
+               is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+               COALESCE(user_role, 'employee') AS user_role
         FROM users WHERE is_active = TRUE
     """)
     rows = cur.fetchall()
@@ -139,6 +162,7 @@ def refresh_employees():
             "username": r["username"], "password_hash": r["password_hash"],
             "can_work_report": r["can_work_report"], "can_sales_visit": r["can_sales_visit"],
             "can_my_jobs": r["can_my_jobs"], "can_ta": r["can_ta"],
+            "user_role": r["user_role"],
         }
         new_username_map[r["username"]] = r["emp_code"]
     EMPLOYEES = new_employees
@@ -376,16 +400,41 @@ def determine_status(hours):
 # ══════════════════════════════════════════
 #  HELPERS
 # ══════════════════════════════════════════
-def logged_in():  return "username" in session
-def is_manager(): return session.get("role") == "manager"
-def get_emp_code(): return session.get("emp_code")
+def logged_in():     return "username" in session
+def is_manager():    return session.get("role") == "manager"   # super admin
+def is_supervisor(): return session.get("role") == "supervisor"
+def get_emp_code():  return session.get("emp_code")
 
 def has_perm(perm_key):
-    """Manager (super admin) always passes. Employees are gated by their
+    """Super admin always passes. Supervisors & employees are gated by their
     session-cached permission flags, set at login time."""
     if is_manager():
         return True
     return session.get("perms", {}).get(perm_key, True)
+
+def has_sup_perm(perm_key):
+    """Check supervisor-level permissions (stored in session['sup_perms'])."""
+    if is_manager():
+        return True
+    if is_supervisor():
+        return session.get("sup_perms", {}).get(perm_key, False)
+    return False
+
+def get_supervisor_perms(emp_code):
+    """Load supervisor permissions from DB for given emp_code."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM supervisor_permissions WHERE emp_code=%s", (emp_code,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row:
+        return {
+            "can_view_reports": True,  "can_approve_reports": False,
+            "can_view_jobs": True,     "can_assign_jobs": False,
+            "can_view_ta": True,       "can_approve_ta": False,
+            "can_view_users": False,   "can_view_sales": True,
+            "can_view_support": False, "can_view_clients": False,
+        }
+    return dict(row)
 
 def codes_to_names(codes_str):
     """'1002,1003' -> 'Sayed Asif Ismail, Kartick Mondal'"""
@@ -406,7 +455,8 @@ def parse_codes(codes_str):
 @app.route("/")
 def index():
     if not logged_in(): return redirect(url_for("login"))
-    if is_manager(): return redirect(url_for("dashboard"))
+    if is_manager():    return redirect(url_for("dashboard"))
+    if is_supervisor(): return redirect(url_for("supervisor_dashboard"))
     # Land the employee on the first feature they actually have access to
     if has_perm("work_report"): return redirect(url_for("employee_form"))
     if has_perm("sales_visit"): return redirect(url_for("sales_visit"))
@@ -550,8 +600,9 @@ def login():
         if emp_code:
             emp = EMPLOYEES[emp_code]
             if verify_password(password, emp["password_hash"]):
-                session.update({
-                    "username": username, "name": emp["name"], "role": "employee",
+                user_role = emp.get("user_role", "employee")
+                base_session = {
+                    "username": username, "name": emp["name"], "role": user_role,
                     "emp_code": emp_code, "company": emp["company"],
                     "perms": {
                         "work_report": emp["can_work_report"],
@@ -562,7 +613,10 @@ def login():
                         "can_products": emp.get("can_products", False),
                         "can_challan":  emp.get("can_challan", False),
                     },
-                })
+                }
+                if user_role == "supervisor":
+                    base_session["sup_perms"] = get_supervisor_perms(emp_code)
+                session.update(base_session)
                 return redirect(url_for("index"))
         error = "Invalid username or password."
     return render_template("login.html", error=error)
@@ -1180,6 +1234,97 @@ def export_attendance():
         headers={"Content-Disposition":"attachment;filename=attendance.csv"})
 
 # ══════════════════════════════════════════
+#  ROUTES — SUPERVISOR PORTAL
+# ══════════════════════════════════════════
+@app.route("/supervisor/dashboard")
+def supervisor_dashboard():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    today = datetime.now().strftime("%Y-%m-%d")
+    sp = session.get("sup_perms", {})
+
+    stats = {}
+    if sp.get("can_view_reports"):
+        cur.execute("SELECT COUNT(*) AS c FROM reports WHERE date=%s", (today,))
+        stats["reports_today"] = cur.fetchone()["c"]
+        cur.execute("SELECT COUNT(*) AS c FROM reports WHERE review_status='Awaiting Review'")
+        stats["reports_pending_review"] = cur.fetchone()["c"]
+
+    if sp.get("can_view_jobs"):
+        cur.execute("SELECT COUNT(*) AS c FROM jobs WHERE LOWER(COALESCE(status,'open'))='open'")
+        stats["open_jobs"] = cur.fetchone()["c"]
+
+    if sp.get("can_view_ta"):
+        cur.execute("SELECT COUNT(*) AS c FROM ta_reports WHERE approval_status='Not Approved'")
+        stats["pending_ta"] = cur.fetchone()["c"]
+
+    cur.close(); conn.close()
+    return render_template("supervisor_dashboard.html",
+        name=session.get("name", "Supervisor"),
+        sp=sp, stats=stats, today=today)
+
+
+@app.route("/supervisor/reports")
+def supervisor_reports():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not session.get("sup_perms", {}).get("can_view_reports"): return redirect(url_for("no_access"))
+    conn = get_db(); cur = conn.cursor()
+    date_filter = request.args.get("date", "")
+    query  = "SELECT * FROM reports WHERE 1=1"
+    params = []
+    if date_filter:
+        query += " AND date=%s"; params.append(date_filter)
+    query += " ORDER BY timestamp DESC LIMIT 100"
+    cur.execute(query, params)
+    reports = cur.fetchall()
+    cur.close(); conn.close()
+    can_approve = session.get("sup_perms", {}).get("can_approve_reports", False)
+    return render_template("supervisor_reports.html",
+        reports=reports, date_filter=date_filter, can_approve=can_approve)
+
+
+@app.route("/supervisor/reports/<int:report_id>/approve", methods=["POST"])
+def supervisor_approve_report(report_id):
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not session.get("sup_perms", {}).get("can_approve_reports"): return redirect(url_for("no_access"))
+    conn = get_db(); cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        UPDATE reports SET review_status='Approved', reviewed_at=%s, reviewed_by=%s
+        WHERE id=%s
+    """, (now, session.get("name","Supervisor"), report_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(request.referrer or url_for("supervisor_reports"))
+
+
+@app.route("/supervisor/reports/<int:report_id>/reject", methods=["POST"])
+def supervisor_reject_report(report_id):
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not session.get("sup_perms", {}).get("can_approve_reports"): return redirect(url_for("no_access"))
+    conn = get_db(); cur = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        UPDATE reports SET review_status='Rejected', reviewed_at=%s, reviewed_by=%s
+        WHERE id=%s
+    """, (now, session.get("name","Supervisor"), report_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(request.referrer or url_for("supervisor_reports"))
+
+
+@app.route("/supervisor/users")
+def supervisor_users():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not session.get("sup_perms", {}).get("can_view_users"): return redirect(url_for("no_access"))
+    refresh_employees()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE is_active=TRUE ORDER BY name")
+    users = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_users.html", users=users)
+
+
+
+# ══════════════════════════════════════════
 #  ROUTES — SUPER ADMIN: USER MANAGEMENT
 # ══════════════════════════════════════════
 @app.route("/manager/users")
@@ -1335,6 +1480,133 @@ def toggle_user_active(emp_code):
 
     verb = "reactivated" if new_status else "deactivated"
     return redirect(url_for("manage_users", flash=f"{row['name']} has been {verb}.", flash_type="success"))
+
+# ══════════════════════════════════════════
+#  ROUTES — SUPER ADMIN: SUPERVISOR PERMISSIONS
+# ══════════════════════════════════════════
+@app.route("/manager/users/<emp_code>/set-role", methods=["POST"])
+def set_user_role(emp_code):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    new_role = request.form.get("user_role", "employee")
+    if new_role not in ("employee", "supervisor"):
+        return redirect(url_for("manage_users", flash="Invalid role.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE users SET user_role=%s WHERE emp_code=%s", (new_role, emp_code))
+    # If becoming supervisor and no perms row yet, create default one
+    if new_role == "supervisor":
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+            INSERT INTO supervisor_permissions (emp_code, updated_at, updated_by)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (emp_code) DO NOTHING
+        """, (emp_code, now, session.get("name","Super Admin")))
+    conn.commit(); cur.close(); conn.close()
+    refresh_employees()
+    return redirect(url_for("manage_users", flash=f"Role updated to {new_role}.", flash_type="success"))
+
+
+@app.route("/manager/supervisors")
+def manage_supervisors():
+    """Super Admin: view all supervisors and edit their permissions."""
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT u.emp_code, u.name, u.username, u.company, u.is_active,
+               sp.can_view_reports, sp.can_approve_reports,
+               sp.can_view_jobs, sp.can_assign_jobs,
+               sp.can_view_ta, sp.can_approve_ta,
+               sp.can_view_users, sp.can_view_sales,
+               sp.can_view_support, sp.can_view_clients,
+               sp.updated_at, sp.updated_by
+        FROM users u
+        LEFT JOIN supervisor_permissions sp ON sp.emp_code = u.emp_code
+        WHERE COALESCE(u.user_role, 'employee') = 'supervisor'
+        ORDER BY u.name
+    """)
+    supervisors = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("manage_supervisors.html",
+        supervisors=supervisors,
+        flash=request.args.get("flash",""),
+        flash_type=request.args.get("flash_type","success"))
+
+
+@app.route("/manager/supervisors/<emp_code>/permissions", methods=["POST"])
+def update_supervisor_permissions(emp_code):
+    """Super Admin: save supervisor permission set."""
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    perms = {
+        "can_view_reports":    "can_view_reports"    in request.form,
+        "can_approve_reports": "can_approve_reports" in request.form,
+        "can_view_jobs":       "can_view_jobs"       in request.form,
+        "can_assign_jobs":     "can_assign_jobs"     in request.form,
+        "can_view_ta":         "can_view_ta"         in request.form,
+        "can_approve_ta":      "can_approve_ta"      in request.form,
+        "can_view_users":      "can_view_users"      in request.form,
+        "can_view_sales":      "can_view_sales"      in request.form,
+        "can_view_support":    "can_view_support"    in request.form,
+        "can_view_clients":    "can_view_clients"    in request.form,
+    }
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO supervisor_permissions
+            (emp_code, can_view_reports, can_approve_reports, can_view_jobs, can_assign_jobs,
+             can_view_ta, can_approve_ta, can_view_users, can_view_sales, can_view_support,
+             can_view_clients, updated_at, updated_by)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (emp_code) DO UPDATE SET
+            can_view_reports=%s, can_approve_reports=%s, can_view_jobs=%s, can_assign_jobs=%s,
+            can_view_ta=%s, can_approve_ta=%s, can_view_users=%s, can_view_sales=%s,
+            can_view_support=%s, can_view_clients=%s, updated_at=%s, updated_by=%s
+    """, (
+        emp_code,
+        perms["can_view_reports"], perms["can_approve_reports"],
+        perms["can_view_jobs"], perms["can_assign_jobs"],
+        perms["can_view_ta"], perms["can_approve_ta"],
+        perms["can_view_users"], perms["can_view_sales"],
+        perms["can_view_support"], perms["can_view_clients"],
+        now, session.get("name","Super Admin"),
+        # ON CONFLICT UPDATE values:
+        perms["can_view_reports"], perms["can_approve_reports"],
+        perms["can_view_jobs"], perms["can_assign_jobs"],
+        perms["can_view_ta"], perms["can_approve_ta"],
+        perms["can_view_users"], perms["can_view_sales"],
+        perms["can_view_support"], perms["can_view_clients"],
+        now, session.get("name","Super Admin"),
+    ))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manage_supervisors",
+        flash=f"Permissions saved for supervisor.", flash_type="success"))
+
+
+@app.route("/manager/employee-profiles")
+def employee_profiles():
+    """Super Admin: full employee profile list with detail view."""
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    search = request.args.get("search","")
+    role_filter = request.args.get("role","")
+    conn = get_db(); cur = conn.cursor()
+    query  = "SELECT * FROM users WHERE 1=1"
+    params = []
+    if search:
+        query += " AND (name ILIKE %s OR username ILIKE %s OR emp_code ILIKE %s)"
+        s = f"%{search}%"; params += [s,s,s]
+    if role_filter:
+        query += " AND COALESCE(user_role,'employee')=%s"; params.append(role_filter)
+    query += " ORDER BY COALESCE(user_role,'employee') ASC, name ASC"
+    cur.execute(query, params)
+    users = cur.fetchall()
+    cur.execute("SELECT COUNT(*) AS c FROM users"); total = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE COALESCE(user_role,'employee')='supervisor'"); sup_count = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) AS c FROM users WHERE COALESCE(user_role,'employee')='employee'"); emp_count = cur.fetchone()["c"]
+    cur.close(); conn.close()
+    return render_template("employee_profiles.html",
+        users=users, total=total, sup_count=sup_count, emp_count=emp_count,
+        filters={"search":search, "role":role_filter},
+        flash=request.args.get("flash",""),
+        flash_type=request.args.get("flash_type","success"))
+
 
 # ══════════════════════════════════════════
 #  STARTUP
@@ -2961,6 +3233,44 @@ def delete_product(product_id):
     cur.execute("DELETE FROM products WHERE id=%s", (product_id,))
     conn.commit(); cur.close(); conn.close()
     return redirect(url_for("manager_products", flash="Product deleted.", flash_type="success"))
+
+
+@app.route("/manager/products/bulk-delete", methods=["POST"])
+def bulk_delete_products():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    ids_raw = request.form.get("ids", "").strip()
+    if not ids_raw:
+        return redirect(url_for("manager_products", flash="No products selected.", flash_type="error"))
+    try:
+        ids = [int(x) for x in ids_raw.split(",") if x.strip().isdigit()]
+    except Exception:
+        return redirect(url_for("manager_products", flash="Invalid selection.", flash_type="error"))
+    if not ids:
+        return redirect(url_for("manager_products", flash="No products selected.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM products WHERE id = ANY(%s)", (ids,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash=f"{len(ids)} product(s) deleted.", flash_type="success"))
+
+
+@app.route("/manager/products/bulk-move", methods=["POST"])
+def bulk_move_products():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    ids_raw   = request.form.get("ids", "").strip()
+    brand_id  = request.form.get("brand_id", "").strip()
+    if not ids_raw or not brand_id:
+        return redirect(url_for("manager_products", flash="Missing selection or target brand.", flash_type="error"))
+    try:
+        ids = [int(x) for x in ids_raw.split(",") if x.strip().isdigit()]
+        brand_id = int(brand_id)
+    except Exception:
+        return redirect(url_for("manager_products", flash="Invalid data.", flash_type="error"))
+    if not ids:
+        return redirect(url_for("manager_products", flash="No products selected.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE products SET brand_id=%s WHERE id = ANY(%s)", (brand_id, ids))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manager_products", flash=f"{len(ids)} product(s) moved to new brand.", flash_type="success"))
 
 
 @app.route("/manager/products/<int:product_id>/toggle", methods=["POST"])
