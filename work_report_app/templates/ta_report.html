@@ -11,100 +11,52 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>Travel Expenses (TA) — {{ name }}</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3)}
+  @media(max-width:540px){.row3{grid-template-columns:1fr}}
 
-  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-  .topbar-left{display:flex;align-items:center;gap:10px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
-  .tname{font-size:14px;font-weight:700;color:#fff}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
-  .logout:hover{background:rgba(255,255,255,0.14)}
-
-  .page-tabs{display:none}
-  .pt-inner{display:flex;width:100%;max-width:880px;padding:0 1rem;overflow-x:auto}
-  .pt{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
-  .pt:hover{color:#10193A}
-  .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
-
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em;min-width:58px}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .wrap{max-width:760px;margin:1.4rem auto;padding:0 1rem}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.6rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15.5px;font-weight:800;margin-bottom:1.3rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#10193A}
-  .card-title .ttl{display:flex;align-items:center;gap:8px}
-
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-  .field{margin-bottom:13px}
-  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:6px}
-  input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
-  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
-  textarea{resize:vertical;min-height:70px}
-
-  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s,box-shadow .15s}
-  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
-  .submit-btn:active{transform:scale(.98)}
-  .cancel-edit-btn{width:100%;padding:11px;background:#fff;color:#696B78;border:1.5px solid #E7E4DA;border-radius:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px}
-  .required{color:#E5484D}
-
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:1.2rem;font-weight:600}
-  .edit-banner{background:#FFF3D9;color:#7A4A00;border:1px solid #F5DCA0;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:1.2rem;font-weight:700;display:flex;align-items:center;gap:7px}
+  .card-title{justify-content:space-between}
+  .edit-banner{background:#FFF3D9;color:#7A4A00;border:1px solid #F5DCA0;border-radius:var(--r-sm);padding:10px 14px;font-size:12.5px;margin-bottom:1.2rem;font-weight:700;display:flex;align-items:center;gap:7px}
 
   /* TOTAL STRIP */
-  .total-strip{background:#10193A;border-radius:13px;padding:1rem 1.2rem;margin-bottom:1.1rem;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 18px rgba(16,25,58,0.18)}
+  .total-strip{
+    background:linear-gradient(135deg,var(--navy-2),var(--navy));
+    border-radius:var(--r-lg);padding:1.1rem 1.3rem;margin-bottom:1.1rem;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+    box-shadow:0 10px 24px rgba(16,25,58,0.22);
+  }
   .total-strip .tl{font-size:11.5px;color:#9CA3C4;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-  .total-strip .tv{font-size:21px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
-  .total-strip .tv .cur{color:#FF7A1A;margin-right:2px}
+  .total-strip .tv{font-size:22px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+  .total-strip .tv .cur{color:var(--signal);margin-right:2px}
 
-  /* HISTORY TABLE */
-  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
-  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
-  .rec-count{font-size:12px;color:#696B78;font-weight:600}
-  .tbl-scroll{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  thead tr{background:#F6F4EF}
-  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
-  td{padding:9px 12px;border-bottom:1px solid #F6F4EF;vertical-align:top;white-space:nowrap}
-  tr:last-child td{border-bottom:none}
-  tr:hover td{background:#FAFAF8}
-  tfoot td{font-weight:800;color:#10193A;border-top:2px solid #E7E4DA;background:#F6F4EF}
+  .table-hdr{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .table-hdr-title{font-size:13px;font-weight:800;color:var(--navy)}
+  tfoot td{font-weight:800;color:var(--navy);border-top:2px solid var(--line);background:var(--paper-2)}
 
-  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
-  .badge-paid{background:#D9F5E8;color:#0E6B43}
-  .badge-due{background:#FBE2E2;color:#9A2A2D}
-  .badge-approved{background:#D9F5E8;color:#0E6B43}
-  .badge-notapproved{background:#F0EEE6;color:#696B78}
+  .badge-paid{background:var(--green-soft);color:#0E6B43}
+  .badge-due{background:var(--red-soft);color:#9A2A2D}
+  .badge-approved{background:var(--green-soft);color:#0E6B43}
+  .badge-notapproved{background:var(--paper-2);color:var(--text-soft)}
 
-  .edit-link{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78}
-  .edit-link:hover{border-color:#10193A;color:#10193A}
+  .edit-link{padding:5px 12px;border-radius:var(--r-pill);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid var(--line);background:#fff;color:var(--text-soft)}
+  .edit-link:hover{border-color:var(--navy);color:var(--navy)}
 
-  .empty-state{text-align:center;padding:3rem 1rem;color:#A8A4C4}
-  .empty-state .es-ic{font-size:2.5rem;margin-bottom:.8rem}
-  .empty-state p{font-size:13px;font-weight:600}
+  /* HISTORY: cards on mobile, table on desktop */
+  .ta-list{display:flex;flex-direction:column;gap:10px}
+  .ta-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px}
+  .ta-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .ta-route{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .ta-date{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .ta-cost{font-size:16px;font-weight:800;color:var(--navy);white-space:nowrap}
+  .ta-desc{font-size:12.5px;color:var(--text-soft);line-height:1.5;margin-bottom:10px}
+  .ta-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line-soft)}
+  .ta-badges{display:flex;gap:6px;flex-wrap:wrap}
 
-  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:16px;margin-bottom:1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
-  .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
-  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
-  .filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:2px}
-  .btn-filter{padding:8px 18px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
-  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
-
-  @media(max-width:540px){.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
-  @media(min-width:860px){
-    body{padding-bottom:0}
-    .bottom-nav{display:none}
-    .page-tabs{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
-    .wrap{max-width:880px;margin:2rem auto}
+  .desktop-table{display:none}
+  @media(min-width:760px){
+    .ta-list{display:none}
+    .desktop-table{display:block}
   }
 </style>
 </head>
@@ -118,13 +70,14 @@
   <a href="/logout" class="logout">Logout</a>
 </div>
 
-<div class="page-tabs">
-  <div class="pt-inner">
-  {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
-  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
-  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt">🤝 Sales Report</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt active">🧾 Travel Expenses</a>{% endif %}
-  {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
+<div class="nav-tabs-desktop">
+  <div class="nd-inner">
+  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab active">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab">🔧 Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
   </div>
 </div>
 
@@ -134,7 +87,7 @@
   <div class="success">✅ Travel expense report saved successfully!</div>
   {% endif %}
   {% if lock_error %}
-  <div class="success" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">🔒 That entry has already been approved and can no longer be edited.</div>
+  <div class="error-box">🔒 That entry has already been approved and can no longer be edited.</div>
   {% endif %}
 
   <!-- SUBMIT / EDIT FORM -->
@@ -182,7 +135,7 @@
       </div>
 
       <button type="submit" class="submit-btn" id="submitBtn">Submit Travel Expense</button>
-      <button type="button" class="cancel-edit-btn" id="cancelEditBtn" style="display:none" onclick="resetForm()">Cancel Edit</button>
+      <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;margin-top:9px" onclick="resetForm()">Cancel Edit</button>
     </form>
   </div>
 
@@ -219,14 +172,48 @@
     </div>
   </form>
 
-  <!-- HISTORY TABLE -->
-  <div class="table-card">
-    <div class="table-hdr">
-      <span class="table-hdr-title">📂 My Travel Expense History</span>
-      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+  <!-- HISTORY -->
+  <div class="table-hdr">
+    <span class="table-hdr-title">📂 My Travel Expense History</span>
+    <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+  </div>
+
+  {% if reports %}
+
+  <!-- Mobile: card list -->
+  <div class="ta-list">
+    {% for r in reports %}
+    <div class="ta-card">
+      <div class="ta-top">
+        <div>
+          <div class="ta-route">{{ r.from_place }} → {{ r.to_place }}</div>
+          <div class="ta-date">{{ r.travel_date }} &bull; {{ r.travel_by }}</div>
+        </div>
+        <div class="ta-cost">₹{{ "%.2f"|format(r.expense_cost or 0) }}</div>
+      </div>
+      {% if r.description %}<div class="ta-desc">{{ r.description }}</div>{% endif %}
+      <div class="ta-foot">
+        <div class="ta-badges">
+          {% if r.payment_status == 'Paid' %}<span class="badge badge-paid">Paid</span>
+          {% else %}<span class="badge badge-due">Due</span>{% endif %}
+          {% if r.approval_status == 'Approved' %}<span class="badge badge-approved">Approved</span>
+          {% else %}<span class="badge badge-notapproved">Not Approved</span>{% endif %}
+        </div>
+        {% if r.approval_status != 'Approved' %}
+        <button type="button" class="edit-link"
+          onclick="editRow('{{ r.id }}','{{ r.travel_date }}','{{ r.from_place|e }}','{{ r.to_place|e }}','{{ r.travel_by|e }}','{{ (r.description or '')|e }}','{{ r.expense_cost }}')">
+          ✏️ Edit
+        </button>
+        {% else %}
+        <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
+        {% endif %}
+      </div>
     </div>
-    {% if reports %}
-    <div class="tbl-scroll">
+    {% endfor %}
+  </div>
+
+  <!-- Desktop: table -->
+  <div class="tbl-wrap desktop-table">
       <table>
         <thead>
           <tr>
@@ -271,7 +258,7 @@
                 ✏️ Edit
               </button>
               {% else %}
-              <span style="font-size:11px;color:#C7C4B8">🔒 locked</span>
+              <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
               {% endif %}
             </td>
           </tr>
@@ -285,8 +272,9 @@
           </tr>
         </tfoot>
       </table>
-    </div>
-    {% else %}
+  </div>
+
+  {% else %}
     <div class="empty-state">
       <div class="es-ic">🧾</div>
       {% if filters.status or filters.approval or filters.from_d or filters.to_d or filters.search %}
@@ -295,10 +283,9 @@
       <p>No travel expense entries yet.<br>Submit your first one above!</p>
       {% endif %}
     </div>
-    {% endif %}
-  </div>
+  {% endif %}
 
-  <p style="font-size:11.5px;color:#A8A4C4;text-align:center;margin-top:1rem;font-weight:600">
+  <p style="font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:1rem;font-weight:600">
     🔒 Payment &amp; Approval status are set by your manager and cannot be edited here. Once a report is <b>Approved</b>, it can no longer be edited.
   </p>
 

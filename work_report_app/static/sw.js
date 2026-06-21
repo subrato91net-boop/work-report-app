@@ -4,7 +4,7 @@
 // long-lived caching only for static assets (icons, manifest).
 // This avoids ever showing stale work reports / job data to the user.
 
-const STATIC_CACHE = "wrs-static-v1";
+const STATIC_CACHE = "wrs-static-v2";
 const STATIC_ASSETS = [
   "/static/manifest.json",
   "/static/icons/icon-192x192.png",

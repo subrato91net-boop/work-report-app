@@ -225,7 +225,30 @@ def init_db():
     # Add service_report and last_edited columns if upgrading from older schema
     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS service_report TEXT")
     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS last_edited TEXT")
-
+    # Employee edit workflow columns
+    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'Normal'")
+    # job_edit_requests: employee proposes changes, manager finalizes
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS job_edit_requests (
+            id                  SERIAL PRIMARY KEY,
+            job_id              INTEGER NOT NULL,
+            submitted_at        TEXT,
+            submitted_by        TEXT,
+            submitted_code      TEXT,
+            -- proposed values (only fields employee can change)
+            prop_status         TEXT,
+            prop_job_description TEXT,
+            prop_service_report  TEXT,
+            prop_location        TEXT,
+            prop_end_date        TEXT,
+            employee_note        TEXT,
+            -- review
+            review_status       TEXT DEFAULT 'Pending',
+            reviewed_at         TEXT,
+            reviewed_by         TEXT,
+            manager_note        TEXT
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -652,24 +675,66 @@ def my_jobs():
     if not logged_in() or is_manager(): return redirect(url_for("index"))
     if not has_perm("my_jobs"): return redirect(url_for("no_access"))
     code = get_emp_code()
-    conn = get_db(); cur = conn.cursor()
-    cur.execute("""
-        SELECT * FROM jobs
-        WHERE (',' || emp_codes || ',') LIKE %s
-           OR (',' || supervisor_codes || ',') LIKE %s
-        ORDER BY created_at DESC
-    """, (f"%,{code},%", f"%,{code},%"))
-    jobs = cur.fetchall(); cur.close(); conn.close()
 
-    # tag whether the viewer is on this job as employee, supervisor, or both
+    # filters
+    f_status = request.args.get("status", "")
+    f_search = request.args.get("search", "")
+    f_from   = request.args.get("from_d", "")
+    f_to     = request.args.get("to_d", "")
+
+    conn = get_db(); cur = conn.cursor()
+    query  = """
+        SELECT * FROM jobs
+        WHERE ((',' || emp_codes || ',') LIKE %s
+           OR  (',' || supervisor_codes || ',') LIKE %s)
+    """
+    params = [f"%,{code},%", f"%,{code},%"]
+    if f_status: query += " AND LOWER(status)=LOWER(%s)"; params.append(f_status)
+    if f_from:   query += " AND start_date>=%s";           params.append(f_from)
+    if f_to:     query += " AND start_date<=%s";           params.append(f_to)
+    if f_search:
+        s = f"%{f_search}%"
+        query += " AND (job_title ILIKE %s OR company ILIKE %s OR location ILIKE %s)"
+        params += [s, s, s]
+    query += " ORDER BY created_at DESC"
+    cur.execute(query, params)
+    jobs = cur.fetchall()
+
+    # which job IDs have a pending edit from this employee
+    cur.execute("""
+        SELECT job_id FROM job_edit_requests
+        WHERE submitted_code=%s AND review_status='Pending'
+    """, (code,))
+    pending_ids = {r["job_id"] for r in cur.fetchall()}
+
+    # recent reviewed results to show notification banners
+    cur.execute("""
+        SELECT jer.*, j.job_title FROM job_edit_requests jer
+        JOIN jobs j ON j.id=jer.job_id
+        WHERE jer.submitted_code=%s AND jer.review_status IN ('Finalized','Declined')
+        ORDER BY jer.reviewed_at DESC LIMIT 5
+    """, (code,))
+    recent_results = cur.fetchall()
+
+    cur.close(); conn.close()
+
     enriched = []
     for j in jobs:
         is_emp = code in parse_codes(j.get("emp_codes"))
         is_sup = code in parse_codes(j.get("supervisor_codes"))
         role = "Both" if (is_emp and is_sup) else ("Supervisor" if is_sup else "Employee")
-        enriched.append({**j, "viewer_role": role})
+        enriched.append({**j, "viewer_role": role, "has_pending": j["id"] in pending_ids})
 
-    return render_template("my_jobs.html", name=session["name"], jobs=enriched, record_count=len(enriched), perms=session.get("perms", {}))
+    employee_choices = [{"code": c, "name": i["name"], "company": i["company"]} for c, i in EMPLOYEES.items()]
+
+    return render_template("my_jobs.html",
+        name=session["name"], jobs=enriched,
+        record_count=len(enriched), perms=session.get("perms", {}),
+        employee_choices=employee_choices,
+        recent_results=recent_results,
+        submitted=request.args.get("submitted") == "1",
+        filters={"status": f_status, "search": f_search, "from_d": f_from, "to_d": f_to},
+    )
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER WORK REPORTS
@@ -799,25 +864,57 @@ def assign_job():
     # filters for the "All Assigned Jobs" list
     f_emp    = request.args.get("emp", "")
     f_status = request.args.get("status", "")
+    f_search = request.args.get("search", "")
+    f_from   = request.args.get("from_d", "")
+    f_to     = request.args.get("to_d", "")
+    f_review = request.args.get("review", "")
 
     conn  = get_db(); cur = conn.cursor()
     query = "SELECT * FROM jobs WHERE 1=1"
     params = []
     if f_emp:    query += " AND (emp_names ILIKE %s OR supervisor_names ILIKE %s)"; params += [f"%{f_emp}%", f"%{f_emp}%"]
-    if f_status: query += " AND status=%s";     params.append(f_status)
+    if f_status: query += " AND LOWER(status)=LOWER(%s)"; params.append(f_status)
+    if f_from:   query += " AND start_date>=%s";           params.append(f_from)
+    if f_to:     query += " AND start_date<=%s";           params.append(f_to)
+    if f_review == "pending": query += " AND review_status='Pending Employee Edit'"
+    if f_search:
+        s = f"%{f_search}%"
+        query += " AND (job_title ILIKE %s OR company ILIKE %s OR location ILIKE %s OR job_description ILIKE %s)"
+        params += [s, s, s, s]
     query += " ORDER BY created_at DESC"
     cur.execute(query, params)
     jobs = cur.fetchall()
+
+    # pending edit requests count (for badge)
+    cur.execute("SELECT COUNT(*) AS c FROM job_edit_requests WHERE review_status='Pending'")
+    pending_edits_ct = cur.fetchone()["c"]
+
+    # per-job pending edit requests (to show inline)
+    cur.execute("""
+        SELECT jer.*, j.job_title, j.job_description AS orig_desc, j.status AS orig_status,
+               j.service_report AS orig_report, j.location AS orig_location, j.end_date AS orig_end_date
+        FROM job_edit_requests jer
+        JOIN jobs j ON j.id = jer.job_id
+        WHERE jer.review_status='Pending'
+        ORDER BY jer.submitted_at DESC
+    """)
+    pending_requests = {r["job_id"]: r for r in cur.fetchall()}
     cur.close(); conn.close()
 
     employee_choices = [{"code": c, "name": i["name"], "company": i["company"]} for c, i in EMPLOYEES.items()]
 
-    edited = request.args.get("edited") == "1"
+    edited   = request.args.get("edited")   == "1"
+    finalized= request.args.get("finalized")== "1"
+    declined = request.args.get("declined") == "1"
     return render_template("assign_job.html",
         success=success, error=error, edited=edited,
+        finalized=finalized, declined=declined,
         employee_choices=employee_choices,
         jobs=jobs, record_count=len(jobs),
-        filters={"emp": f_emp, "status": f_status}
+        pending_edits_ct=pending_edits_ct,
+        pending_requests=pending_requests,
+        filters={"emp": f_emp, "status": f_status, "search": f_search,
+                 "from_d": f_from, "to_d": f_to, "review": f_review}
     )
 
 
@@ -893,6 +990,112 @@ def bulk_job_status():
         conn.commit(); cur.close(); conn.close()
 
     return redirect(url_for("assign_job", **{k: v for k, v in request.args.items()}))
+
+# ══════════════════════════════════════════
+#  ROUTES — EMPLOYEE: SUBMIT JOB EDIT REQUEST
+# ══════════════════════════════════════════
+@app.route("/my-jobs/edit/<int:job_id>", methods=["POST"])
+def employee_submit_job_edit(job_id):
+    if not logged_in() or is_manager():
+        return redirect(url_for("login"))
+    if not has_perm("my_jobs"):
+        return redirect(url_for("no_access"))
+    code = get_emp_code()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
+    job = cur.fetchone()
+    if not job:
+        cur.close(); conn.close()
+        return redirect(url_for("my_jobs"))
+    emp_codes = parse_codes(job.get("emp_codes"))
+    sup_codes = parse_codes(job.get("supervisor_codes"))
+    if code not in emp_codes and code not in sup_codes:
+        cur.close(); conn.close()
+        return redirect(url_for("no_access"))
+    cur.execute(
+        "DELETE FROM job_edit_requests WHERE job_id=%s AND submitted_code=%s AND review_status='Pending'",
+        (job_id, code)
+    )
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        INSERT INTO job_edit_requests
+        (job_id, submitted_at, submitted_by, submitted_code,
+         prop_status, prop_job_description, prop_service_report,
+         prop_location, prop_end_date, employee_note, review_status)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Pending')
+    """, (
+        job_id, now, session["name"], code,
+        request.form.get("prop_status", ""),
+        request.form.get("prop_job_description", ""),
+        request.form.get("prop_service_report", ""),
+        request.form.get("prop_location", ""),
+        request.form.get("prop_end_date", ""),
+        request.form.get("employee_note", ""),
+    ))
+    cur.execute("UPDATE jobs SET review_status='Pending Employee Edit' WHERE id=%s", (job_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("my_jobs") + "?submitted=1")
+
+
+# ══════════════════════════════════════════
+#  ROUTES — MANAGER: FINALIZE JOB EDIT
+# ══════════════════════════════════════════
+@app.route("/manager/jobs/<int:req_id>/finalize", methods=["POST"])
+def finalize_job_edit(req_id):
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM job_edit_requests WHERE id=%s", (req_id,))
+    req = cur.fetchone()
+    if not req:
+        cur.close(); conn.close()
+        return redirect(url_for("assign_job"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    final_status   = request.form.get("final_status")   or req["prop_status"]
+    final_desc     = request.form.get("final_desc")     or req["prop_job_description"]
+    final_report   = request.form.get("final_report")   or req["prop_service_report"]
+    final_location = request.form.get("final_location") or req["prop_location"]
+    final_end_date = request.form.get("final_end_date") or req["prop_end_date"]
+    manager_note   = request.form.get("manager_note", "")
+    cur.execute("""
+        UPDATE jobs SET
+            status          = COALESCE(NULLIF(%s,''), status),
+            job_description = COALESCE(NULLIF(%s,''), job_description),
+            service_report  = COALESCE(NULLIF(%s,''), service_report),
+            location        = COALESCE(NULLIF(%s,''), location),
+            end_date        = COALESCE(NULLIF(%s,''), end_date),
+            review_status   = 'Finalized',
+            last_edited     = %s
+        WHERE id=%s
+    """, (final_status, final_desc, final_report, final_location, final_end_date, now, req["job_id"]))
+    cur.execute("""
+        UPDATE job_edit_requests SET
+            review_status='Finalized', reviewed_at=%s, reviewed_by=%s, manager_note=%s
+        WHERE id=%s
+    """, (now, session.get("name", "Manager"), manager_note, req_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("assign_job") + "?finalized=1")
+
+
+@app.route("/manager/jobs/<int:req_id>/decline", methods=["POST"])
+def decline_job_edit(req_id):
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    manager_note = request.form.get("manager_note", "")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT job_id FROM job_edit_requests WHERE id=%s", (req_id,))
+    req = cur.fetchone()
+    if req:
+        cur.execute("""
+            UPDATE job_edit_requests SET
+                review_status='Declined', reviewed_at=%s, reviewed_by=%s, manager_note=%s
+            WHERE id=%s
+        """, (now, session.get("name", "Manager"), manager_note, req_id))
+        cur.execute("UPDATE jobs SET review_status='Normal' WHERE id=%s", (req["job_id"],))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("assign_job") + "?declined=1")
+
 
 # ══════════════════════════════════════════
 #  ROUTES — ATTENDANCE TAB
@@ -2577,7 +2780,7 @@ def products():
         name=session["name"], role=session.get("role","employee"),
         grouped=grouped, brands=brands, categories=categories,
         filters={"q": q, "brand": brand, "category": cat, "stock": stock},
-        total=len(all_products))
+        total=len(all_products), perms=session.get("perms", {}))
 
 
 # ══════════════════════════════════════════

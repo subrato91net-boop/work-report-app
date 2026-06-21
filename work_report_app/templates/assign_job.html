@@ -133,6 +133,53 @@
     .bottom-nav{display:none}
     body{padding-bottom:0}
   }
+  /* ── Pending edit badge & review modal ── */
+  .pending-badge{display:inline-flex;align-items:center;gap:4px;background:#FFF3CD;color:#856404;padding:3px 9px;border-radius:8px;font-size:10px;font-weight:800;border:1px solid #FCEFC0;white-space:nowrap}
+  .btn-review{padding:5px 11px;background:#6C3EE8;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-review:hover{background:#5A2ED4}
+  .review-notif{border-radius:9px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:1rem}
+  .review-notif.ok{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC}
+  .review-notif.declined-msg{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3}
+  /* filter extras */
+  .btn-filter-chip{padding:6px 13px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:2px solid transparent;background:#FFF3CD;color:#856404;text-decoration:none;white-space:nowrap}
+  .btn-filter-chip:hover,.btn-filter-chip.sel{border-color:#856404}
+  /* review modal */
+  .rmodal-overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,.6);z-index:300;align-items:center;justify-content:center;padding:1rem}
+  .rmodal-overlay.open{display:flex}
+  .rmodal{background:#fff;border-radius:18px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px rgba(16,25,58,.3);display:flex;flex-direction:column;margin:auto}
+  .rmodal-head{padding:1.1rem 1.4rem .9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:18px 18px 0 0}
+  .rmodal-title{font-size:15px;font-weight:800;color:#10193A}
+  .rmodal-sub{font-size:11.5px;color:#6C3EE8;font-weight:700;margin-top:2px}
+  .rmodal-close{width:32px;height:32px;border:none;border-radius:8px;background:#F6F4EF;font-size:18px;cursor:pointer;color:#696B78;line-height:1;flex-shrink:0}
+  .rmodal-close:hover{background:#E7E4DA}
+  .rmodal-body{padding:1.2rem 1.4rem}
+  .rmodal-foot{padding:1rem 1.4rem;border-top:1px solid #F0EEE6;display:flex;gap:9px;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;border-radius:0 0 18px 18px}
+  .btn-finalize{flex:1;padding:11px;background:#10B981;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn-finalize:hover{background:#059669}
+  .btn-decline{padding:11px 18px;background:#EF4444;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn-decline:hover{background:#DC2626}
+  /* diff table */
+  .diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem}
+  @media(max-width:580px){.diff-grid{grid-template-columns:1fr}}
+  .diff-col{border:1.5px solid #E7E4DA;border-radius:10px;overflow:hidden}
+  .diff-col-hd{padding:8px 12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .diff-col.orig .diff-col-hd{background:#F6F4EF;color:#A8A4C4}
+  .diff-col.prop .diff-col-hd{background:#EDE9FF;color:#5034C4}
+  .diff-rows{padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+  .dr-lbl{font-size:10px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .dr-val{font-size:13px;color:#14141A;font-weight:600;line-height:1.5}
+  .dr-val.changed{color:#5034C4;font-weight:800}
+  .dr-val.multiline{white-space:pre-wrap;background:#FAFAF7;border:1px solid #F0EEE6;border-radius:6px;padding:7px 9px;font-size:12.5px;font-weight:500}
+  .emp-note{background:#FFFBEE;border:1px solid #FCEFC0;border-radius:8px;padding:10px 12px;font-size:13px;color:#7A5800;margin-bottom:1rem;line-height:1.5}
+  .emp-note strong{font-weight:800}
+  /* finalize form fields */
+  .m-section{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.06em;margin:1.1rem 0 .5rem;display:flex;align-items:center;gap:6px}
+  .m-section::after{content:"";flex:1;height:1px;background:#F0EEE6}
+  .m-field{margin-bottom:10px}
+  .m-field label{display:block;font-size:12.5px;font-weight:700;color:#10193A;margin-bottom:5px}
+  .m-field input,.m-field select,.m-field textarea{width:100%;padding:9px 12px;font-size:13.5px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:9px;outline:none;font-family:inherit}
+  .m-field input:focus,.m-field select:focus,.m-field textarea:focus{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.1);background:#fff}
+  .m-field textarea{resize:vertical;min-height:60px}
   .bulk-bar{display:none;align-items:center;gap:12px;background:#10193A;color:#fff;border-radius:13px;padding:11px 16px;margin-bottom:1.1rem;flex-wrap:wrap;font-size:12.5px;font-weight:700}
   .bulk-bar.show{display:flex}
   .bulk-btn{padding:7px 13px;border:none;border-radius:7px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:800}
@@ -251,20 +298,38 @@
 
   <!-- ═══ ALL ASSIGNED JOBS ═══ -->
   <div class="card">
-    <div class="card-title">📋 All Assigned Jobs</div>
+    <div class="card-title">
+      📋 All Assigned Jobs
+      {% if pending_edits_ct > 0 %}
+      <a href="/assign-job?review=pending" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#FFF3CD;color:#856404;border:1.5px solid #FCEFC0;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:800;text-decoration:none">
+        ⏳ {{ pending_edits_ct }} Edit Request{{ 's' if pending_edits_ct != 1 }} Pending Review
+      </a>
+      {% endif %}
+    </div>
+    {% if finalized %}<div class="review-notif ok">✅ Job edit finalized and changes applied!</div>{% endif %}
+    {% if declined %}<div class="review-notif declined-msg">❌ Edit request declined — job unchanged.</div>{% endif %}
     <form method="GET" action="/assign-job">
       <div class="filters">
+        <div class="fg"><label>Search</label>
+          <input type="text" name="search" placeholder="Job title / company…" value="{{ filters.get('search','') }}">
+        </div>
         <div class="fg"><label>Employee / Supervisor</label>
-          <input type="text" name="emp" placeholder="Search by name..." value="{{ filters.emp }}">
+          <input type="text" name="emp" placeholder="Name…" value="{{ filters.emp }}">
         </div>
         <div class="fg"><label>Status</label>
           <select name="status">
-            <option value="">All</option>
+            <option value="">All Status</option>
             <option value="Open"        {% if filters.status=='Open' %}selected{% endif %}>Open</option>
             <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
             <option value="Done"        {% if filters.status=='Done' %}selected{% endif %}>Done</option>
             <option value="On Hold"     {% if filters.status=='On Hold' %}selected{% endif %}>On Hold</option>
           </select>
+        </div>
+        <div class="fg"><label>Start From</label>
+          <input type="date" name="from_d" value="{{ filters.get('from_d','') }}">
+        </div>
+        <div class="fg"><label>Start To</label>
+          <input type="date" name="to_d" value="{{ filters.get('to_d','') }}">
         </div>
         <button class="btn-filter" type="submit">Apply</button>
         <a class="btn-clear" href="/assign-job">✕ Clear</a>
@@ -296,7 +361,7 @@
         <tbody>
         {% for j in jobs %}
         {% set s = (j['status'] or '')|lower %}
-        <tr>
+        <tr {% if j['id'] in pending_requests %}style="background:#FFFBEE"{% endif %}>
           <td><input type="checkbox" class="job-check" value="{{ j['id'] }}" onclick="updateBulkJobBar()"></td>
           <td style="color:#C7C4B8;font-size:11px">{{ loop.index }}</td>
           <td style="color:#A8A4C4;font-size:11.5px;white-space:nowrap">
@@ -310,7 +375,10 @@
           <td>{{ j['location'] or '—' }}</td>
           <td style="white-space:nowrap">{{ j['start_date'] or '—' }}</td>
           <td style="white-space:nowrap">{{ j['end_date'] or '—' }}</td>
-          <td><span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% elif s=='on hold' %}badge-hold{% else %}badge-other{% endif %}">{{ j['status'] }}</span></td>
+          <td>
+            <span class="badge {% if s=='open' %}badge-open{% elif s=='in progress' %}badge-progress{% elif s=='done' %}badge-done{% elif s=='on hold' %}badge-hold{% else %}badge-other{% endif %}">{{ j['status'] }}</span>
+            {% if j['id'] in pending_requests %}<br><span class="pending-badge">⏳ Edit Pending</span>{% endif %}
+          </td>
           <td>
             {% if j.get('service_report') %}
               <span title="{{ j['service_report'] }}"><span class="report-dot"></span>Yes</span>
@@ -320,6 +388,9 @@
           </td>
           <td>
             <button class="btn-edit" onclick="openEdit({{ j['id'] }})">✏️ Edit</button>
+            {% if j['id'] in pending_requests %}
+            <button class="btn-review" style="margin-top:4px;display:block" onclick="openReview({{ j['id'] }})">👁 Review Edit</button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -572,6 +643,164 @@ function closeEdit() {
 overlay.addEventListener('click', e => { if (e.target === overlay) closeEdit(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
 </script>
+<!-- ═══════════════════════════════
+     REVIEW & FINALIZE MODAL (Manager)
+════════════════════════════════ -->
+<div class="rmodal-overlay" id="reviewOverlay">
+  <div class="rmodal">
+    <div class="rmodal-head">
+      <div>
+        <div class="rmodal-title">👁 Review Employee Edit Request</div>
+        <div class="rmodal-sub">Review proposed changes, adjust if needed, then Finalize or Decline</div>
+      </div>
+      <button class="rmodal-close" onclick="closeReview()">✕</button>
+    </div>
+    <div class="rmodal-body">
+
+      <!-- Employee note -->
+      <div id="empNoteBox" class="emp-note" style="display:none">
+        <strong>📝 Employee note:</strong> <span id="empNoteText"></span>
+      </div>
+
+      <!-- Side-by-side diff -->
+      <div class="diff-grid">
+        <div class="diff-col orig">
+          <div class="diff-col-hd">📄 Current Job</div>
+          <div class="diff-rows">
+            <div><div class="dr-lbl">Status</div><div class="dr-val" id="origStatus"></div></div>
+            <div><div class="dr-lbl">Description</div><div class="dr-val multiline" id="origDesc"></div></div>
+            <div><div class="dr-lbl">Location</div><div class="dr-val" id="origLoc"></div></div>
+            <div><div class="dr-lbl">End Date</div><div class="dr-val" id="origEnd"></div></div>
+            <div><div class="dr-lbl">Service Notes</div><div class="dr-val multiline" id="origReport"></div></div>
+          </div>
+        </div>
+        <div class="diff-col prop">
+          <div class="diff-col-hd">✏️ Proposed by Employee</div>
+          <div class="diff-rows">
+            <div><div class="dr-lbl">Status</div><div class="dr-val" id="propStatus"></div></div>
+            <div><div class="dr-lbl">Description</div><div class="dr-val multiline" id="propDesc"></div></div>
+            <div><div class="dr-lbl">Location</div><div class="dr-val" id="propLoc"></div></div>
+            <div><div class="dr-lbl">End Date</div><div class="dr-val" id="propEnd"></div></div>
+            <div><div class="dr-lbl">Service Notes</div><div class="dr-val multiline" id="propReport"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manager override fields -->
+      <div class="m-section" style="margin-top:1.2rem">Manager Override <span style="font-size:10px;font-weight:500;text-transform:none;letter-spacing:0">(pre-filled with employee values — adjust before finalizing)</span></div>
+
+      <form id="finalizeForm" method="POST">
+        <div class="m-field">
+          <label>Final Status</label>
+          <select name="final_status" id="fStatus">
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Done">Done</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+        </div>
+        <div class="m-field">
+          <label>Final Description</label>
+          <textarea name="final_desc" id="fDesc" rows="3"></textarea>
+        </div>
+        <div class="m-field">
+          <label>Final Location</label>
+          <input type="text" name="final_location" id="fLocation">
+        </div>
+        <div class="m-field">
+          <label>Final End Date</label>
+          <input type="date" name="final_end_date" id="fEndDate">
+        </div>
+        <div class="m-field">
+          <label>Final Service Notes</label>
+          <textarea name="final_report" id="fReport" rows="3"></textarea>
+        </div>
+        <div class="m-field">
+          <label>Manager Note to Employee <span style="font-weight:400;font-size:11px;color:#A8A4C4">(optional)</span></label>
+          <textarea name="manager_note" id="fManagerNote" rows="2" placeholder="Any comment for the employee…"></textarea>
+        </div>
+      </form>
+
+      <!-- Decline form (separate) -->
+      <form id="declineForm" method="POST" style="display:none">
+        <input type="hidden" name="manager_note" id="dManagerNote">
+      </form>
+
+    </div>
+    <div class="rmodal-foot">
+      <button class="btn-decline" onclick="submitDecline()">❌ Decline</button>
+      <button class="btn-finalize" onclick="submitFinalize()">✅ Finalize &amp; Apply Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PENDING_REQUESTS = {{ pending_requests | tojson }};
+
+const roverlay = document.getElementById('reviewOverlay');
+
+function openReview(jobId) {
+  const req = PENDING_REQUESTS[jobId];
+  if (!req) return;
+
+  // Employee note
+  const noteBox = document.getElementById('empNoteBox');
+  const noteText = document.getElementById('empNoteText');
+  if (req.employee_note) {
+    noteText.textContent = req.employee_note;
+    noteBox.style.display = 'block';
+  } else {
+    noteBox.style.display = 'none';
+  }
+
+  // Fill diff — mark changed fields
+  function setDiff(origId, propId, origVal, propVal) {
+    document.getElementById(origId).textContent = origVal || '—';
+    const el = document.getElementById(propId);
+    el.textContent = propVal || '—';
+    el.classList.toggle('changed', propVal && propVal !== origVal);
+  }
+  setDiff('origStatus', 'propStatus', req.orig_status, req.prop_status);
+  setDiff('origDesc',   'propDesc',   req.orig_desc,   req.prop_job_description);
+  setDiff('origLoc',    'propLoc',    req.orig_location,req.prop_location);
+  setDiff('origEnd',    'propEnd',    req.orig_end_date, req.prop_end_date);
+  setDiff('origReport', 'propReport', req.orig_report,  req.prop_service_report);
+
+  // Pre-fill finalize form
+  const sel = document.getElementById('fStatus');
+  sel.value = req.prop_status || req.orig_status || 'Open';
+  document.getElementById('fDesc').value     = req.prop_job_description || req.orig_desc || '';
+  document.getElementById('fLocation').value = req.prop_location || req.orig_location || '';
+  document.getElementById('fEndDate').value  = req.prop_end_date || req.orig_end_date || '';
+  document.getElementById('fReport').value   = req.prop_service_report || req.orig_report || '';
+  document.getElementById('fManagerNote').value = '';
+
+  document.getElementById('finalizeForm').action  = '/manager/jobs/' + req.id + '/finalize';
+  document.getElementById('declineForm').action   = '/manager/jobs/' + req.id + '/decline';
+
+  roverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReview() {
+  roverlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function submitFinalize() {
+  document.getElementById('finalizeForm').submit();
+}
+
+function submitDecline() {
+  const note = document.getElementById('fManagerNote').value;
+  document.getElementById('dManagerNote').value = note;
+  document.getElementById('declineForm').submit();
+}
+
+roverlay.addEventListener('click', e => { if (e.target === roverlay) closeReview(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
+</script>
+
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

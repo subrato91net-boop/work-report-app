@@ -9,154 +9,102 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Support Report — Work Report System</title>
+<meta name="apple-mobile-web-app-title" content="WorkReport">
+<title>Support Report — {{ name }}</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:90px}
-  a{color:inherit;text-decoration:none}
-
-  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-  .topbar-title{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:8px;color:#fff}
-  .topbar-right{display:flex;gap:8px;align-items:center}
-  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
-  .btn-sm:hover{background:rgba(255,255,255,0.14)}
-
-  .page-tabs{background:#fff;border-bottom:2px solid #E7E4DA;display:none;justify-content:center;position:sticky;top:56px;z-index:19}
-  .pt-inner{display:flex;width:100%;max-width:900px;padding:0 1rem;overflow-x:auto}
-  .pt{display:inline-block;padding:14px 16px;font-size:13px;color:#696B78;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;white-space:nowrap;margin-bottom:-2px}
-  .pt:hover{color:#10193A}
-  .pt.active{color:#6C3EE8;border-bottom-color:#6C3EE8;font-weight:700}
-  @media(min-width:768px){.page-tabs{display:flex}}
-
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;min-width:52px}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#6C3EE8}
-  @media(min-width:768px){.bottom-nav{display:none}}
-
-  .main{max-width:900px;margin:0 auto;padding:1.4rem 1rem}
-
-  /* ─── success banner ─── */
-  .success-box{background:#D9F5E8;border:1px solid #8BE8BD;border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:#0B6839}
-
-  /* ─── card ─── */
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:15px;padding:1.4rem;box-shadow:0 1px 4px rgba(16,25,58,0.05);margin-bottom:1.4rem}
-  .card-title{font-size:15px;font-weight:800;color:#10193A;margin-bottom:1.2rem;display:flex;align-items:center;gap:8px}
-
-  /* ─── form ─── */
+  /* support pages use violet as a secondary accent for tickets/timeline,
+     keeping the brand navy+orange for nav, buttons and structure */
   .form-grid{display:grid;grid-template-columns:1fr;gap:14px}
   @media(min-width:600px){.form-grid{grid-template-columns:1fr 1fr}}
-  .form-group{display:flex;flex-direction:column;gap:5px}
+  .form-group{display:flex;flex-direction:column;gap:6px}
   .form-group.full{grid-column:1/-1}
-  label{font-size:11.5px;font-weight:800;color:#696B78;text-transform:uppercase;letter-spacing:.04em}
-  label span.req{color:#E53E3E}
-  input,select,textarea{border:1.5px solid #E0DCCF;border-radius:9px;padding:9px 12px;font-size:13.5px;font-family:inherit;color:#14141A;background:#FAFAF7;transition:border-color .15s,box-shadow .15s;outline:none;width:100%}
-  input:focus,select:focus,textarea:focus{border-color:#6C3EE8;box-shadow:0 0 0 3px rgba(108,62,232,0.1)}
-  textarea{resize:vertical;min-height:80px;line-height:1.5}
-  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23696B78' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+  .form-group label{font-size:11.5px;font-weight:800;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:0}
 
-  /* ─── devices section ─── */
-  .devices-section{border:1.5px dashed #C5BDFF;border-radius:12px;padding:1.1rem;background:#F5F2FF}
-  .devices-title{font-size:12px;font-weight:800;color:#6C3EE8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.8rem;display:flex;align-items:center;justify-content:space-between}
+  /* devices section */
+  .devices-section{border:1.5px dashed #C5BDFF;border-radius:var(--r-md);padding:1.1rem;background:var(--violet-soft)}
+  .devices-title{font-size:12px;font-weight:800;color:var(--violet);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.8rem;display:flex;align-items:center;justify-content:space-between}
   .device-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
   .device-row input{margin:0}
-  .btn-add-device{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:#6C3EE8;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
-  .btn-add-device:hover{background:#5A2ED4}
-  .btn-remove-device{background:#FBE2E2;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;color:#9A2A2D;font-size:13px;font-weight:800;line-height:1}
+  .btn-add-device{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:var(--violet);color:#fff;border:none;border-radius:var(--r-pill);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-add-device:hover{background:#6A48E0}
+  .btn-remove-device{background:var(--red-soft);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;color:#9A2A2D;font-size:13px;font-weight:800;line-height:1}
   .btn-remove-device:hover{background:#F5C6C6}
 
-  .btn-submit{width:100%;padding:13px;background:#6C3EE8;color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:6px;transition:background .15s}
-  .btn-submit:hover{background:#5A2ED4}
+  .section-divider{font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .6rem;border-top:1px solid var(--line);padding-top:.7rem}
 
-  /* ─── section divider ─── */
-  .section-divider{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .6rem;border-top:1px solid #E7E4DA;padding-top:.7rem}
-
-  /* ─── history ─── */
-  .filter-bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
-  @media(min-width:600px){.filter-bar{grid-template-columns:repeat(4,1fr) auto}}
-  .filter-bar input,.filter-bar select{font-size:12.5px;padding:8px 11px}
-  .btn-filter{padding:8px 14px;background:#10193A;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .btn-filter:hover{background:#1A2960}
-
-  .hist-count{font-size:12px;font-weight:700;color:#696B78;margin-bottom:.7rem}
-  .report-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .rc-head{padding:.85rem 1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;border-bottom:1px solid #F0EEE6}
-  .rc-head:hover{background:#FAFAF7}
-  .rc-company{font-size:13.5px;font-weight:800;color:#10193A}
-  .rc-meta{font-size:11.5px;color:#696B78;font-weight:600;margin-top:2px}
+  /* history */
+  .hist-count{font-size:12px;font-weight:700;color:var(--text-soft);margin-bottom:.7rem}
+  .report-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-card)}
+  .rc-head{padding:.9rem 1.05rem;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;border-bottom:1px solid var(--line-soft)}
+  .rc-head:hover{background:var(--paper-2)}
+  .rc-company{font-size:13.5px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rc-meta{font-size:11.5px;color:var(--text-soft);font-weight:600;margin-top:2px}
   .rc-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
-  .badge-complete{background:#D9F5E8;color:#0B6839}
-  .badge-pending{background:#FFF3CD;color:#856404}
-  .rc-date{font-size:11px;color:#A8A4C4;font-weight:700}
-  .rc-body{padding:1rem;display:none;border-top:1px solid #F0EEE6}
+  .rc-date{font-size:11px;color:var(--text-faint);font-weight:700}
+  .rc-body{padding:1.05rem;display:none;border-top:1px solid var(--line-soft)}
   .rc-body.open{display:block}
   .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
   @media(min-width:600px){.detail-grid{grid-template-columns:repeat(3,1fr)}}
-  .detail-item label{font-size:10.5px;color:#A8A4C4;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
-  .detail-item .val{font-size:13px;color:#14141A;font-weight:600;line-height:1.4}
-  .detail-full{grid-column:1/-1}
-  .device-tag{display:inline-block;background:#EDE9FF;color:#4A26A8;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:700;margin:2px 3px 0 0}
-  .empty-state{text-align:center;padding:2rem;color:#696B78;font-weight:600;font-size:13px}
+  .detail-item label{font-size:10.5px;color:var(--text-faint);font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+  .detail-item .val{font-size:13px;color:var(--text);font-weight:600;line-height:1.4}
+  .detail-item.full{grid-column:1/-1}
+  .device-tag{display:inline-block;background:var(--violet-soft);color:#4A26A8;padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:700;margin:2px 3px 0 0}
 
-  /* ─── ticket id ─── */
-  .ticket-id{display:inline-flex;align-items:center;gap:5px;background:#10193A;color:#FFD479;padding:3px 11px;border-radius:20px;font-size:11.5px;font-weight:800;letter-spacing:.03em;font-variant-numeric:tabular-nums}
-  .success-box .ticket-id{margin-left:4px}
-
-  /* ─── edit button on history cards ─── */
+  /* edit button on history cards */
   .rc-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-  .btn-edit-rep{padding:4px 11px;border:1.5px solid #FF7A1A;border-radius:7px;background:#fff;color:#FF7A1A;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .btn-edit-rep:hover{background:#FF7A1A;color:#fff}
-  .edited-tag{font-size:10px;color:#A8A4C4;font-weight:700;margin-top:2px}
+  .btn-edit-rep{padding:5px 12px;border:1.5px solid var(--signal);border-radius:var(--r-pill);background:#fff;color:var(--signal-ink);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-edit-rep:hover{background:var(--signal-soft)}
+  .edited-tag{font-size:10px;color:var(--text-faint);font-weight:700;margin-top:2px}
 
-  /* ─── editing banner on the form ─── */
-  .edit-banner{background:#FFF3D9;color:#7A4A00;border:1px solid #F5DCA0;border-radius:10px;padding:.75rem 1rem;font-size:12.5px;font-weight:700;margin-bottom:1rem;display:none;align-items:center;justify-content:space-between;gap:10px}
-  .btn-cancel-edit{background:none;border:1.5px solid #7A4A00;color:#7A4A00;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
+  /* editing banner on the form */
+  .edit-banner{background:#FFF3D9;color:#7A4A00;border:1px solid #F5DCA0;border-radius:var(--r-sm);padding:.75rem 1rem;font-size:12.5px;font-weight:700;margin-bottom:1rem;display:none;align-items:center;justify-content:space-between;gap:10px}
+  .btn-cancel-edit{background:none;border:1.5px solid #7A4A00;color:#7A4A00;border-radius:var(--r-pill);padding:5px 11px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
 
-  /* ─── reopen ticket panel ─── */
+  /* reopen ticket panel */
   .reopen-row{display:flex;gap:8px}
   .reopen-row input{flex:1}
-  .btn-lookup{padding:9px 18px;background:#10193A;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .btn-lookup:hover{background:#1A2960}
-  .ticket-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2;border-radius:10px;padding:.7rem 1rem;font-size:12.5px;font-weight:700;margin-top:.8rem}
-  .ticket-found{border:1.5px solid #C5BDFF;background:#F5F2FF;border-radius:12px;padding:1rem;margin-top:1rem;display:none}
+  .btn-lookup{padding:11px 20px;background:var(--navy);color:#fff;border:none;border-radius:var(--r-pill);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn-lookup:hover{background:var(--navy-2)}
+  .ticket-found{border:1.5px solid #C5BDFF;background:var(--violet-soft);border-radius:var(--r-md);padding:1.1rem;margin-top:1rem;display:none}
   .tf-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:.6rem}
-  .tf-company{font-size:14px;font-weight:800;color:#10193A}
-  .tf-meta{font-size:11.5px;color:#696B78;font-weight:600}
+  .tf-company{font-size:14px;font-weight:800;color:var(--navy)}
+  .tf-meta{font-size:11.5px;color:var(--text-soft);font-weight:600}
 
-  /* ─── timeline ─── */
+  /* timeline */
   .timeline{margin-top:.6rem;border-top:1px dashed #D8D2F5;padding-top:.7rem}
-  .timeline-title{font-size:11px;font-weight:800;color:#6C3EE8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
-  .tl-item{background:#fff;border:1px solid #E7E4DA;border-radius:10px;padding:.7rem .85rem;margin-bottom:7px}
+  .timeline-title{font-size:11px;font-weight:800;color:var(--violet);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem}
+  .tl-item{background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);padding:.7rem .85rem;margin-bottom:7px}
   .tl-item:last-child{margin-bottom:0}
-  .tl-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
-  .tl-num{font-size:11px;font-weight:800;color:#6C3EE8}
-  .tl-date{font-size:10.5px;color:#A8A4C4;font-weight:700}
-  .tl-label{font-size:10px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
-  .tl-text{font-size:12.5px;color:#14141A;font-weight:500;line-height:1.4;white-space:pre-wrap}
+  .tl-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+  .tl-num{font-size:11px;font-weight:800;color:var(--violet)}
+  .tl-date{font-size:10.5px;color:var(--text-faint);font-weight:700}
+  .tl-label{font-size:10px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;margin-top:5px}
+  .tl-text{font-size:12.5px;color:var(--text);font-weight:500;line-height:1.4;white-space:pre-wrap}
 
   .followup-form{margin-top:.9rem;border-top:1px dashed #D8D2F5;padding-top:.9rem}
-  .btn-followup{width:100%;padding:11px;background:#6C3EE8;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.6rem}
-  .btn-followup:hover{background:#5A2ED4}
+  .btn-followup{width:100%;padding:12px;background:var(--violet);color:#fff;border:none;border-radius:var(--r-md);font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.6rem}
+  .btn-followup:hover{background:#6A48E0}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="topbar-title">🔧 Support Report</div>
-  <div class="topbar-right">
-    <span style="font-size:12px;color:#A8A4C4;font-weight:700">{{ name }}</span>
-    <a href="/logout" class="btn-sm">Logout</a>
+  <div class="topbar-left">
+    <div class="avatar">{{ name[:2].upper() }}</div>
+    <div><div class="tname">{{ name }}</div><div class="trole">Employee</div></div>
   </div>
+  <a href="/logout" class="logout">Logout</a>
 </div>
 
-<div class="page-tabs">
-  <div class="pt-inner">
-  {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
-  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
-  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt">🤝 Sales Report</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
-  {% if perms.get('support', True) %}<a href="/support-report" class="pt active">🔧 Support</a>{% endif %}
+<div class="nav-tabs-desktop">
+  <div class="nd-inner">
+  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab active">🔧 Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
   </div>
 </div>
 
@@ -172,7 +120,7 @@
   {% endif %}
 
   {% if lock_error %}
-  <div class="success-box" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">
+  <div class="error-box">
     ⚠️ That report couldn't be updated — please refresh and try again.
   </div>
   {% endif %}
@@ -366,15 +314,20 @@
     <!-- Filters -->
     <form method="GET" action="/support-report">
       <div class="filter-bar">
-        <input type="text" name="search" value="{{ filters.search }}" placeholder="Search company / issue / Support ID…">
-        <select name="status">
-          <option value="">All Status</option>
-          <option value="Complete" {% if filters.status=='complete' %}selected{% endif %}>Complete</option>
-          <option value="Pending"  {% if filters.status=='pending'  %}selected{% endif %}>Pending</option>
-        </select>
-        <input type="date" name="from_d" value="{{ filters.from_d }}" placeholder="From">
-        <input type="date" name="to_d"   value="{{ filters.to_d }}"   placeholder="To">
-        <button type="submit" class="btn-filter">Filter</button>
+        <div class="fg"><label>Search</label><input type="text" name="search" value="{{ filters.search }}" placeholder="Company / issue / Support ID…"></div>
+        <div class="fg"><label>Status</label>
+          <select name="status">
+            <option value="">All Status</option>
+            <option value="Complete" {% if filters.status=='complete' %}selected{% endif %}>Complete</option>
+            <option value="Pending"  {% if filters.status=='pending'  %}selected{% endif %}>Pending</option>
+          </select>
+        </div>
+        <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+        <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+        <div class="filter-actions">
+          <button type="submit" class="btn-filter">Apply</button>
+          <a href="/support-report" class="btn-clear">✕ Clear</a>
+        </div>
       </div>
     </form>
 

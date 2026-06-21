@@ -11,63 +11,106 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>My Jobs — {{ name }}</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
+  /* ── Filter bar ── */
+  .filter-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:1rem 1.2rem;margin-bottom:1.2rem;box-shadow:var(--shadow-card)}
+  .filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(min-width:560px){.filter-grid{grid-template-columns:repeat(4,1fr) auto}}
+  .fg label{display:block;font-size:10.5px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .fg input,.fg select{border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;color:var(--text);background:var(--bg);outline:none;width:100%}
+  .fg input:focus,.fg select:focus{border-color:var(--signal);box-shadow:0 0 0 3px rgba(255,122,26,.1)}
+  select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23696B78' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+  .btn-filter{padding:8px 15px;background:var(--navy);color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;align-self:flex-end}
+  .btn-filter:hover{background:#1A2960}
+  .btn-clear{padding:8px 12px;background:var(--bg-alt);color:var(--text-soft);border:none;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;align-self:flex-end;display:inline-block}
+  .filter-actions{display:flex;gap:6px;align-items:flex-end}
 
-  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-  .topbar-left{display:flex;align-items:center;gap:10px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
-  .tname{font-size:14px;font-weight:700;color:#fff}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
-  .logout:hover{background:rgba(255,255,255,0.14)}
+  /* ── Banners ── */
+  .banner{border-radius:11px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:1rem;display:flex;gap:9px;align-items:flex-start;line-height:1.5}
+  .banner-ok{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC}
+  .banner-declined{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3}
 
-  .nav-tabs-desktop{display:none}
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .wrap{max-width:760px;margin:1.4rem auto;padding:0 1rem}
-  .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
-  .hdr-title{font-size:16px;font-weight:800;color:#10193A}
-  .rec-count{font-size:12px;color:#696B78;font-weight:600}
-
-  .job-card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04);position:relative;overflow:hidden}
+  /* ── Job cards ── */
+  .job-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:1.4rem 1.5rem;margin-bottom:10px;box-shadow:var(--shadow-card);position:relative;overflow:hidden}
   .job-card::before{content:"";position:absolute;top:0;left:0;bottom:0;width:5px}
-  .job-card.role-employee::before{background:#2D7FF9}
-  .job-card.role-supervisor::before{background:#FF7A1A}
-  .job-card.role-both::before{background:linear-gradient(180deg,#2D7FF9,#FF7A1A)}
+  .job-card.role-employee::before{background:var(--blue)}
+  .job-card.role-supervisor::before{background:var(--signal)}
+  .job-card.role-both::before{background:linear-gradient(180deg,var(--blue),var(--signal))}
+  .job-card.pending-edit{box-shadow:0 0 0 2px #F59E0B,var(--shadow-card)}
+
+  .role-tag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:.7rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .pending-pill{display:inline-flex;align-items:center;gap:4px;background:#FFF3CD;color:#856404;padding:3px 9px;border-radius:10px;font-size:9.5px;font-weight:800;border:1px solid #FCEFC0}
 
   .job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:.5rem}
-  .job-title{font-size:15.5px;font-weight:800;color:#10193A}
-  .role-tag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#696B78;margin-bottom:.7rem}
+  .job-title{font-size:15.5px;font-weight:800;color:var(--navy)}
+  .job-desc{font-size:13.5px;color:var(--text-soft);line-height:1.6;margin-bottom:1.1rem;white-space:pre-wrap}
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 18px;font-size:12.5px;margin-bottom:1.1rem}
+  .meta-item{display:flex;flex-direction:column;gap:3px}
+  .meta-label{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;font-weight:800}
+  .meta-val{color:var(--navy);font-weight:600;line-height:1.4}
+  @media(max-width:480px){.meta-grid{grid-template-columns:1fr}}
 
-  .badge{display:inline-block;padding:4px 11px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+  /* ── Edit request button ── */
+  .card-actions{display:flex;align-items:center;justify-content:flex-end;border-top:1px solid var(--line);padding-top:.9rem;gap:8px}
+  .btn-edit-req{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#6C3EE8;color:#fff;border:none;border-radius:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn-edit-req:hover{background:#5A2ED4}
+  .pending-note{font-size:11.5px;color:#856404;font-weight:700}
+
+  /* ── badges ── */
+  .badge{display:inline-block;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.02em}
   .badge-open{background:#DCE9FF;color:#1A4FA0}
   .badge-progress{background:#FFE4CC;color:#9A4B0A}
   .badge-done{background:#D9F5E8;color:#0E6B43}
+  .badge-hold{background:#F5E8FF;color:#6B2FA0}
   .badge-other{background:#F0EEE6;color:#696B78}
 
-  .job-desc{font-size:13.5px;color:#3A3A40;line-height:1.6;margin-bottom:1.1rem;white-space:pre-wrap}
-  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 18px;font-size:12.5px}
-  .meta-item{display:flex;flex-direction:column;gap:3px}
-  .meta-label{font-size:10px;color:#A8A4C4;text-transform:uppercase;letter-spacing:.05em;font-weight:800}
-  .meta-val{color:#10193A;font-weight:600}
-  .empty{padding:3.5rem 1rem;text-align:center;color:#696B78;background:#fff;border:1px solid #E7E4DA;border-radius:16px;font-weight:500}
-  @media(max-width:480px){.meta-grid{grid-template-columns:1fr}}
+  .page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+  .page-title{font-size:16px;font-weight:800;color:var(--navy)}
+  .rec-count{font-size:12px;color:var(--text-soft);font-weight:600}
+  .empty{padding:3.5rem 1rem;text-align:center;color:var(--text-soft);background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);font-weight:500}
+
+  /* ── EDIT REQUEST MODAL ── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,25,58,.55);z-index:200;align-items:center;justify-content:center;padding:1rem;overflow-y:auto}
+  .modal-overlay.open{display:flex}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:640px;max-height:93vh;overflow-y:auto;box-shadow:0 24px 64px rgba(16,25,58,.28);display:flex;flex-direction:column;margin:auto}
+  .modal-head{padding:1.1rem 1.4rem .9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:18px 18px 0 0}
+  .modal-title{font-size:15px;font-weight:800;color:#10193A}
+  .modal-sub{font-size:11.5px;color:#6C3EE8;font-weight:700;margin-top:2px}
+  .modal-close{width:32px;height:32px;border:none;border-radius:8px;background:#F6F4EF;font-size:18px;cursor:pointer;color:#696B78;line-height:1;flex-shrink:0}
+  .modal-close:hover{background:#E7E4DA}
+  .modal-body{padding:1.2rem 1.4rem;flex:1}
+  .modal-foot{padding:1rem 1.4rem;border-top:1px solid #F0EEE6;display:flex;gap:9px;position:sticky;bottom:0;background:#fff;border-radius:0 0 18px 18px}
+  .btn-submit-req{flex:1;padding:11px;background:#6C3EE8;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(108,62,232,.28)}
+  .btn-submit-req:hover{background:#5A2ED4}
+  .btn-cancel-modal{padding:11px 18px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;color:#696B78}
+  .btn-cancel-modal:hover{background:#E7E4DA}
+
+  /* modal inner form */
+  .m-section{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.06em;margin:1.1rem 0 .6rem;display:flex;align-items:center;gap:6px}
+  .m-section::after{content:"";flex:1;height:1px;background:#F0EEE6}
+  .m-section:first-child{margin-top:0}
+  .m-field{margin-bottom:12px}
+  .m-field label{display:block;font-size:12.5px;font-weight:700;color:#10193A;margin-bottom:5px}
+  .m-field input,.m-field select,.m-field textarea{width:100%;padding:9px 12px;font-size:13.5px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:9px;outline:none;font-family:inherit}
+  .m-field input:focus,.m-field select:focus,.m-field textarea:focus{border-color:#6C3EE8;box-shadow:0 0 0 3px rgba(108,62,232,.1);background:#fff}
+  .m-field textarea{resize:vertical;min-height:72px;line-height:1.5}
+
+  /* status pills */
+  .status-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px}
+  .sp{padding:7px 15px;border-radius:20px;font-size:12px;font-weight:800;cursor:pointer;border:2px solid transparent;user-select:none;transition:all .14s}
+  .sp-open{background:#DCE9FF;color:#1A4FA0}.sp-open.sel,.sp-open:hover{border-color:#1A4FA0}
+  .sp-progress{background:#FFE4CC;color:#9A4B0A}.sp-progress.sel,.sp-progress:hover{border-color:#9A4B0A}
+  .sp-done{background:#D9F5E8;color:#0E6B43}.sp-done.sel,.sp-done:hover{border-color:#0E6B43}
+  .sp-hold{background:#F5E8FF;color:#6B2FA0}.sp-hold.sel,.sp-hold:hover{border-color:#6B2FA0}
+
+  /* info-box with current values */
+  .cur-val-box{background:#F6F4EF;border:1px solid #E7E4DA;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#696B78;margin-bottom:8px;line-height:1.5}
+  .cur-val-box strong{color:#10193A;font-weight:700}
+
+  .note-info{background:#EDE9FF;border:1px solid #C5BDFF;border-radius:9px;padding:10px 13px;font-size:12.5px;color:#4A26A8;margin-bottom:1rem;line-height:1.5}
 
   @media(min-width:860px){
-    body{padding-bottom:0}
-    .bottom-nav{display:none}
-    .nav-tabs-desktop{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
-    .nd-inner{display:flex;width:100%;max-width:900px;padding:0 1rem;overflow-x:auto}
-    .nd-tab{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
-    .nd-tab:hover{color:#10193A}
-    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
-    .wrap{max-width:900px;margin:2rem auto}
     .jobs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
     .jobs-grid .job-card{margin-bottom:0}
   }
@@ -94,8 +137,64 @@
 </div>
 
 <div class="wrap">
-  <div class="hdr">
-    <div class="hdr-title">📌 Jobs assigned to you</div>
+
+  <!-- Notification banners -->
+  {% if submitted %}
+  <div class="banner banner-ok">✅ Your edit request has been submitted! The manager will review and finalize it shortly.</div>
+  {% endif %}
+
+  {% for r in recent_results %}
+    {% if r['review_status'] == 'Finalized' %}
+    <div class="banner banner-ok">
+      <span>✅</span>
+      <div>Manager finalized your edit request for <strong>{{ r['job_title'] }}</strong>. Changes are now live.
+      {% if r['manager_note'] %}<br><em>Manager note: {{ r['manager_note'] }}</em>{% endif %}</div>
+    </div>
+    {% elif r['review_status'] == 'Declined' %}
+    <div class="banner banner-declined">
+      <span>❌</span>
+      <div>Manager declined your edit request for <strong>{{ r['job_title'] }}</strong>.
+      {% if r['manager_note'] %}<br><em>Reason: {{ r['manager_note'] }}</em>{% endif %}</div>
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  <!-- Filter bar -->
+  <div class="filter-card">
+    <form method="GET" action="/my-jobs">
+      <div class="filter-grid">
+        <div class="fg">
+          <label>Search</label>
+          <input type="text" name="search" value="{{ filters.search }}" placeholder="Title / company / location…">
+        </div>
+        <div class="fg">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All Status</option>
+            <option value="Open"        {% if filters.status=='Open' %}selected{% endif %}>Open</option>
+            <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
+            <option value="Done"        {% if filters.status=='Done' %}selected{% endif %}>Done</option>
+            <option value="On Hold"     {% if filters.status=='On Hold' %}selected{% endif %}>On Hold</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Start From</label>
+          <input type="date" name="from_d" value="{{ filters.from_d }}">
+        </div>
+        <div class="fg">
+          <label>Start To</label>
+          <input type="date" name="to_d" value="{{ filters.to_d }}">
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="btn-filter">Search</button>
+          <a href="/my-jobs" class="btn-clear">Clear</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="page-hdr">
+    <div class="page-title">📌 Jobs assigned to you</div>
     <div class="rec-count">{{ record_count }} job{{ 's' if record_count != 1 }}</div>
   </div>
 
@@ -103,16 +202,23 @@
   <div class="jobs-grid">
     {% for j in jobs %}
     {% set s = (j['status'] or '')|lower %}
-    {% set role_class = 'role-both' if j['viewer_role']=='Both' else ('role-supervisor' if j['viewer_role']=='Supervisor' else 'role-employee') %}
-    <div class="job-card {{ role_class }}">
+    {% set rc = 'role-both' if j['viewer_role']=='Both' else ('role-supervisor' if j['viewer_role']=='Supervisor' else 'role-employee') %}
+    <div class="job-card {{ rc }} {% if j.has_pending %}pending-edit{% endif %}">
+
       <div class="role-tag">
-        {% if j['viewer_role']=='Both' %}👷 You're the Employee &amp; Supervisor{% elif j['viewer_role']=='Supervisor' %}🧭 You're the Supervisor{% else %}👷 You're the Employee{% endif %}
+        {% if j['viewer_role']=='Both' %}👷 Employee &amp; Supervisor
+        {% elif j['viewer_role']=='Supervisor' %}🧭 Supervisor
+        {% else %}👷 Employee{% endif %}
+        {% if j.has_pending %}<span class="pending-pill">⏳ Edit Awaiting Review</span>{% endif %}
       </div>
+
       <div class="job-top">
         <div class="job-title">{{ j['job_title'] }}</div>
-        <span class="badge {% if s=='open' %}badge-open{% elif s in ['in progress','progress'] %}badge-progress{% elif s in ['done','completed'] %}badge-done{% else %}badge-other{% endif %}">{{ j['status'] }}</span>
+        <span class="badge {% if s=='open' %}badge-open{% elif s in ['in progress','progress'] %}badge-progress{% elif s in ['done','completed'] %}badge-done{% elif s=='on hold' %}badge-hold{% else %}badge-other{% endif %}">{{ j['status'] }}</span>
       </div>
+
       {% if j['job_description'] %}<div class="job-desc">{{ j['job_description'] }}</div>{% endif %}
+
       <div class="meta-grid">
         <div class="meta-item"><span class="meta-label">Employee(s)</span><span class="meta-val">{{ j['emp_names'] or 'N/A' }}</span></div>
         <div class="meta-item"><span class="meta-label">Supervisor(s)</span><span class="meta-val">{{ j['supervisor_names'] or 'N/A' }}</span></div>
@@ -120,13 +226,98 @@
         <div class="meta-item"><span class="meta-label">Location</span><span class="meta-val">{{ j['location'] or '—' }}</span></div>
         <div class="meta-item"><span class="meta-label">Assigned by</span><span class="meta-val">{{ j['assigned_by'] }}</span></div>
         <div class="meta-item"><span class="meta-label">Start → End</span><span class="meta-val">{{ j['start_date'] or '—' }} → {{ j['end_date'] or '—' }}</span></div>
+        {% if j['service_report'] %}
+        <div class="meta-item" style="grid-column:1/-1"><span class="meta-label">Service Notes</span><span class="meta-val">{{ j['service_report'] }}</span></div>
+        {% endif %}
       </div>
+
+      <div class="card-actions">
+        {% if j.has_pending %}
+          <span class="pending-note">⏳ Edit request sent — awaiting manager review</span>
+        {% else %}
+          <button class="btn-edit-req" onclick="openEditModal({{ j['id'] }})">✏️ Request Edit</button>
+        {% endif %}
+      </div>
+
     </div>
     {% endfor %}
   </div>
   {% else %}
-    <div class="empty">📭 No jobs assigned to you yet.</div>
+    <div class="empty">📭 No jobs found{% if filters.search or filters.status or filters.from_d or filters.to_d %} matching your filters{% else %} assigned to you yet{% endif %}.</div>
   {% endif %}
+
+</div><!-- /wrap -->
+
+<!-- ═══════════════════════════════
+     EDIT REQUEST MODAL
+════════════════════════════════ -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">✏️ Request Job Edit</div>
+        <div class="modal-sub">Your changes go to manager for review &amp; final submission</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="editForm" method="POST">
+      <div class="modal-body">
+
+        <div class="note-info">
+          📋 You can propose changes to status, description, location, end date and service notes. The manager will review, adjust if needed, and finalize.
+        </div>
+
+        <!-- STATUS -->
+        <div class="m-section">Status</div>
+        <div id="curStatus" class="cur-val-box" style="margin-bottom:8px"></div>
+        <div class="status-pills">
+          <div class="sp sp-open"     onclick="setPill(this,'Open')">Open</div>
+          <div class="sp sp-progress" onclick="setPill(this,'In Progress')">In Progress</div>
+          <div class="sp sp-done"     onclick="setPill(this,'Done')">Done</div>
+          <div class="sp sp-hold"     onclick="setPill(this,'On Hold')">On Hold</div>
+        </div>
+        <input type="hidden" name="prop_status" id="propStatus">
+
+        <!-- DESCRIPTION -->
+        <div class="m-section" style="margin-top:1.2rem">Job Description</div>
+        <div id="curDesc" class="cur-val-box"></div>
+        <div class="m-field">
+          <label>Proposed description</label>
+          <textarea name="prop_job_description" id="propDesc" rows="3" placeholder="Updated job description…"></textarea>
+        </div>
+
+        <!-- LOCATION -->
+        <div class="m-section">Location &amp; End Date</div>
+        <div class="m-field">
+          <label>Proposed location <span style="font-weight:400;font-size:11px;color:#A8A4C4">(leave blank to keep current)</span></label>
+          <input type="text" name="prop_location" id="propLocation" placeholder="Updated location…">
+        </div>
+        <div class="m-field">
+          <label>Proposed end date <span style="font-weight:400;font-size:11px;color:#A8A4C4">(leave blank to keep current)</span></label>
+          <input type="date" name="prop_end_date" id="propEndDate">
+        </div>
+
+        <!-- SERVICE NOTES -->
+        <div class="m-section">Service Notes / Work Done</div>
+        <div class="m-field">
+          <label>Service notes / completion summary</label>
+          <textarea name="prop_service_report" id="propReport" rows="3" placeholder="What was done, materials used, outcome, issues found…"></textarea>
+        </div>
+
+        <!-- EMPLOYEE NOTE -->
+        <div class="m-section">Note to Manager</div>
+        <div class="m-field">
+          <label>Why are you requesting this change?</label>
+          <textarea name="employee_note" id="propNote" rows="2" placeholder="e.g. Job completed ahead of schedule, location changed, additional work scope added…"></textarea>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn-cancel-modal" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn-submit-req">📤 Submit for Review</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <nav class="bottom-nav">
@@ -137,12 +328,51 @@
   {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
   {% if perms.get('products', True) %}<a href="/products" class="bn-item"><span class="bn-ic">📦</span>Products</a>{% endif %}
 </nav>
+
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
+const JOBS = {{ jobs | tojson }};
+const overlay = document.getElementById('editOverlay');
+
+function openEditModal(jobId) {
+  const j = JOBS.find(x => x.id === jobId);
+  if (!j) return;
+  document.getElementById('editForm').action = '/my-jobs/edit/' + jobId;
+
+  // Show current values
+  document.getElementById('curStatus').innerHTML = '<strong>Current status:</strong> ' + (j.status || '—');
+  document.getElementById('curDesc').innerHTML   = '<strong>Current description:</strong> ' + (j.job_description || '—');
+  document.getElementById('propDesc').value     = j.job_description || '';
+  document.getElementById('propLocation').value = j.location || '';
+  document.getElementById('propEndDate').value  = j.end_date || '';
+  document.getElementById('propReport').value   = j.service_report || '';
+  document.getElementById('propNote').value     = '';
+
+  const status = j.status || 'Open';
+  document.getElementById('propStatus').value = status;
+  document.querySelectorAll('.sp').forEach(p =>
+    p.classList.toggle('sel', p.textContent.trim() === status)
+  );
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
+
+function closeModal() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function setPill(el, val) {
+  document.querySelectorAll('.sp').forEach(p => p.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('propStatus').value = val;
+}
+
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+if ('serviceWorker' in navigator)
+  window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(()=>{}));
 </script>
 </body>
 </html>

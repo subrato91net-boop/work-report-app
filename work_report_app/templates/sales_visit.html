@@ -11,94 +11,30 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>Sales Visit Report — {{ name }}</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3)}
+  @media(max-width:540px){.row3{grid-template-columns:1fr}}
 
-  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-  .topbar-left{display:flex;align-items:center;gap:10px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A}
-  .tname{font-size:14px;font-weight:700;color:#fff}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .logout{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
-  .logout:hover{background:rgba(255,255,255,0.14)}
+  /* HISTORY: cards on mobile, table on desktop */
+  .visit-list{display:flex;flex-direction:column;gap:10px}
+  .visit-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px}
+  .visit-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .visit-client{font-size:14.5px;font-weight:800;color:var(--navy)}
+  .visit-date{font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .visit-badges{display:flex;gap:6px;flex-wrap:wrap}
+  .visit-meta{font-size:12px;color:var(--text-soft);line-height:1.6}
+  .visit-meta b{color:var(--navy)}
+  .visit-foot{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--text-faint);margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);font-weight:600}
 
-  /* TABS — desktop only, mirrors Work Report / My Jobs pages */
-  .page-tabs{display:none}
-  .pt-inner{display:flex;width:100%;max-width:800px;padding:0 1rem;overflow-x:auto}
-  .pt{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
-  .pt:hover{color:#10193A}
-  .pt.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
-
-  /* BOTTOM NAV */
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom)}
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .wrap{max-width:720px;margin:1.4rem auto;padding:0 1rem}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:16px;padding:1.6rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15.5px;font-weight:800;margin-bottom:1.3rem;padding-bottom:.9rem;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:8px;color:#10193A}
-
-  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:1.3rem 0 .65rem;display:flex;align-items:center;gap:6px}
-  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
-  .section-label:first-of-type{margin-top:0}
-
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-  .field{margin-bottom:13px}
-  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:6px}
-  input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
-  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
-  textarea{resize:vertical;min-height:80px}
-
-  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:11px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s,box-shadow .15s}
-  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
-  .submit-btn:active{transform:scale(.98)}
-  .required{color:#E5484D}
-
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:1.2rem;font-weight:600}
-
-  /* HISTORY TABLE */
-  .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
-  .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
-  .rec-count{font-size:12px;color:#696B78;font-weight:600}
-  .tbl-scroll{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  thead tr{background:#F6F4EF}
-  th{padding:9px 12px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
-  td{padding:9px 12px;border-bottom:1px solid #F6F4EF;vertical-align:top}
-  tr:last-child td{border-bottom:none}
-  tr:hover td{background:#FAFAF8}
-
-  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
-  .badge-interested{background:#D9F5E8;color:#0E6B43}
-  .badge-followup{background:#DCE9FF;color:#1A4FA0}
-  .badge-new{background:#FFF3D9;color:#7A4A00}
-  .badge-followupv{background:#EEE7FF;color:#5B30D1}
-
-  .empty-state{text-align:center;padding:3rem 1rem;color:#A8A4C4}
-  .empty-state .es-ic{font-size:2.5rem;margin-bottom:.8rem}
-  .empty-state p{font-size:13px;font-weight:600}
-
-  /* ---------- FILTER BAR ---------- */
-  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:16px;margin-bottom:1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
-  .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
-  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
-  .filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:2px}
-  .btn-filter{padding:8px 18px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
-  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
-  @media(max-width:540px){.row2{grid-template-columns:1fr}.row3{grid-template-columns:1fr}}
-  @media(min-width:860px){
-    body{padding-bottom:0}
-    .bottom-nav{display:none}
-    .page-tabs{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
-    .wrap{max-width:800px;margin:2rem auto}
+  .desktop-table{display:none}
+  @media(min-width:760px){
+    .visit-list{display:none}
+    .desktop-table{display:block}
   }
+
+  .table-hdr{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .table-hdr-title{font-size:13px;font-weight:800;color:var(--navy)}
 </style>
 </head>
 <body>
@@ -111,14 +47,14 @@
   <a href="/logout" class="logout">Logout</a>
 </div>
 
-<!-- PAGE TABS -->
-<div class="page-tabs">
-  <div class="pt-inner">
-  {% if perms.get('work_report', True) %}<a href="/form" class="pt">📋 Work Report</a>{% endif %}
-  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="pt">📌 My Jobs</a>{% endif %}
-  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="pt active">🤝 Sales Report</a>{% endif %}
-  {% if perms.get('ta', True) %}<a href="/ta-report" class="pt">🧾 Travel Expenses</a>{% endif %}
-  {% if perms.get('support', True) %}<a href="/support-report" class="pt">🔧 Support</a>{% endif %}
+<div class="nav-tabs-desktop">
+  <div class="nd-inner">
+  {% if perms.get('work_report', True) %}<a href="/form" class="nd-tab">📋 Work Report</a>{% endif %}
+  {% if perms.get('my_jobs', True) %}<a href="/my-jobs" class="nd-tab">📌 My Jobs</a>{% endif %}
+  {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="nd-tab active">🤝 Sales Report</a>{% endif %}
+  {% if perms.get('ta', True) %}<a href="/ta-report" class="nd-tab">🧾 Travel Expenses</a>{% endif %}
+  {% if perms.get('support', True) %}<a href="/support-report" class="nd-tab">🔧 Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="nd-tab">📦 Products</a>{% endif %}
   </div>
 </div>
 
@@ -248,13 +184,44 @@
     </div>
   </form>
 
-  <div class="table-card">
-    <div class="table-hdr">
-      <span class="table-hdr-title">📂 My Visit History</span>
-      <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+  <div class="table-hdr">
+    <span class="table-hdr-title">📂 My Visit History</span>
+    <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
+  </div>
+
+  {% if history %}
+
+  <!-- Mobile: card list -->
+  <div class="visit-list">
+    {% for v in history %}
+    <div class="visit-card">
+      <div class="visit-top">
+        <div>
+          <div class="visit-client">{{ v.client_name }}</div>
+          <div class="visit-date">{{ v.visit_date }}</div>
+        </div>
+        <div class="visit-badges">
+          {% if v.type_of_visit == 'New Visit' %}<span class="badge badge-new">New</span>
+          {% else %}<span class="badge badge-followupv">Follow-up</span>{% endif %}
+          {% if v.visit_outcome == 'Interested' %}<span class="badge badge-interested">Interested</span>
+          {% else %}<span class="badge badge-followup">Need Follow-up</span>{% endif %}
+        </div>
+      </div>
+      <div class="visit-meta">
+        {% if v.contact_number %}📞 <b>{{ v.contact_number }}</b><br>{% endif %}
+        {% if v.address %}📍 {{ v.address }}<br>{% endif %}
+        {% if v.products_interested %}🛒 {{ v.products_interested }}{% endif %}
+      </div>
+      <div class="visit-foot">
+        <span>Follow-up: <b style="color:var(--navy)">{{ v.next_followup_date or '—' }}</b></span>
+        <span>Submitted {{ v.timestamp[:10] }}</span>
+      </div>
     </div>
-    {% if history %}
-    <div class="tbl-scroll">
+    {% endfor %}
+  </div>
+
+  <!-- Desktop: table -->
+  <div class="tbl-wrap desktop-table">
       <table>
         <thead>
           <tr>
@@ -273,8 +240,8 @@
             <td>{{ v.visit_date }}</td>
             <td>
               <strong>{{ v.client_name }}</strong>
-              {% if v.contact_number %}<br><span style="color:#696B78;font-size:11px">{{ v.contact_number }}</span>{% endif %}
-              {% if v.address %}<br><span style="color:#696B78;font-size:11px">{{ v.address }}</span>{% endif %}
+              {% if v.contact_number %}<br><span style="color:var(--text-soft);font-size:11px">{{ v.contact_number }}</span>{% endif %}
+              {% if v.address %}<br><span style="color:var(--text-soft);font-size:11px">{{ v.address }}</span>{% endif %}
             </td>
             <td>
               {% if v.type_of_visit == 'New Visit' %}
@@ -292,13 +259,14 @@
             </td>
             <td style="max-width:160px">{{ v.products_interested or '—' }}</td>
             <td>{{ v.next_followup_date or '—' }}</td>
-            <td style="color:#696B78;font-size:11px">{{ v.timestamp[:10] }}</td>
+            <td style="color:var(--text-soft);font-size:11px">{{ v.timestamp[:10] }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
-    {% else %}
+  </div>
+
+  {% else %}
     <div class="empty-state">
       <div class="es-ic">🤝</div>
       {% if filters.vtype or filters.outcome or filters.from_d or filters.to_d or filters.search %}
@@ -307,8 +275,7 @@
       <p>No visit reports yet.<br>Submit your first one above!</p>
       {% endif %}
     </div>
-    {% endif %}
-  </div>
+  {% endif %}
 
 </div><!-- /wrap -->
 
@@ -319,6 +286,7 @@
   {% if perms.get('sales_visit', True) %}<a href="/sales-visit" class="bn-item active"><span class="bn-ic">🤝</span>Sales</a>{% endif %}
   {% if perms.get('ta', True) %}<a href="/ta-report" class="bn-item"><span class="bn-ic">🧾</span>TA</a>{% endif %}
   {% if perms.get('support', True) %}<a href="/support-report" class="bn-item"><span class="bn-ic">🔧</span>Support</a>{% endif %}
+  {% if perms.get('products', True) %}<a href="/products" class="bn-item"><span class="bn-ic">📦</span>Products</a>{% endif %}
 </nav>
 
 <script>

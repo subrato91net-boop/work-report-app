@@ -11,104 +11,37 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>Daily Report — {{ name }}</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:84px}
-  a{color:inherit}
-
-  :root{--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:32px}
-
-  /* ---------- TOPBAR ---------- */
-  .topbar{
-    background:#10193A;padding:0 24px;display:flex;align-items:center;justify-content:space-between;
-    height:56px;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(16,25,58,0.15);
-  }
-  .topbar-left{display:flex;align-items:center;gap:11px}
-  .avatar{width:34px;height:34px;background:#FF7A1A;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#10193A;flex-shrink:0}
-  .tname{font-size:14px;font-weight:700;color:#fff;line-height:1.3}
-  .trole{font-size:10.5px;color:#9CA3C4;font-weight:600;text-transform:uppercase;letter-spacing:.05em;line-height:1.3}
-  .logout{padding:7px 14px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-weight:600}
-  .logout:hover{background:rgba(255,255,255,0.14)}
-
-  /* ---------- DESKTOP TOP NAV (hidden on mobile) ---------- */
-  .nav-tabs-desktop{display:none}
-
-  /* ---------- MOBILE BOTTOM NAV ---------- */
-  .bottom-nav{
-    position:fixed;bottom:0;left:0;right:0;background:#0B1228;display:flex;z-index:30;
-    box-shadow:0 -4px 20px rgba(0,0,0,0.25);padding-bottom:env(safe-area-inset-bottom);
-  }
-  .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:#7E84A3;font-size:10px;font-weight:700;letter-spacing:.01em}
-  .bn-item .bn-ic{font-size:19px;line-height:1}
-  .bn-item.active{color:#FF7A1A}
-
-  .wrap{max-width:640px;margin:var(--sp-6) auto;padding:0 var(--sp-4)}
-  .card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:var(--sp-7);margin-bottom:var(--sp-5);box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .card-title{font-size:15px;font-weight:700;letter-spacing:-.01em;margin-bottom:var(--sp-5);padding-bottom:var(--sp-4);border-bottom:1px solid #F0EEE6;display:flex;align-items:center;gap:9px;color:#10193A}
-  .card-title .ic{line-height:1;font-size:16px}
-
+  /* ---- page-specific: attendance strip ---- */
   .att-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
-  .att-box{background:#F6F4EF;border:1px solid #E7E4DA;border-radius:12px;padding:var(--sp-4) var(--sp-3);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px}
-  .att-label{font-size:10.5px;color:#696B78;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1}
-  .att-val{font-size:18px;font-weight:800;color:#10193A;font-variant-numeric:tabular-nums;line-height:1}
-  .att-val.green{color:#1AAE6F}
+  .att-box{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-4) var(--sp-3);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px}
+  .att-label{font-size:10px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1}
+  .att-val{font-size:18px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1}
+  .att-val.green{color:var(--green)}
 
-  .section-label{font-size:11px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.08em;margin:var(--sp-6) 0 var(--sp-3);display:flex;align-items:center;gap:6px}
-  .section-label:first-of-type{margin-top:0}
-  .section-label::after{content:"";flex:1;height:1px;background:#F0EEE6}
+  .lock-note-text{font-size:11.5px;color:var(--text-faint);margin:-10px 0 14px;font-weight:600;display:flex;gap:6px;align-items:flex-start;line-height:1.5}
 
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
-  .field{margin-bottom:var(--sp-4)}
-  label{display:block;font-size:13px;color:#10193A;font-weight:700;margin-bottom:7px}
-  input,select,textarea{width:100%;padding:10px 13px;font-size:14px;color:#14141A;background:#F6F4EF;border:1.5px solid #E7E4DA;border-radius:10px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
-  input:focus,select:focus,textarea:focus{border-color:#FF7A1A;box-shadow:0 0 0 4px rgba(255,122,26,0.12);background:#fff}
-  textarea{resize:vertical;min-height:72px}
+  /* ---- report history: cards on mobile, table on desktop ---- */
+  .rep-list{display:flex;flex-direction:column;gap:10px}
+  .rep-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px}
+  .rep-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .rep-date{font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em}
+  .rep-type{font-size:14px;font-weight:800;color:var(--navy);margin-top:2px}
+  .rep-summary{font-size:12.5px;color:var(--text-soft);line-height:1.5;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .rep-meta-row{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--text-soft);margin-bottom:10px}
+  .rep-meta-row b{color:var(--navy);font-weight:700}
+  .rep-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line-soft)}
+  .rep-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .reject-note{font-size:11px;color:#9A2A2D;margin-top:4px;flex-basis:100%}
+  .btn-edit-rep{padding:6px 13px;border:1.5px solid var(--signal);border-radius:var(--r-pill);background:#fff;color:var(--signal-ink);font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn-edit-rep:hover{background:var(--signal-soft)}
+  .locked-tag{font-size:11px;color:var(--text-faint);font-weight:700;display:flex;align-items:center;gap:4px}
 
-  .status-row{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-5)}
-  .status-btn{flex:1;padding:11px 6px;border:1.5px solid #E7E4DA;border-radius:10px;background:#F6F4EF;font-size:12.5px;cursor:pointer;color:#696B78;font-family:inherit;font-weight:700;transition:all .15s}
-  .status-btn.done{background:#D9F5E8;border-color:#1AAE6F;color:#0E6B43}
-  .status-btn.pending{background:#FBE2E2;border-color:#E5484D;color:#9A2A2D}
-  .status-btn.partial{background:#DCE9FF;border-color:#2D7FF9;color:#1A4FA0}
-
-  .submit-btn{width:100%;padding:13px;background:#FF7A1A;color:#10193A;border:none;border-radius:10px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(255,122,26,0.3);transition:transform .1s, box-shadow .15s}
-  .submit-btn:hover{box-shadow:0 10px 26px rgba(255,122,26,0.4)}
-  .submit-btn:active{transform:scale(.98)}
-
-  .success{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC;border-radius:10px;padding:12px 15px;font-size:13.5px;margin-bottom:var(--sp-5);font-weight:600}
-  .required{color:#E5484D}
-
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th{padding:8px 10px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
-  td{padding:9px 10px;border-bottom:1px solid #F6F4EF}
-  tr:last-child td{border-bottom:none}
-  .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
-  .badge-present{background:#D9F5E8;color:#0E6B43}
-  .badge-absent{background:#FBE2E2;color:#9A2A2D}
-  .badge-half{background:#DCE9FF;color:#1A4FA0}
-
-  /* ---------- FILTER BAR ---------- */
-  .filters{background:#fff;border:1px solid #E7E4DA;border-radius:12px;padding:var(--sp-4);margin-bottom:var(--sp-5);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-3);box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-  .fg{display:flex;flex-direction:column;gap:5px;min-width:0}
-  .fg label{font-size:11px;color:#696B78;font-weight:700}
-  .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;width:100%}
-  .fg input:focus,.fg select:focus{border-color:#FF7A1A}
-  .filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:2px}
-  .btn-filter{padding:8px 18px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700}
-  .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;text-decoration:none;font-weight:700}
-  .rec-count{font-size:12px;color:#696B78;font-weight:600}
-
-  @media(max-width:480px){.row2{grid-template-columns:1fr}.att-strip{grid-template-columns:repeat(2,1fr)}}
-
-  /* ---------- DESKTOP LAYOUT ---------- */
-  @media(min-width:860px){
-    body{padding-bottom:0}
-    .bottom-nav{display:none}
-    .nav-tabs-desktop{display:flex;justify-content:center;background:#fff;border-bottom:1px solid #E7E4DA;position:sticky;top:56px;z-index:19}
-    .nd-inner{display:flex;width:100%;max-width:760px;padding:0 24px;overflow-x:auto}
-    .nd-tab{padding:16px 18px;font-size:13px;color:#696B78;text-decoration:none;border-bottom:2px solid transparent;font-weight:600;letter-spacing:.01em;transition:color .15s,border-color .15s;white-space:nowrap}
-    .nd-tab:hover{color:#10193A}
-    .nd-tab.active{color:#FF7A1A;border-bottom-color:#FF7A1A;font-weight:700}
-    .wrap{max-width:760px;margin:32px auto;padding:0 24px}
+  .desktop-table{display:none}
+  @media(min-width:760px){
+    .rep-list{display:none}
+    .desktop-table{display:block}
   }
 </style>
 </head>
@@ -155,7 +88,7 @@
   <div class="card">
     <div class="card-title" id="formTitle"><span class="ic">📋</span>Daily Work Report</div>
     {% if success %}<div class="success">✅ Report saved successfully!</div>{% endif %}
-    {% if lock_error %}<div class="success" style="background:#FBE2E2;color:#9A2A2D;border-color:#F5C2C2">🔒 That report is locked (already submitted for review) and can no longer be edited.</div>{% endif %}
+    {% if lock_error %}<div class="error-box">🔒 That report is locked (already submitted for review) and can no longer be edited.</div>{% endif %}
     <div class="success" id="editBanner" style="display:none;background:#FFF3D9;color:#7A4A00;border-color:#F5DCA0">✏️ Editing an existing report — saving will update this entry.</div>
     <form method="POST" id="reportForm">
       <input type="hidden" name="status" id="statusInput" value="">
@@ -164,7 +97,7 @@
       <div class="row2">
         <div class="field">
           <label>Your name</label>
-          <input type="text" value="{{ name }}" disabled style="background:#F0EEE6;color:#696B78">
+          <input type="text" value="{{ name }}" disabled style="background:var(--line-soft);color:var(--text-soft)">
         </div>
         <div class="field">
           <label>Date <span class="required">*</span></label>
@@ -218,9 +151,9 @@
         <button type="button" class="status-btn" id="btn-pending" onclick="setStatus('pending')">⏳ Pending</button>
         <button type="button" class="status-btn" id="btn-partial" onclick="setStatus('partial')">🔄 Partial</button>
       </div>
-      <p style="font-size:11.5px;color:#A8A4C4;margin:-10px 0 14px;font-weight:600">🔒 Marking a report <b>Completed</b> sends it for manager review and locks it from further edits.</p>
+      <p class="lock-note-text">🔒 Marking a report <b>Completed</b> sends it for manager review and locks it from further edits.</p>
       <button type="submit" class="submit-btn" id="submitBtn" onclick="return validateForm()">Submit Report →</button>
-      <button type="button" class="btn-clear" id="cancelEditBtn" style="display:none;width:100%;text-align:center;margin-top:8px;padding:11px" onclick="resetForm()">Cancel Edit</button>
+      <button type="button" class="btn-secondary" id="cancelEditBtn" style="display:none;margin-top:9px" onclick="resetForm()">Cancel Edit</button>
     </form>
   </div>
 
@@ -252,10 +185,63 @@
         </div>
       </div>
     </form>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:.8rem">
       <span class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</span>
     </div>
     {% if recent %}
+
+    <!-- Mobile: card list -->
+    <div class="rep-list">
+      {% for r in recent %}
+      {% set s = r['status']|lower %}
+      {% set rv = r['review_status'] or 'Draft' %}
+      {% set editable = rv in ['Draft', 'Rejected'] %}
+      <div class="rep-card">
+        <div class="rep-card-top">
+          <div>
+            <div class="rep-date">{{ r['date'] }}</div>
+            <div class="rep-type">{{ r['work_type'] }}</div>
+          </div>
+          <span class="badge {% if s in ['done','completed'] %}badge-present{% elif s=='pending' %}badge-absent{% else %}badge-half{% endif %}">{{ r['status']|title }}</span>
+        </div>
+        {% if r['summary'] %}<div class="rep-summary">{{ r['summary'] }}</div>{% endif %}
+        <div class="rep-meta-row">
+          <span>👤 <b>{{ r['supervisor_name'] or '—' }}</b></span>
+          {% if r['client_name'] %}<span>🏢 <b>{{ r['client_name'] }}</b></span>{% endif %}
+        </div>
+        <div class="rep-bottom">
+          <div class="rep-badges">
+            {% if rv == 'Awaiting Review' %}
+              <span class="badge badge-half">🔒 Awaiting Review</span>
+            {% elif rv == 'Approved' %}
+              <span class="badge badge-present">🔒 Approved</span>
+            {% elif rv == 'Rejected' %}
+              <span class="badge badge-absent">↩ Rejected</span>
+            {% else %}
+              <span class="badge badge-other">Draft</span>
+            {% endif %}
+          </div>
+          {% if editable %}
+          <button type="button" class="btn-edit-rep"
+            onclick='editReport({{ {
+              "id": r["id"], "date": r["date"], "work_type": r["work_type"],
+              "client_name": r["client_name"] or "", "location": r["location"] or "",
+              "supervisor_code": r["supervisor_code"] or "", "summary": r["summary"] or "",
+              "remarks": r["remarks"] or "", "status": s
+            }|tojson }})'>✏️ Edit</button>
+          {% else %}
+          <span class="locked-tag">🔒 Locked</span>
+          {% endif %}
+          {% if rv == 'Rejected' and r['reject_reason'] %}
+          <div class="reject-note">{{ r['reject_reason'] }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Desktop: table -->
+    <div class="tbl-wrap desktop-table">
     <table>
       <thead><tr><th>Date</th><th>Work type</th><th>Job details</th><th>Supervisor</th><th>Status</th><th>Review</th><th></th></tr></thead>
       <tbody>
@@ -277,7 +263,7 @@
           {% elif rv == 'Rejected' %}
             <span class="badge badge-absent" title="{{ r['reject_reason'] or '' }}">↩ Rejected</span>
           {% else %}
-            <span class="badge" style="background:#F0EEE6;color:#696B78">Draft</span>
+            <span class="badge badge-other">Draft</span>
           {% endif %}
           {% if rv == 'Rejected' and r['reject_reason'] %}
           <div style="font-size:11px;color:#9A2A2D;margin-top:3px;max-width:160px">{{ r['reject_reason'] }}</div>
@@ -285,7 +271,7 @@
         </td>
         <td>
           {% if editable %}
-          <button type="button" class="btn-clear" style="padding:5px 11px;font-size:11.5px"
+          <button type="button" class="btn-edit-rep" style="padding:5px 11px;font-size:11.5px"
             onclick='editReport({{ {
               "id": r["id"], "date": r["date"], "work_type": r["work_type"],
               "client_name": r["client_name"] or "", "location": r["location"] or "",
@@ -293,15 +279,17 @@
               "remarks": r["remarks"] or "", "status": s
             }|tojson }})'>✏️ Edit</button>
           {% else %}
-          <span style="font-size:11px;color:#C7C4B8">🔒 locked</span>
+          <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
           {% endif %}
         </td>
       </tr>
       {% endfor %}
       </tbody>
     </table>
+    </div>
+
     {% else %}
-    <div style="text-align:center;padding:2.5rem 1rem;color:#A8A4C4;font-weight:600;font-size:13px">🔍 No reports found. Try clearing the filters.</div>
+    <div class="empty-state">🔍 No reports found. Try clearing the filters.</div>
     {% endif %}
   </div>
 
