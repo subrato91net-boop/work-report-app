@@ -831,7 +831,12 @@ def approve_report(report_id):
                             reviewed_by=%s, reviewed_at=%s
         WHERE id=%s AND review_status='Awaiting Review'
     """, (session.get("name","Manager"), now, report_id))
-    conn.commit(); cur.close(); conn.close()
+    conn.commit()
+    cur.execute("SELECT emp_code, work_type FROM reports WHERE id=%s", (report_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if row:
+        send_push(row["emp_code"], "Work report approved", row["work_type"] or "Your report was approved", url="/form")
     return redirect(request.referrer or url_for("manager_view"))
 
 @app.route("/manager/reports/<int:report_id>/reject", methods=["POST"])
@@ -845,7 +850,12 @@ def reject_report(report_id):
                             reviewed_by=%s, reviewed_at=%s
         WHERE id=%s AND review_status='Awaiting Review'
     """, (reason, session.get("name","Manager"), now, report_id))
-    conn.commit(); cur.close(); conn.close()
+    conn.commit()
+    cur.execute("SELECT emp_code, work_type FROM reports WHERE id=%s", (report_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if row:
+        send_push(row["emp_code"], "Work report rejected", row["work_type"] or "Your report was rejected", url="/form")
     return redirect(request.referrer or url_for("manager_view"))
 
 # ══════════════════════════════════════════
@@ -900,6 +910,9 @@ def assign_job():
             ))
             conn.commit(); cur.close(); conn.close()
             success = True
+            job_title_for_push = request.form.get("job_title") or "New job"
+            for code in set(emp_codes + sup_codes):
+                send_push(code, "New job assigned", job_title_for_push, url="/my-jobs")
 
     # filters for the "All Assigned Jobs" list
     f_emp    = request.args.get("emp", "")
@@ -1117,6 +1130,8 @@ def finalize_job_edit(req_id):
         WHERE id=%s
     """, (now, session.get("name", "Manager"), manager_note, req_id))
     conn.commit(); cur.close(); conn.close()
+    if req["submitted_code"]:
+        send_push(req["submitted_code"], "Job edit request reviewed", "Your edit request was finalized.", url="/my-jobs")
     return redirect(url_for("assign_job") + "?finalized=1")
 
 
@@ -1127,7 +1142,7 @@ def decline_job_edit(req_id):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     manager_note = request.form.get("manager_note", "")
     conn = get_db(); cur = conn.cursor()
-    cur.execute("SELECT job_id FROM job_edit_requests WHERE id=%s", (req_id,))
+    cur.execute("SELECT job_id, submitted_code FROM job_edit_requests WHERE id=%s", (req_id,))
     req = cur.fetchone()
     if req:
         cur.execute("""
@@ -1137,6 +1152,8 @@ def decline_job_edit(req_id):
         """, (now, session.get("name", "Manager"), manager_note, req_id))
         cur.execute("UPDATE jobs SET review_status='Normal' WHERE id=%s", (req["job_id"],))
     conn.commit(); cur.close(); conn.close()
+    if req and req["submitted_code"]:
+        send_push(req["submitted_code"], "Job edit request reviewed", "Your edit request was declined.", url="/my-jobs")
     return redirect(url_for("assign_job") + "?declined=1")
 
 
@@ -1283,7 +1300,12 @@ def supervisor_approve_report(report_id):
         UPDATE reports SET review_status='Approved', reviewed_at=%s, reviewed_by=%s
         WHERE id=%s
     """, (now, session.get("name","Supervisor"), report_id))
-    conn.commit(); cur.close(); conn.close()
+    conn.commit()
+    cur.execute("SELECT emp_code, work_type FROM reports WHERE id=%s", (report_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if row:
+        send_push(row["emp_code"], "Work report approved", row["work_type"] or "Your report was approved", url="/form")
     return redirect(request.referrer or url_for("supervisor_reports"))
 
 
@@ -1297,7 +1319,12 @@ def supervisor_reject_report(report_id):
         UPDATE reports SET review_status='Rejected', reviewed_at=%s, reviewed_by=%s
         WHERE id=%s
     """, (now, session.get("name","Supervisor"), report_id))
-    conn.commit(); cur.close(); conn.close()
+    conn.commit()
+    cur.execute("SELECT emp_code, work_type FROM reports WHERE id=%s", (report_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if row:
+        send_push(row["emp_code"], "Work report rejected", row["work_type"] or "Your report was rejected", url="/form")
     return redirect(request.referrer or url_for("supervisor_reports"))
 
 
@@ -2179,26 +2206,34 @@ def manager_ta_bulk_update():
     if ids and action:
         conn = get_db(); cur = conn.cursor()
         if action == "approve":
+            cur.execute("SELECT DISTINCT emp_code FROM ta_reports WHERE id = ANY(%s) AND emp_code IS NOT NULL", (ids,))
+            affected_codes = [r["emp_code"] for r in cur.fetchall()]
             cur.execute("""
                 UPDATE ta_reports SET approval_status='Approved', last_edited=%s, last_edited_by=%s
                 WHERE id = ANY(%s)
             """, (now, session["name"], ids))
+            conn.commit()
+            for code in affected_codes:
+                send_push(code, "Travel expense approved", "One or more of your TA reports were approved.", url="/ta-report")
         elif action == "unapprove":
             cur.execute("""
                 UPDATE ta_reports SET approval_status='Not Approved', last_edited=%s, last_edited_by=%s
                 WHERE id = ANY(%s)
             """, (now, session["name"], ids))
+            conn.commit()
         elif action == "mark_paid":
             cur.execute("""
                 UPDATE ta_reports SET payment_status='Paid', last_edited=%s, last_edited_by=%s
                 WHERE id = ANY(%s)
             """, (now, session["name"], ids))
+            conn.commit()
         elif action == "mark_due":
             cur.execute("""
                 UPDATE ta_reports SET payment_status='Due', last_edited=%s, last_edited_by=%s
                 WHERE id = ANY(%s)
             """, (now, session["name"], ids))
-        conn.commit(); cur.close(); conn.close()
+            conn.commit()
+        cur.close(); conn.close()
 
     return redirect(url_for("manager_ta_reports", **{k: v for k, v in request.args.items()}))
 
@@ -4587,3 +4622,289 @@ def supervisor_add_employee():
         perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}),
         department_choices=department_choices,
         flash=request.args.get("flash",""), flash_type=request.args.get("flash_type","success"))
+
+
+# ══════════════════════════════════════════
+#  ROUTES — SUPERVISOR: JOBS / TA / SALES / SUPPORT / CLIENTS (view-only)
+# ══════════════════════════════════════════
+@app.route("/supervisor/jobs")
+def supervisor_jobs():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_view_jobs"): return redirect(url_for("no_access"))
+    f_status = request.args.get("status", "")
+    f_search = request.args.get("search", "")
+    conn = get_db(); cur = conn.cursor()
+    query = "SELECT * FROM jobs WHERE 1=1"
+    params = []
+    if f_status:
+        query += " AND status=%s"; params.append(f_status)
+    if f_search:
+        query += " AND (job_title ILIKE %s OR company ILIKE %s OR location ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s]
+    query += " ORDER BY id DESC LIMIT 200"
+    cur.execute(query, params)
+    jobs = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_jobs.html",
+        jobs=jobs, record_count=len(jobs), filters={"status": f_status, "search": f_search},
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
+
+
+@app.route("/supervisor/ta")
+def supervisor_ta():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_view_ta"): return redirect(url_for("no_access"))
+    can_approve = has_sup_perm("can_approve_ta")
+    f_status   = request.args.get("status", "")
+    f_approval = request.args.get("approval", "")
+    f_search   = request.args.get("search", "")
+    conn = get_db(); cur = conn.cursor()
+    query = "SELECT * FROM ta_reports WHERE 1=1"
+    params = []
+    if f_status:
+        query += " AND payment_status=%s"; params.append(f_status)
+    if f_approval:
+        query += " AND approval_status=%s"; params.append(f_approval)
+    if f_search:
+        query += " AND (from_place ILIKE %s OR to_place ILIKE %s OR description ILIKE %s OR emp_name ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s, s]
+    query += " ORDER BY travel_date DESC, id DESC LIMIT 200"
+    cur.execute(query, params)
+    reports = cur.fetchall()
+    cur.execute("SELECT COALESCE(SUM(expense_cost),0) AS total FROM ta_reports WHERE approval_status='Not Approved'")
+    pending_approval_total = float(cur.fetchone()["total"])
+    cur.close(); conn.close()
+    filtered_total = sum(float(r["expense_cost"] or 0) for r in reports)
+    return render_template("supervisor_ta.html",
+        reports=reports, record_count=len(reports), filtered_total=filtered_total,
+        pending_approval_total=pending_approval_total, can_approve=can_approve,
+        filters={"status": f_status, "approval": f_approval, "search": f_search},
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
+
+
+@app.route("/supervisor/ta/<int:report_id>/approve", methods=["POST"])
+def supervisor_ta_approve(report_id):
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_approve_ta"): return redirect(url_for("no_access"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE ta_reports SET approval_status='Approved', last_edited=%s, last_edited_by=%s
+        WHERE id=%s
+    """, (now, session.get("name", "Supervisor"), report_id))
+    conn.commit()
+    cur.execute("SELECT emp_code FROM ta_reports WHERE id=%s", (report_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if row and row["emp_code"]:
+        send_push(row["emp_code"], "Travel expense approved", "Your TA report was approved.", url="/ta-report")
+    return redirect(url_for("supervisor_ta", **{k: v for k, v in request.args.items()}))
+
+
+@app.route("/supervisor/ta/<int:report_id>/unapprove", methods=["POST"])
+def supervisor_ta_unapprove(report_id):
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_approve_ta"): return redirect(url_for("no_access"))
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE ta_reports SET approval_status='Not Approved', last_edited=%s, last_edited_by=%s
+        WHERE id=%s
+    """, (now, session.get("name", "Supervisor"), report_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("supervisor_ta", **{k: v for k, v in request.args.items()}))
+
+
+@app.route("/supervisor/sales")
+def supervisor_sales():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_view_sales"): return redirect(url_for("no_access"))
+    f_search = request.args.get("search", "")
+    conn = get_db(); cur = conn.cursor()
+    query = "SELECT * FROM sales_visits WHERE 1=1"
+    params = []
+    if f_search:
+        query += " AND (client_name ILIKE %s OR salesperson_name ILIKE %s OR address ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s]
+    query += " ORDER BY visit_date DESC, id DESC LIMIT 200"
+    cur.execute(query, params)
+    visits = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_sales.html",
+        visits=visits, record_count=len(visits), filters={"search": f_search},
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
+
+
+@app.route("/supervisor/support")
+def supervisor_support():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_view_support"): return redirect(url_for("no_access"))
+    f_status = request.args.get("status", "")
+    f_search = request.args.get("search", "")
+    conn = get_db(); cur = conn.cursor()
+    query = "SELECT * FROM support_reports WHERE 1=1"
+    params = []
+    if f_status:
+        query += " AND status=%s"; params.append(f_status)
+    if f_search:
+        query += " AND (company ILIKE %s OR contact_person ILIKE %s OR issue_description ILIKE %s)"
+        s = f"%{f_search}%"; params += [s, s, s]
+    query += " ORDER BY id DESC LIMIT 200"
+    cur.execute(query, params)
+    tickets = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_support.html",
+        tickets=tickets, record_count=len(tickets), filters={"status": f_status, "search": f_search},
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
+
+
+@app.route("/supervisor/clients")
+def supervisor_clients():
+    if not logged_in() or not is_supervisor(): return redirect(url_for("index"))
+    if not has_sup_perm("can_view_clients"): return redirect(url_for("no_access"))
+    f_search = request.args.get("search", "")
+    conn = get_db(); cur = conn.cursor()
+    query = """
+        SELECT c.*,
+               COUNT(DISTINCT v.id) AS visit_count,
+               MAX(v.visit_date)    AS last_visit_date
+        FROM companies c
+        LEFT JOIN sales_visits v ON v.company_id = c.id
+        WHERE 1=1
+    """
+    params = []
+    if f_search:
+        query += " AND c.name ILIKE %s"; params.append(f"%{f_search}%")
+    query += " GROUP BY c.id ORDER BY c.name ASC"
+    cur.execute(query, params)
+    companies = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("supervisor_clients.html",
+        companies=companies, record_count=len(companies), filters={"search": f_search},
+        name=session.get("name", "Supervisor"),
+        perms=session.get("perms", {}), sup_perms=session.get("sup_perms", {}))
+
+
+# ══════════════════════════════════════════
+#  WEB PUSH NOTIFICATIONS
+# ══════════════════════════════════════════
+# VAPID keypair: override via environment variables in production. The
+# defaults below are a real, valid P-256 keypair generated for this app so
+# push works out of the box; rotate them via env vars if you ever need to.
+VAPID_PUBLIC_KEY  = os.environ.get("VAPID_PUBLIC_KEY",  "BC9KKwi89ZHPXy2rK9D5AaLlX3MNSqDbigDuZkXl80lbKha_e6owhCmCd9xkbDwlM88tTNyg9P0Y8cwUPywTxk4")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "Gn60emJzZsLlUNxBUZoOi7EMw4Q_L-BmHoPAfviyqsk")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "mailto:admin@workreport.app")
+
+try:
+    from pywebpush import webpush, WebPushException
+    _PUSH_AVAILABLE = True
+except Exception:
+    _PUSH_AVAILABLE = False
+
+def init_push_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id          SERIAL PRIMARY KEY,
+            emp_code    TEXT NOT NULL,
+            endpoint    TEXT NOT NULL UNIQUE,
+            p256dh      TEXT NOT NULL,
+            auth        TEXT NOT NULL,
+            created_at  TEXT
+        )
+    """)
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_push_db()
+        print("✅ Push subscription table ready")
+    except Exception as e:
+        print(f"⚠️ Push DB init error: {e}")
+
+
+def send_push(emp_code, title, body, url="/"):
+    """Best-effort push to all of an employee's subscribed devices.
+    Never raises — a failed/expired subscription is just removed and the
+    rest of the app continues normally, since notifications are a nice-to-have
+    and must never block or break the action that triggered them."""
+    if not _PUSH_AVAILABLE:
+        return
+    import json as _json
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT * FROM push_subscriptions WHERE emp_code=%s", (emp_code,))
+        subs = cur.fetchall()
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info={
+                        "endpoint": sub["endpoint"],
+                        "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
+                    },
+                    data=_json.dumps({"title": title, "body": body, "url": url}),
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": VAPID_CLAIMS_EMAIL},
+                )
+            except WebPushException as e:
+                # 404/410 = subscription expired or revoked by the browser; clean it up.
+                status = getattr(e.response, "status_code", None)
+                if status in (404, 410):
+                    cur.execute("DELETE FROM push_subscriptions WHERE id=%s", (sub["id"],))
+                    conn.commit()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/push/vapid-public-key")
+def push_vapid_public_key():
+    if not logged_in(): return jsonify({"error": "not logged in"}), 401
+    return jsonify({"publicKey": VAPID_PUBLIC_KEY})
+
+
+@app.route("/push/subscribe", methods=["POST"])
+def push_subscribe():
+    if not logged_in(): return jsonify({"ok": False}), 401
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint", "")
+    keys = data.get("keys", {})
+    p256dh = keys.get("p256dh", "")
+    auth = keys.get("auth", "")
+    if not endpoint or not p256dh or not auth:
+        return jsonify({"ok": False, "error": "Incomplete subscription"}), 400
+    emp_code = get_emp_code()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO push_subscriptions (emp_code, endpoint, p256dh, auth, created_at)
+            VALUES (%s,%s,%s,%s,%s)
+            ON CONFLICT (endpoint) DO UPDATE SET emp_code=%s, p256dh=%s, auth=%s, created_at=%s
+        """, (emp_code, endpoint, p256dh, auth, now, emp_code, p256dh, auth, now))
+        conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/push/unsubscribe", methods=["POST"])
+def push_unsubscribe():
+    if not logged_in(): return jsonify({"ok": False}), 401
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint", "")
+    if endpoint:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("DELETE FROM push_subscriptions WHERE endpoint=%s", (endpoint,))
+        conn.commit(); cur.close(); conn.close()
+    return jsonify({"ok": True})
