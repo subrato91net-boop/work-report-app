@@ -112,15 +112,20 @@
             <option>Work from home</option>
           </select>
         </div>
+      {% if visibility.get('client_name', True) %}
         <div class="field">
           <label>Client name</label>
           <input type="text" name="client_name" id="f_client_name" placeholder="Client / company">
         </div>
+      {% endif %}
       </div>
+      {% if visibility.get('location', True) %}
       <div class="field">
         <label>Location</label>
         <input type="text" name="location" id="f_location" placeholder="Address, area, Office or Home">
       </div>
+      {% endif %}
+      {% if visibility.get('supervisor', True) %}
       <div class="field">
         <label>Supervisor <span class="required">*</span></label>
         <select name="supervisor_code" id="f_supervisor_code" required>
@@ -131,14 +136,43 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
       <div class="field">
         <label>Job details <span class="required">*</span></label>
         <textarea name="summary" id="f_summary" placeholder="Describe the work done today in detail..." style="min-height:160px" required></textarea>
       </div>
+      {% if visibility.get('remarks', True) %}
       <div class="field">
         <label>Remarks / notes</label>
         <textarea name="remarks" id="f_remarks" placeholder="Extra notes (optional)" style="min-height:48px"></textarea>
       </div>
+      {% endif %}
+      {% if custom_fields %}
+      <div class="section-label" style="font-size:11px;font-weight:700;color:#696B78;text-transform:uppercase;letter-spacing:.05em;margin:1rem 0 .5rem">Additional Fields</div>
+      {% for f in custom_fields %}
+      <div class="field">
+        <label>{{ f.label }}{% if f.is_required %} <span class="required">*</span>{% endif %}</label>
+        {% if f.field_type == 'text' %}
+          <input type="text" name="cf_{{ f.id }}" id="cf_{{ f.id }}" {% if f.is_required %}required{% endif %}>
+        {% elif f.field_type == 'number' %}
+          <input type="number" name="cf_{{ f.id }}" id="cf_{{ f.id }}" {% if f.is_required %}required{% endif %}>
+        {% elif f.field_type == 'date' %}
+          <input type="date" name="cf_{{ f.id }}" id="cf_{{ f.id }}" {% if f.is_required %}required{% endif %}>
+        {% elif f.field_type == 'boolean' %}
+          <label style="display:flex;align-items:center;gap:8px;font-weight:500">
+            <input type="checkbox" name="cf_{{ f.id }}" id="cf_{{ f.id }}" value="Yes"> Yes
+          </label>
+        {% elif f.field_type == 'dropdown' %}
+          <select name="cf_{{ f.id }}" id="cf_{{ f.id }}" {% if f.is_required %}required{% endif %}>
+            <option value="">— Select —</option>
+            {% for opt in (f.dropdown_opts or '').split(',') %}
+            {% if opt.strip() %}<option value="{{ opt.strip() }}">{{ opt.strip() }}</option>{% endif %}
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
 
       <div class="section-label">Job status <span class="required">*</span></div>
       <div class="status-row">

@@ -627,9 +627,6 @@ def employee_form():
 
         conn = get_db(); cur = conn.cursor()
         if edit_id:
-            # Only allow editing rows that are still unlocked (Draft or Rejected) and
-            # belong to this employee. The WHERE clause is the actual security boundary
-            # here, not just the UI hiding the edit button.
             cur.execute("""
                 UPDATE reports
                 SET company=%s, date=%s, work_type=%s, client_name=%s, location=%s,
@@ -647,11 +644,15 @@ def employee_form():
                 lock_error = True
             else:
                 success = True
+                conn.commit()
+                report_custom_fields, _ = get_form_config("report")
+                save_custom_field_values("report", int(edit_id), report_custom_fields, request.form)
         else:
             cur.execute("""
                 INSERT INTO reports
                 (timestamp,emp_code,emp_name,company,date,work_type,client_name,location,summary,remarks,status,supervisor_code,supervisor_name,review_status)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
             """, (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 get_emp_code(), session["name"], session.get("company",""),
@@ -660,7 +661,11 @@ def employee_form():
                 request.form.get("summary"), request.form.get("remarks"),
                 new_status, sup_code, sup_name, new_review_status,
             ))
+            new_id = cur.fetchone()["id"]
             success = True
+            conn.commit()
+            report_custom_fields, _ = get_form_config("report")
+            save_custom_field_values("report", new_id, report_custom_fields, request.form)
         conn.commit(); cur.close(); conn.close()
 
     # filters for "my reports" history (own reports only)
@@ -702,6 +707,8 @@ def employee_form():
                             att_today=att_today, supervisor_choices=supervisor_choices,
                             record_count=len(recent), perms=session.get("perms", {}),
                             role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
+                            custom_fields=get_form_config("report")[0],
+                            visibility=get_form_config("report")[1],
                             filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
@@ -813,12 +820,18 @@ def manager_view():
     cur.execute("SELECT DISTINCT emp_name FROM reports ORDER BY emp_name");                  emp_list  = [r["emp_name"] for r in cur.fetchall()]
     cur.close(); conn.close()
 
+    report_custom_fields, report_visibility = get_form_config("report")
+    report_ids = [r["id"] for r in reports]
+    report_custom_values = load_custom_field_values("report", report_ids)
+
     return render_template("manager.html",
         reports=reports, emp_list=emp_list,
         total=total, completed=completed, pending=pending, partial=partial, today_ct=today_ct,
         awaiting_review=awaiting_review,
         filters={"emp":emp,"wtype":wtype,"status":status,"review":review,"from_d":from_d,"to_d":to_d,"search":search},
-        record_count=len(reports)
+        record_count=len(reports),
+        custom_fields=report_custom_fields,
+        custom_values=report_custom_values,
     )
 
 @app.route("/manager/reports/<int:report_id>/approve", methods=["POST"])
@@ -895,6 +908,7 @@ def assign_job():
                 (created_at, assigned_by, emp_codes, emp_names, supervisor_codes, supervisor_names,
                  company, job_title, job_description, location, start_date, end_date, status)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
             """, (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 session.get("name", "Manager"),
@@ -908,7 +922,11 @@ def assign_job():
                 request.form.get("end_date"),
                 request.form.get("status") or "Open",
             ))
-            conn.commit(); cur.close(); conn.close()
+            new_job_id = cur.fetchone()["id"]
+            conn.commit()
+            job_custom_fields, _ = get_form_config("job")
+            save_custom_field_values("job", new_job_id, job_custom_fields, request.form)
+            cur.close(); conn.close()
             success = True
             job_title_for_push = request.form.get("job_title") or "New job"
             for code in set(emp_codes + sup_codes):
@@ -959,6 +977,7 @@ def assign_job():
     edited   = request.args.get("edited")   == "1"
     finalized= request.args.get("finalized")== "1"
     declined = request.args.get("declined") == "1"
+    job_custom_fields, job_visibility = get_form_config("job")
     return render_template("assign_job.html",
         success=success, error=error, edited=edited,
         finalized=finalized, declined=declined,
@@ -969,6 +988,7 @@ def assign_job():
         name=session.get("name", ""),
         role=session.get("role", "manager"), perms=session.get("perms", {}),
         sup_perms=session.get("sup_perms", {}),
+        custom_fields=job_custom_fields, visibility=job_visibility,
         filters={"emp": f_emp, "status": f_status, "search": f_search,
                  "from_d": f_from, "to_d": f_to, "review": f_review}
     )
@@ -1211,12 +1231,20 @@ def export_reports():
     conn = get_db(); cur = conn.cursor()
     cur.execute("SELECT * FROM reports ORDER BY timestamp DESC")
     rows = cur.fetchall(); cur.close(); conn.close()
+    report_custom_fields, _ = get_form_config("report")
+    report_ids = [r["id"] for r in rows]
+    custom_values = load_custom_field_values("report", report_ids)
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID","Timestamp","Emp Code","Emp Name","Company","Date","Work Type","Client","Location","Summary","Remarks","Status","Supervisor"])
+    base_headers = ["ID","Timestamp","Emp Code","Emp Name","Company","Date","Work Type","Client","Location","Summary","Remarks","Status","Supervisor"]
+    custom_headers = [f["label"] for f in report_custom_fields]
+    writer.writerow(base_headers + custom_headers)
     for r in rows:
-        writer.writerow([r["id"],r["timestamp"],r["emp_code"],r["emp_name"],r["company"],
-                         r["date"],r["work_type"],r["client_name"],r["location"],r["summary"],r["remarks"],r["status"],r.get("supervisor_name") or ""])
+        base_row = [r["id"],r["timestamp"],r["emp_code"],r["emp_name"],r["company"],
+                    r["date"],r["work_type"],r["client_name"],r["location"],r["summary"],r["remarks"],r["status"],r.get("supervisor_name") or ""]
+        cv = custom_values.get(r["id"], {})
+        custom_row = [cv.get(f["id"], "") for f in report_custom_fields]
+        writer.writerow(base_row + custom_row)
     output.seek(0)
     return Response(output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition":"attachment;filename=work_reports.csv"})
@@ -4908,3 +4936,293 @@ def push_unsubscribe():
         cur.execute("DELETE FROM push_subscriptions WHERE endpoint=%s", (endpoint,))
         conn.commit(); cur.close(); conn.close()
     return jsonify({"ok": True})
+
+
+# ══════════════════════════════════════════
+#  FORM BUILDER — SCHEMA + HELPERS
+# ══════════════════════════════════════════
+def init_form_builder_db():
+    conn = get_db(); cur = conn.cursor()
+    # Custom field definitions per form
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS form_fields (
+            id              SERIAL PRIMARY KEY,
+            form_type       TEXT NOT NULL,
+            field_key       TEXT NOT NULL UNIQUE,
+            label           TEXT NOT NULL,
+            field_type      TEXT NOT NULL DEFAULT 'text',
+            dropdown_opts   TEXT,
+            is_required     BOOLEAN DEFAULT FALSE,
+            sort_order      INT DEFAULT 0,
+            is_active       BOOLEAN DEFAULT TRUE,
+            created_by      TEXT,
+            created_at      TEXT
+        )
+    """)
+    # Which built-in fields are hidden per form
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS form_field_visibility (
+            form_type   TEXT NOT NULL,
+            field_key   TEXT NOT NULL,
+            is_visible  BOOLEAN DEFAULT TRUE,
+            PRIMARY KEY (form_type, field_key)
+        )
+    """)
+    # Custom field values per submission
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS custom_field_values (
+            id          SERIAL PRIMARY KEY,
+            form_type   TEXT NOT NULL,
+            record_id   INT  NOT NULL,
+            field_id    INT  NOT NULL REFERENCES form_fields(id) ON DELETE CASCADE,
+            value       TEXT
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS cfv_lookup ON custom_field_values(form_type, record_id)")
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_form_builder_db()
+        print("✅ Form builder tables ready")
+    except Exception as e:
+        print(f"⚠️ Form builder init error: {e}")
+
+
+def get_form_config(form_type):
+    """Return (active_custom_fields, visibility_map) for a form type.
+    visibility_map: {field_key: True/False} for all built-in fields.
+    active_custom_fields: list of dicts for active custom fields, ordered by sort_order."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM form_fields
+        WHERE form_type=%s AND is_active=TRUE
+        ORDER BY sort_order, id
+    """, (form_type,))
+    custom_fields = [dict(r) for r in cur.fetchall()]
+    cur.execute("""
+        SELECT field_key, is_visible FROM form_field_visibility
+        WHERE form_type=%s
+    """, (form_type,))
+    visibility_map = {r["field_key"]: r["is_visible"] for r in cur.fetchall()}
+    cur.close(); conn.close()
+    return custom_fields, visibility_map
+
+
+def save_custom_field_values(form_type, record_id, custom_fields, form_data):
+    """Save submitted custom field values for a job or report."""
+    if not custom_fields: return
+    conn = get_db(); cur = conn.cursor()
+    # Delete old values for this record first (handles edit case)
+    cur.execute("DELETE FROM custom_field_values WHERE form_type=%s AND record_id=%s",
+                (form_type, record_id))
+    for f in custom_fields:
+        val = form_data.get(f"cf_{f['id']}", "").strip()
+        if val:
+            cur.execute("""
+                INSERT INTO custom_field_values (form_type, record_id, field_id, value)
+                VALUES (%s,%s,%s,%s)
+            """, (form_type, record_id, f["id"], val))
+    conn.commit(); cur.close(); conn.close()
+
+
+def load_custom_field_values(form_type, record_ids):
+    """Return {record_id: {field_id: value}} for a list of record IDs."""
+    if not record_ids: return {}
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT record_id, field_id, value FROM custom_field_values
+        WHERE form_type=%s AND record_id = ANY(%s)
+    """, (form_type, list(record_ids)))
+    result = {}
+    for r in cur.fetchall():
+        result.setdefault(r["record_id"], {})[r["field_id"]] = r["value"]
+    cur.close(); conn.close()
+    return result
+
+
+def field_is_visible(visibility_map, field_key, default=True):
+    """True if a built-in field should be shown (defaults to visible if not configured)."""
+    return visibility_map.get(field_key, default)
+
+
+# ══════════════════════════════════════════
+#  ROUTES — FORM BUILDER (MANAGER ONLY)
+# ══════════════════════════════════════════
+# Built-in fields that can be toggled visible/hidden per form type.
+# 'locked' fields cannot be hidden because the system depends on them.
+BUILTIN_FIELDS = {
+    "job": [
+        {"key": "job_title",       "label": "Job Title",       "locked": True},
+        {"key": "job_description", "label": "Job Description",  "locked": False},
+        {"key": "location",        "label": "Location",         "locked": False},
+        {"key": "company",         "label": "Company / Client", "locked": False},
+        {"key": "start_date",      "label": "Start Date",       "locked": False},
+        {"key": "end_date",        "label": "End Date",         "locked": False},
+        {"key": "status",          "label": "Status",           "locked": True},
+    ],
+    "report": [
+        {"key": "work_type",   "label": "Work Type",       "locked": True},
+        {"key": "client_name", "label": "Client Name",     "locked": False},
+        {"key": "location",    "label": "Location",        "locked": False},
+        {"key": "supervisor",  "label": "Supervisor",      "locked": False},
+        {"key": "summary",     "label": "Job Details",     "locked": True},
+        {"key": "remarks",     "label": "Remarks / Notes", "locked": False},
+    ],
+}
+
+
+@app.route("/manager/form-builder")
+def form_builder():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    result = {}
+    for ft in ["job", "report"]:
+        cur.execute("""
+            SELECT * FROM form_fields WHERE form_type=%s ORDER BY sort_order, id
+        """, (ft,))
+        custom = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT field_key, is_visible FROM form_field_visibility WHERE form_type=%s", (ft,))
+        vis = {r["field_key"]: r["is_visible"] for r in cur.fetchall()}
+        result[ft] = {"custom": custom, "visibility": vis}
+    cur.close(); conn.close()
+    return render_template("form_builder.html",
+        name=session.get("name",""),
+        job_fields=result["job"]["custom"],
+        report_fields=result["report"]["custom"],
+        job_visibility=result["job"]["visibility"],
+        report_visibility=result["report"]["visibility"],
+        builtin_fields=BUILTIN_FIELDS,
+        flash=request.args.get("flash",""),
+        flash_type=request.args.get("flash_type","success"))
+
+
+@app.route("/manager/form-builder/field/add", methods=["POST"])
+def form_builder_add_field():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    form_type   = request.form.get("form_type","").strip()
+    label       = request.form.get("label","").strip()
+    field_type  = request.form.get("field_type","text").strip()
+    dropdown_opts = request.form.get("dropdown_opts","").strip()
+    is_required = "is_required" in request.form
+    if not form_type or not label:
+        return redirect(url_for("form_builder", flash="Label is required.", flash_type="error"))
+    if form_type not in ("job","report"):
+        return redirect(url_for("form_builder", flash="Invalid form type.", flash_type="error"))
+    # Generate a unique field_key from label
+    import re as _re
+    field_key = "cf_" + _re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:40]
+    field_key += f"_{form_type}"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT COALESCE(MAX(sort_order),0)+1 FROM form_fields WHERE form_type=%s", (form_type,))
+        next_order = cur.fetchone()[0]
+        cur.execute("""
+            INSERT INTO form_fields (form_type, field_key, label, field_type, dropdown_opts,
+                                     is_required, sort_order, is_active, created_by, created_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,TRUE,%s,%s)
+        """, (form_type, field_key, label, field_type, dropdown_opts or None,
+              is_required, next_order, session.get("name","Manager"), now))
+        conn.commit()
+        return redirect(url_for("form_builder", flash=f"Field '{label}' added.", flash_type="success"))
+    except Exception as e:
+        conn.rollback()
+        return redirect(url_for("form_builder", flash=f"Error: {e}", flash_type="error"))
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/manager/form-builder/field/<int:field_id>/update", methods=["POST"])
+def form_builder_update_field(field_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    label         = request.form.get("label","").strip()
+    dropdown_opts = request.form.get("dropdown_opts","").strip()
+    is_required   = "is_required" in request.form
+    if not label:
+        return redirect(url_for("form_builder", flash="Label is required.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE form_fields SET label=%s, dropdown_opts=%s, is_required=%s WHERE id=%s
+    """, (label, dropdown_opts or None, is_required, field_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("form_builder", flash="Field updated.", flash_type="success"))
+
+
+@app.route("/manager/form-builder/field/<int:field_id>/toggle", methods=["POST"])
+def form_builder_toggle_field(field_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT is_active FROM form_fields WHERE id=%s", (field_id,))
+    row = cur.fetchone()
+    if row:
+        cur.execute("UPDATE form_fields SET is_active=%s WHERE id=%s",
+                    (not row["is_active"], field_id))
+        conn.commit()
+    cur.close(); conn.close()
+    return redirect(url_for("form_builder", flash="Field updated.", flash_type="success"))
+
+
+@app.route("/manager/form-builder/field/<int:field_id>/delete", methods=["POST"])
+def form_builder_delete_field(field_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) AS c FROM custom_field_values WHERE field_id=%s", (field_id,))
+    count = cur.fetchone()["c"]
+    if count > 0:
+        cur.close(); conn.close()
+        return redirect(url_for("form_builder",
+            flash=f"Cannot delete: {count} submission(s) have values for this field. Deactivate it instead.",
+            flash_type="error"))
+    cur.execute("DELETE FROM form_fields WHERE id=%s", (field_id,))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("form_builder", flash="Field deleted.", flash_type="success"))
+
+
+@app.route("/manager/form-builder/field/<int:field_id>/reorder", methods=["POST"])
+def form_builder_reorder_field(field_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    direction = request.form.get("direction","")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT form_type, sort_order FROM form_fields WHERE id=%s", (field_id,))
+    row = cur.fetchone()
+    if row:
+        ft, so = row["form_type"], row["sort_order"]
+        if direction == "up":
+            cur.execute("""
+                SELECT id FROM form_fields WHERE form_type=%s AND sort_order<%s
+                ORDER BY sort_order DESC LIMIT 1
+            """, (ft, so))
+        else:
+            cur.execute("""
+                SELECT id FROM form_fields WHERE form_type=%s AND sort_order>%s
+                ORDER BY sort_order ASC LIMIT 1
+            """, (ft, so))
+        other = cur.fetchone()
+        if other:
+            cur.execute("SELECT sort_order FROM form_fields WHERE id=%s", (other["id"],))
+            other_so = cur.fetchone()["sort_order"]
+            cur.execute("UPDATE form_fields SET sort_order=%s WHERE id=%s", (other_so, field_id))
+            cur.execute("UPDATE form_fields SET sort_order=%s WHERE id=%s", (so, other["id"]))
+            conn.commit()
+    cur.close(); conn.close()
+    return redirect(url_for("form_builder"))
+
+
+@app.route("/manager/form-builder/visibility", methods=["POST"])
+def form_builder_visibility():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    form_type = request.form.get("form_type","")
+    field_key = request.form.get("field_key","")
+    is_visible = request.form.get("is_visible","1") == "1"
+    if form_type not in ("job","report") or not field_key:
+        return redirect(url_for("form_builder", flash="Invalid request.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO form_field_visibility (form_type, field_key, is_visible)
+        VALUES (%s,%s,%s)
+        ON CONFLICT (form_type, field_key) DO UPDATE SET is_visible=%s
+    """, (form_type, field_key, is_visible, is_visible))
+    conn.commit(); cur.close(); conn.close()
+    verb = "shown" if is_visible else "hidden"
+    return redirect(url_for("form_builder", flash=f"Field {verb}.", flash_type="success"))

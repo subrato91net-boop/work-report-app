@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Form Builder — Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:40px}
+a{color:inherit;text-decoration:none}
+.topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+.topbar-title{font-size:14.5px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+.badge-admin{background:#FF7A1A;color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700}
+.btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-sm:hover{background:rgba(255,255,255,.14)}
+.main{max-width:1040px;margin:0 auto;padding:1.5rem 1rem}
+h1{font-size:22px;font-weight:800;margin-bottom:.3rem}
+.sub{color:#696B78;font-size:14px;margin-bottom:1.4rem}
+.flash{padding:12px 16px;border-radius:10px;margin-bottom:1rem;font-size:13px;font-weight:600}
+.flash.success{background:#E8F5E9;color:#1B5E20;border:1px solid #C8E6C9}
+.flash.error{background:#FEECEC;color:#B71C1C;border:1px solid #FFCDD2}
+.tabs{display:flex;gap:4px;margin-bottom:1.2rem}
+.tab{padding:8px 20px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:inherit;background:#fff;color:#696B78;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.tab.active{background:#10193A;color:#fff}
+.pane{display:none}.pane.active{display:block}
+.section{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:1.2rem;overflow:hidden}
+.section-head{padding:.9rem 1.2rem;border-bottom:1px solid #F0EDE6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.section-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:7px}
+.section-sub{font-size:12px;color:#696B78;margin-top:2px}
+.field-row{display:flex;align-items:center;gap:10px;padding:.75rem 1.2rem;border-top:1px solid #F6F4EF;flex-wrap:wrap}
+.field-row:first-of-type{border-top:none}
+.field-label{font-size:13px;font-weight:600;flex:1;min-width:120px}
+.field-type-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#EDE7F6;color:#4527A0}
+.field-status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.status-on{background:#E8F5E9;color:#1B5E20}
+.status-off{background:#F5F5F5;color:#9E9E9E}
+.locked-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#F0EDE6;color:#A8A4C4}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn-action{padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit}
+.btn-edit{background:#EDE7F6;color:#4527A0}
+.btn-toggle-on{background:#E8F5E9;color:#1B5E20;border:1.5px solid #C8E6C9}
+.btn-toggle-off{background:#FFF3E0;color:#E65100;border:1.5px solid #FFE0B2}
+.btn-del{background:#FEECEC;color:#B71C1C;border:1.5px solid #FFCDD2}
+.btn-order{background:#F0EDE6;color:#696B78}
+.add-card{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.2rem}
+.add-title{font-size:14px;font-weight:800;margin-bottom:1rem}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:1rem}
+.field label{font-size:11.5px;font-weight:700;color:#696B78;text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff}
+.field textarea{min-height:52px;resize:vertical}
+.field small{color:#9CA3AF;font-size:11px;margin-top:3px;display:block}
+.btn-pri{padding:9px 20px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#10193A;color:#fff}
+.btn-pri:hover{background:#1a2654}
+.chk-label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.chk-label input{width:16px;height:16px;accent-color:#FF7A1A;cursor:pointer}
+.dropdown-opts-wrap{display:none}
+.edit-panel{display:none;padding:.75rem 1.2rem;background:#F6F4EF;border-top:1px dashed #E7E4DA}
+.edit-panel.open{display:block}
+.vis-row{display:flex;align-items:center;gap:12px;padding:.7rem 1.2rem;border-top:1px solid #F6F4EF;flex-wrap:wrap}
+.vis-label{font-size:13px;font-weight:600;flex:1}
+.vis-toggle form{display:inline}
+.required-dot{color:#E65100;margin-left:2px}
+</style>
+</head>
+<body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('manager', {}, 'form_builder', name|default('')) }}
+<div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
+  <div class="topbar-title">🛠 WorkReport <span class="badge-admin">Super Admin</span></div>
+  <div style="display:flex;gap:8px">
+    <a href="/dashboard" class="btn-sm">← Dashboard</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+  <h1>🛠 Form Builder</h1>
+  <p class="sub">Control which fields appear on the Assign Job form and Work Report form. Hide built-in fields you don't use, and add custom fields tailored to your workflow.</p>
+
+  {% if flash %}
+  <div class="flash {{ flash_type }}">{{ flash }}</div>
+  {% endif %}
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('job',this)">📌 Assign Job</button>
+    <button class="tab" onclick="switchTab('report',this)">📋 Work Report</button>
+  </div>
+
+  {% for form_type, form_label, custom_fields, visibility in [
+      ('job',    'Assign Job',    job_fields,    job_visibility),
+      ('report', 'Work Report',  report_fields, report_visibility)
+  ] %}
+  <div class="pane {% if form_type=='job' %}active{% endif %}" id="pane-{{ form_type }}">
+
+    {# ── Built-in fields ── #}
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">🔩 Built-in Fields</div>
+          <div class="section-sub">These are the standard fields. Locked fields can't be hidden — the system needs them.</div>
+        </div>
+      </div>
+      {% for bf in builtin_fields[form_type] %}
+      {% set is_visible = visibility.get(bf.key, True) %}
+      <div class="vis-row">
+        <span class="vis-label">
+          {{ bf.label }}
+          {% if bf.locked %}<span class="locked-badge">Locked</span>{% endif %}
+        </span>
+        {% if bf.locked %}
+          <span class="field-status status-on">Always shown</span>
+        {% else %}
+          <div class="vis-toggle">
+            <form method="POST" action="/manager/form-builder/visibility" style="display:inline">
+              <input type="hidden" name="form_type" value="{{ form_type }}">
+              <input type="hidden" name="field_key" value="{{ bf.key }}">
+              <input type="hidden" name="is_visible" value="{{ '0' if is_visible else '1' }}">
+              <button type="submit" class="btn-action {% if is_visible %}btn-toggle-on{% else %}btn-toggle-off{% endif %}">
+                {% if is_visible %}✅ Visible — click to hide{% else %}🚫 Hidden — click to show{% endif %}
+              </button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ── Custom fields ── #}
+    <div class="section">
+      <div class="section-head">
+        <div>
+          <div class="section-title">✨ Custom Fields</div>
+          <div class="section-sub">Added by you. Appear on the {{ form_label }} form after built-in fields.</div>
+        </div>
+      </div>
+      {% if custom_fields %}
+        {% for f in custom_fields %}
+        <div class="field-row">
+          <span class="field-label">
+            {{ f.label }}{% if f.is_required %}<span class="required-dot">*</span>{% endif %}
+          </span>
+          <span class="field-type-badge">{{ f.field_type }}</span>
+          {% if f.field_type == 'dropdown' and f.dropdown_opts %}
+            <span style="font-size:11px;color:#696B78">{{ f.dropdown_opts }}</span>
+          {% endif %}
+          <span class="field-status {% if f.is_active %}status-on{% else %}status-off{% endif %}">
+            {% if f.is_active %}Active{% else %}Hidden{% endif %}
+          </span>
+          <div class="row-actions">
+            <button class="btn-action btn-order" onclick="toggleEdit('edit-{{ f.id }}')">✏️ Edit</button>
+            <form method="POST" action="/manager/form-builder/field/{{ f.id }}/reorder" style="display:inline">
+              <input type="hidden" name="direction" value="up">
+              <button class="btn-action btn-order" type="submit">↑</button>
+            </form>
+            <form method="POST" action="/manager/form-builder/field/{{ f.id }}/reorder" style="display:inline">
+              <input type="hidden" name="direction" value="down">
+              <button class="btn-action btn-order" type="submit">↓</button>
+            </form>
+            <form method="POST" action="/manager/form-builder/field/{{ f.id }}/toggle" style="display:inline">
+              <button class="btn-action {% if f.is_active %}btn-toggle-off{% else %}btn-toggle-on{% endif %}" type="submit">
+                {% if f.is_active %}Hide{% else %}Show{% endif %}
+              </button>
+            </form>
+            <form method="POST" action="/manager/form-builder/field/{{ f.id }}/delete" style="display:inline"
+                  onsubmit="return confirm('Delete this field? This cannot be undone if submissions already used it.')">
+              <button class="btn-action btn-del" type="submit">🗑</button>
+            </form>
+          </div>
+        </div>
+        <div class="edit-panel" id="edit-{{ f.id }}">
+          <form method="POST" action="/manager/form-builder/field/{{ f.id }}/update">
+            <div class="form-grid">
+              <div class="field"><label>Label</label><input name="label" value="{{ f.label }}" required></div>
+              {% if f.field_type == 'dropdown' %}
+              <div class="field"><label>Options (comma-separated)</label><input name="dropdown_opts" value="{{ f.dropdown_opts or '' }}" placeholder="High,Medium,Low"></div>
+              {% endif %}
+            </div>
+            <label class="chk-label"><input type="checkbox" name="is_required" {% if f.is_required %}checked{% endif %}> Required field</label>
+            <br><button type="submit" class="btn-pri" style="margin-top:.7rem">💾 Save</button>
+          </form>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="padding:1.2rem;color:#9CA3AF;font-size:13px">No custom fields yet — add one below.</div>
+      {% endif %}
+    </div>
+
+    {# ── Add new field ── #}
+    <div class="add-card">
+      <div class="add-title">➕ Add Custom Field to {{ form_label }}</div>
+      <form method="POST" action="/manager/form-builder/field/add" id="addForm-{{ form_type }}">
+        <input type="hidden" name="form_type" value="{{ form_type }}">
+        <div class="form-grid">
+          <div class="field">
+            <label>Field Label</label>
+            <input name="label" placeholder="e.g. Serial Number" required>
+          </div>
+          <div class="field">
+            <label>Field Type</label>
+            <select name="field_type" onchange="toggleDropdownOpts(this, '{{ form_type }}')">
+              <option value="text">Text (short answer)</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="boolean">Yes / No checkbox</option>
+              <option value="dropdown">Dropdown (you define options)</option>
+            </select>
+          </div>
+          <div class="field dropdown-opts-wrap" id="dropopts-{{ form_type }}">
+            <label>Options <small>comma-separated</small></label>
+            <input name="dropdown_opts" placeholder="High,Medium,Low">
+          </div>
+        </div>
+        <label class="chk-label"><input type="checkbox" name="is_required"> Required field</label>
+        <br><button type="submit" class="btn-pri" style="margin-top:.85rem">Add Field</button>
+      </form>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+<script src="/static/push.js"></script>
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pane-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+function toggleDropdownOpts(sel, ft) {
+  document.getElementById('dropopts-' + ft).style.display = sel.value === 'dropdown' ? 'block' : 'none';
+}
+function toggleEdit(id) {
+  var el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+</script>
+</body>
+</html>
