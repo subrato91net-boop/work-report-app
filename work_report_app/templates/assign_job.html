@@ -769,12 +769,6 @@ roverlay.addEventListener('click', e => { if (e.target === roverlay) closeReview
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
 </script>
 
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
-}
-</script>
+<script src="/static/push.js"></script>
 </body>
 </html>

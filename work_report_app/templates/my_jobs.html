@@ -356,9 +356,7 @@ function setPill(el, val) {
 
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-if ('serviceWorker' in navigator)
-  window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js').catch(()=>{}));
 </script>
+<script src="/static/push.js"></script>
 </body>
 </html>

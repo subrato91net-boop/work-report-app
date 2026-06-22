@@ -217,12 +217,8 @@
   </div>
 </div>
 
+<script src="/static/push.js"></script>
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
-}
 function openReject(reportId, empName){
   document.getElementById('rejectForm').action = '/manager/reports/' + reportId + '/reject';
   document.getElementById('rejectEmpName').textContent = 'Report by ' + empName;

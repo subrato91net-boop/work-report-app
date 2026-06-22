@@ -42,6 +42,9 @@
 .sb-item .sb-badge{margin-left:auto;background:rgba(255,122,26,.25);color:#FF7A1A;font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px}
 /* ── Bottom ── */
 .sb-footer{padding:12px 8px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.sb-notify-btn{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;background:rgba(124,58,237,.18);border:none;color:#C4B5FD;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-bottom:4px;font-family:inherit;transition:background .12s}
+.sb-notify-btn:hover:not(:disabled){background:rgba(124,58,237,.32)}
+.sb-notify-btn:disabled{opacity:.6;cursor:default}
 .sb-logout{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;text-decoration:none;color:#A8B4D8;font-size:13px;font-weight:600;transition:background .12s}
 .sb-logout:hover{background:rgba(239,68,68,.15);color:#f87171}
 /* ── Topbar ── */
@@ -189,6 +192,7 @@ body{padding-left:0;transition:padding-left .25s}
   </nav>
 
   <div class="sb-footer">
+    <button id="wr-enable-push-btn" onclick="wrEnableNotifications()" class="sb-notify-btn" style="display:none">🔔 Enable Notifications</button>
     <a href="/logout" class="sb-logout"><span style="font-size:17px">🚪</span>Logout</a>
   </div>
 </div>
@@ -196,5 +200,17 @@ body{padding-left:0;transition:padding-left .25s}
 <script>
 function openSB(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sb-overlay').classList.add('open') }
 function closeSB(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sb-overlay').classList.remove('open') }
+
+// Show the notifications button only if push is supported and not yet granted
+if ('Notification' in window && 'PushManager' in window) {
+  if (Notification.permission === 'default') {
+    document.getElementById('wr-enable-push-btn').style.display = 'block';
+  } else if (Notification.permission === 'granted') {
+    var btn = document.getElementById('wr-enable-push-btn');
+    btn.textContent = '🔔 Notifications on';
+    btn.style.display = 'block';
+    btn.disabled = true;
+  }
+}
 </script>
 {% endmacro %}

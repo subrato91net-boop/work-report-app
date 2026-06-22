@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Reports — Supervisor</title>
+<title>Support — Supervisor</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:24px}
@@ -15,7 +15,7 @@
   .main{max-width:1100px;margin:0 auto;padding:1.4rem 1rem}
   h1{font-size:20px;font-weight:800;margin-bottom:1rem}
   .filter-bar{display:flex;gap:10px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center}
-  .filter-bar input[type=date]{padding:8px 12px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13px;background:#fff}
+  .filter-bar input,.filter-bar select{padding:8px 12px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13px;background:#fff;font-family:inherit}
   .btn{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   .btn-pri{background:#10193A;color:#fff}
   .btn-back{background:#fff;color:#10193A;border:1.5px solid #E7E4DA;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -25,80 +25,63 @@
   tr:hover td{background:#fafaf8}
   .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
   .badge-pending{background:#FFF3E0;color:#E65100}
-  .badge-done{background:#E8F5E9;color:#1B5E20}
-  .badge-awaiting{background:#EDE7F6;color:#4527A0}
-  .badge-approved{background:#E8F5E9;color:#1B5E20}
-  .badge-rejected{background:#FEECEC;color:#B71C1C}
-  .action-btns{display:flex;gap:6px}
-  .btn-approve{background:#16A34A;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
-  .btn-reject{background:#DC2626;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
+  .badge-complete{background:#E8F5E9;color:#1B5E20}
+  .badge-progress{background:#EDE7F6;color:#4527A0}
   .empty{text-align:center;padding:3rem;color:#696B78;font-size:14px}
 </style>
 </head>
 <body>
 {% from 'sidebar_macro.html' import sidebar %}
-{{ sidebar('supervisor', perms|default({}), 'reports', name|default(''), sup_perms|default({})) }}
+{{ sidebar('supervisor', perms|default({}), 'support', name|default(''), sup_perms|default({})) }}
 <div class="topbar">
   <button id="sb-toggle" onclick="openSB()">☰</button>
-  <div class="topbar-title">📋 Work Reports<span class="badge-sup">Supervisor</span></div>
+  <div class="topbar-title">🔧 Support<span class="badge-sup">Supervisor</span></div>
   <div style="display:flex;gap:8px">
     <a href="/supervisor/dashboard" class="btn-sm">← Dashboard</a>
     <a href="/logout" class="btn-sm">Logout</a>
   </div>
 </div>
 <div class="main">
-  <h1>Work Reports</h1>
+  <h1>Support Tickets</h1>
   <form method="get" class="filter-bar">
-    <input type="date" name="date" value="{{ date_filter }}" placeholder="Filter by date">
+    <input type="text" name="search" value="{{ filters.search }}" placeholder="Search company / contact / issue…" style="min-width:240px">
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="Pending" {% if filters.status=='Pending' %}selected{% endif %}>Pending</option>
+      <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
+      <option value="Complete" {% if filters.status=='Complete' %}selected{% endif %}>Complete</option>
+    </select>
     <button type="submit" class="btn btn-pri">Filter</button>
-    {% if date_filter %}<a href="/supervisor/reports" class="btn btn-back">Clear</a>{% endif %}
+    {% if filters.search or filters.status %}<a href="/supervisor/support" class="btn btn-back">Clear</a>{% endif %}
   </form>
 
-  {% if reports %}
+  {% if tickets %}
   <table>
     <thead>
       <tr>
-        <th>Date</th><th>Employee</th><th>Work Type</th><th>Client</th>
-        <th>Status</th><th>Review</th>{% if can_approve %}<th>Action</th>{% endif %}
+        <th>Date</th><th>Employee</th><th>Company</th><th>Contact</th>
+        <th>Issue</th><th>Status</th>
       </tr>
     </thead>
     <tbody>
-    {% for r in reports %}
+    {% for t in tickets %}
       <tr>
-        <td>{{ r.date }}</td>
-        <td><strong>{{ r.emp_name }}</strong><br><small style="color:#696B78">{{ r.emp_code }}</small></td>
-        <td>{{ r.work_type }}</td>
-        <td>{{ r.client_name or '—' }}</td>
+        <td>{{ t.support_date }}</td>
+        <td>{{ t.emp_name }}</td>
+        <td><strong>{{ t.company or '—' }}</strong></td>
+        <td>{{ t.contact_person or '—' }}</td>
+        <td style="max-width:280px">{{ t.issue_description or '—' }}</td>
         <td>
-          <span class="badge {% if r.status|lower in ['done','completed'] %}badge-done{% elif r.status|lower == 'pending' %}badge-pending{% else %}badge-awaiting{% endif %}">
-            {{ r.status }}
+          <span class="badge {% if t.status|lower == 'complete' %}badge-complete{% elif t.status|lower == 'in progress' %}badge-progress{% else %}badge-pending{% endif %}">
+            {{ t.status or 'Pending' }}
           </span>
         </td>
-        <td>
-          <span class="badge {% if r.review_status == 'Approved' %}badge-approved{% elif r.review_status == 'Rejected' %}badge-rejected{% elif r.review_status == 'Awaiting Review' %}badge-awaiting{% else %}badge-pending{% endif %}">
-            {{ r.review_status or 'Draft' }}
-          </span>
-        </td>
-        {% if can_approve %}
-        <td>
-          {% if r.review_status == 'Awaiting Review' %}
-          <div class="action-btns">
-            <form method="post" action="/supervisor/reports/{{ r.id }}/approve" style="display:inline">
-              <button class="btn-approve">✓ Approve</button>
-            </form>
-            <form method="post" action="/supervisor/reports/{{ r.id }}/reject" style="display:inline">
-              <button class="btn-reject">✗ Reject</button>
-            </form>
-          </div>
-          {% else %}—{% endif %}
-        </td>
-        {% endif %}
       </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <div class="empty">No reports found{% if date_filter %} for {{ date_filter }}{% endif %}.</div>
+  <div class="empty">No support tickets found.</div>
   {% endif %}
 </div>
 <script src="/static/push.js"></script>

@@ -49,12 +49,6 @@
     <p>Hi {{ name }}, your account doesn't currently have access to any section of this app. Please contact your administrator to have access enabled.</p>
     <a href="/logout" class="btn">Logout</a>
   </div>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
-}
-</script>
+<script src="/static/push.js"></script>
 </body>
 </html>

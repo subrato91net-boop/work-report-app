@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jobs — Supervisor</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:24px}
+  a{color:inherit;text-decoration:none}
+  .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.15)}
+  .topbar-title{font-size:14.5px;font-weight:800;color:#fff}
+  .badge-sup{background:#7C3AED;color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;margin-left:8px}
+  .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
+  .main{max-width:1100px;margin:0 auto;padding:1.4rem 1rem}
+  h1{font-size:20px;font-weight:800;margin-bottom:1rem}
+  .filter-bar{display:flex;gap:10px;margin-bottom:1.2rem;flex-wrap:wrap;align-items:center}
+  .filter-bar input,.filter-bar select{padding:8px 12px;border:1.5px solid #E7E4DA;border-radius:8px;font-size:13px;background:#fff;font-family:inherit}
+  .btn{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-pri{background:#10193A;color:#fff}
+  .btn-back{background:#fff;color:#10193A;border:1.5px solid #E7E4DA;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  th{background:#F0EDE6;font-size:11.5px;font-weight:700;color:#696B78;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px;text-align:left}
+  td{padding:10px 14px;font-size:13px;border-top:1px solid #F0EDE6}
+  tr:hover td{background:#fafaf8}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .badge-open{background:#E3F2FD;color:#0D47A1}
+  .badge-closed{background:#F5F5F5;color:#9E9E9E}
+  .badge-progress{background:#FFF3E0;color:#E65100}
+  .empty{text-align:center;padding:3rem;color:#696B78;font-size:14px}
+</style>
+</head>
+<body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar('supervisor', perms|default({}), 'assign_job', name|default(''), sup_perms|default({})) }}
+<div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
+  <div class="topbar-title">📌 Jobs<span class="badge-sup">Supervisor</span></div>
+  <div style="display:flex;gap:8px">
+    <a href="/supervisor/dashboard" class="btn-sm">← Dashboard</a>
+    <a href="/logout" class="btn-sm">Logout</a>
+  </div>
+</div>
+<div class="main">
+  <h1>Jobs</h1>
+  <form method="get" class="filter-bar">
+    <input type="text" name="search" value="{{ filters.search }}" placeholder="Search title / company / location…" style="min-width:220px">
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="Open" {% if filters.status=='Open' %}selected{% endif %}>Open</option>
+      <option value="In Progress" {% if filters.status=='In Progress' %}selected{% endif %}>In Progress</option>
+      <option value="Closed" {% if filters.status=='Closed' %}selected{% endif %}>Closed</option>
+    </select>
+    <button type="submit" class="btn btn-pri">Filter</button>
+    {% if filters.search or filters.status %}<a href="/supervisor/jobs" class="btn btn-back">Clear</a>{% endif %}
+  </form>
+
+  {% if jobs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th><th>Company</th><th>Employees</th><th>Location</th>
+        <th>Start → End</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td><strong>{{ j.job_title or '—' }}</strong></td>
+        <td>{{ j.company or '—' }}</td>
+        <td>{{ j.emp_names or '—' }}</td>
+        <td>{{ j.location or '—' }}</td>
+        <td>{{ j.start_date or '—' }} → {{ j.end_date or '—' }}</td>
+        <td>
+          <span class="badge {% if j.status=='Open' %}badge-open{% elif j.status=='Closed' %}badge-closed{% else %}badge-progress{% endif %}">
+            {{ j.status or 'Open' }}
+          </span>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No jobs found.</div>
+  {% endif %}
+</div>
+<script src="/static/push.js"></script>
+</body>
+</html>

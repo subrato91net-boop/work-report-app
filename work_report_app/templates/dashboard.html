@@ -225,11 +225,8 @@
 document.getElementById('updatedTag').textContent =
   'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
-}
+
 </script>
+<script src="/static/push.js"></script>
 </body>
 </html>

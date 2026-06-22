@@ -275,12 +275,6 @@
 
 <!-- MOBILE BOTTOM NAV -->
 
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-  });
-}
-</script>
+<script src="/static/push.js"></script>
 </body>
 </html>
