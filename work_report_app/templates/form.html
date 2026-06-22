@@ -43,6 +43,70 @@
     .rep-list{display:none}
     .desktop-table{display:block}
   }
+
+  /* ---- View button ---- */
+  .btn-view-rep{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid #10193A;border-radius:var(--r-pill);background:#fff;color:#10193A;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s}
+  .btn-view-rep:hover{background:#10193A;color:#fff}
+
+  /* ---- Detail drawer ---- */
+  .drawer-backdrop{
+    display:none;position:fixed;inset:0;
+    background:rgba(16,25,58,0.48);
+    z-index:200;backdrop-filter:blur(2px);
+    transition:opacity .22s ease;opacity:0;
+  }
+  .drawer-backdrop.open{display:block;opacity:1}
+  .drawer{
+    position:fixed;top:0;right:0;height:100%;
+    width:min(680px,100vw);
+    background:#fff;
+    box-shadow:-6px 0 40px rgba(16,25,58,0.18);
+    z-index:201;
+    display:flex;flex-direction:column;
+    transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+    overflow:hidden;
+  }
+  .drawer.open{transform:translateX(0)}
+  .drw-head{background:#10193A;padding:1.1rem 1.4rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .drw-head-left{display:flex;flex-direction:column;gap:3px}
+  .drw-head-title{font-size:15px;font-weight:800;color:#fff;display:flex;align-items:center;gap:9px}
+  .drw-head-sub{font-size:11.5px;color:rgba(255,255,255,.55);font-weight:600}
+  .drw-close{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;flex-shrink:0;transition:background .15s}
+  .drw-close:hover{background:rgba(255,255,255,.22)}
+  .drw-body{flex:1;overflow-y:auto;padding:1.5rem 1.4rem;display:flex;flex-direction:column;gap:1.3rem}
+  .drw-banner{border-radius:12px;padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .drw-banner.status-done{background:#D9F5E8;border:1.5px solid #A3E6C5}
+  .drw-banner.status-pending{background:#FBE2E2;border:1.5px solid #F2BCBC}
+  .drw-banner.status-partial{background:#DCE9FF;border:1.5px solid #B3CCFF}
+  .drw-banner .ban-left{display:flex;flex-direction:column;gap:3px}
+  .drw-banner .ban-label{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
+  .drw-banner .ban-val{font-size:16px;font-weight:800}
+  .drw-banner .ban-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .drw-section{background:#F6F4EF;border-radius:12px;padding:1.1rem 1.2rem}
+  .drw-section-title{font-size:10.5px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.9rem}
+  .drw-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.4rem}
+  .drw-field-label{font-size:10.5px;color:#A8A4C4;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .drw-field-val{font-size:13.5px;color:#14141A;font-weight:600;line-height:1.55}
+  .drw-field-val.muted{color:#696B78}
+  .text-box{background:#fff;border:1.5px solid #E7E4DA;border-radius:10px;padding:.9rem 1rem;font-size:13px;color:#2A2A35;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-height:60px;font-family:inherit}
+  .text-box.highlight{border-color:#FF7A1A20;background:#FFFDF9}
+  .review-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;font-size:11.5px;font-weight:800}
+  .rv-approved{background:#D9F5E8;color:#0E6B43}
+  .rv-awaiting{background:#FFF0CC;color:#7A4A00}
+  .rv-rejected{background:#FBE2E2;color:#9A2A2D}
+  .rv-draft{background:#F0EEE6;color:#696B78}
+  .rejected-reason{background:#FBE2E2;border:1.5px solid #F2BCBC;border-radius:10px;padding:.75rem 1rem;font-size:12.5px;color:#9A2A2D;font-weight:600;line-height:1.55}
+  .cf-chip{background:#fff;border:1.5px solid #E7E4DA;border-radius:9px;padding:.5rem .8rem}
+  .cf-chip-label{font-size:10px;color:#A8A4C4;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .cf-chip-val{font-size:13px;color:#14141A;font-weight:600}
+  @media(max-width:600px){
+    .drw-grid{grid-template-columns:1fr 1fr}
+    .drawer{width:100vw}
+  }
+  @media(max-width:400px){
+    .drw-grid{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
@@ -250,17 +314,24 @@
               <span class="badge badge-other">Draft</span>
             {% endif %}
           </div>
-          {% if editable %}
-          <button type="button" class="btn-edit-rep"
-            onclick='editReport({{ {
-              "id": r["id"], "date": r["date"], "work_type": r["work_type"],
-              "client_name": r["client_name"] or "", "location": r["location"] or "",
-              "supervisor_code": r["supervisor_code"] or "", "summary": r["summary"] or "",
-              "remarks": r["remarks"] or "", "status": s
-            }|tojson }})'>✏️ Edit</button>
-          {% else %}
-          <span class="locked-tag">🔒 Locked</span>
-          {% endif %}
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            {% set cf_vals = custom_values.get(r['id'], {}) if custom_values else {} %}
+            <button type="button" class="btn-view-rep"
+              onclick='openDetailDrawer({{ r|tojson|e }}, {{ cf_vals|tojson|e }}, {{ custom_fields|default([])|tojson|e }})'>
+              👁 View
+            </button>
+            {% if editable %}
+            <button type="button" class="btn-edit-rep"
+              onclick='editReport({{ {
+                "id": r["id"], "date": r["date"], "work_type": r["work_type"],
+                "client_name": r["client_name"] or "", "location": r["location"] or "",
+                "supervisor_code": r["supervisor_code"] or "", "summary": r["summary"] or "",
+                "remarks": r["remarks"] or "", "status": s
+              }|tojson }})'>✏️ Edit</button>
+            {% else %}
+            <span class="locked-tag">🔒 Locked</span>
+            {% endif %}
+          </div>
           {% if rv == 'Rejected' and r['reject_reason'] %}
           <div class="reject-note">{{ r['reject_reason'] }}</div>
           {% endif %}
@@ -299,6 +370,12 @@
           {% endif %}
         </td>
         <td>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            {% set cf_vals = custom_values.get(r['id'], {}) if custom_values else {} %}
+            <button type="button" class="btn-view-rep" style="padding:5px 11px;font-size:11.5px"
+              onclick='openDetailDrawer({{ r|tojson|e }}, {{ cf_vals|tojson|e }}, {{ custom_fields|default([])|tojson|e }})'>
+              👁 View
+            </button>
           {% if editable %}
           <button type="button" class="btn-edit-rep" style="padding:5px 11px;font-size:11.5px"
             onclick='editReport({{ {
@@ -310,6 +387,7 @@
           {% else %}
           <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
           {% endif %}
+          </div>
         </td>
       </tr>
       {% endfor %}
@@ -368,6 +446,163 @@
     document.getElementById('submitBtn').textContent = 'Submit Report →';
     document.getElementById('cancelEditBtn').style.display = 'none';
   }
+</script>
+<!-- ══════════════════════════════════════════
+     REPORT DETAIL DRAWER (employee read-only view)
+     ══════════════════════════════════════════ -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDetailDrawer()"></div>
+<div class="drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-label="Report Detail">
+
+  <!-- HEADER -->
+  <div class="drw-head">
+    <div class="drw-head-left">
+      <div class="drw-head-title">
+        <span id="drw-icon" style="font-size:18px">📋</span>
+        <span id="drw-title">Report Detail</span>
+      </div>
+      <div class="drw-head-sub" id="drw-sub">—</div>
+    </div>
+    <button class="drw-close" onclick="closeDetailDrawer()" aria-label="Close">&times;</button>
+  </div>
+
+  <!-- BODY -->
+  <div class="drw-body" id="drwBody"></div>
+</div>
+
+<script>
+  let _drawerOpen = false;
+
+  function openDetailDrawer(r, cfVals, cfDefs) {
+    const body = document.getElementById('drwBody');
+    const rv   = r.review_status || 'Draft';
+    const s    = (r.status || '').toLowerCase();
+
+    /* Header */
+    document.getElementById('drw-icon').textContent = s === 'done' || s === 'completed' ? '✅' : s === 'pending' ? '⏳' : '🔄';
+    document.getElementById('drw-title').textContent = (r.work_type || 'Report');
+    document.getElementById('drw-sub').textContent = (r.date || '') + '  ·  ' + (r.company || '');
+
+    /* Status banner */
+    const sCls   = (s==='done'||s==='completed') ? 'status-done' : s==='pending' ? 'status-pending' : 'status-partial';
+    const sLabel = (s==='done'||s==='completed') ? '✅ Completed' : s==='pending' ? '⏳ Pending' : '🔄 Partial';
+
+    /* Review badge */
+    let reviewBadge = '';
+    if      (rv==='Approved')        reviewBadge = '<span class="review-badge rv-approved">✔ Approved</span>';
+    else if (rv==='Awaiting Review') reviewBadge = '<span class="review-badge rv-awaiting">🔒 Awaiting Review</span>';
+    else if (rv==='Rejected')        reviewBadge = '<span class="review-badge rv-rejected">↩ Rejected</span>';
+    else                              reviewBadge = '<span class="review-badge rv-draft">Draft</span>';
+
+    /* Who reviewed */
+    const reviewedBy = r.reviewed_by ? `<span style="font-size:11.5px;color:#696B78;font-weight:600">by ${esc(r.reviewed_by)}</span>` : '';
+
+    /* Reject reason */
+    let rejectHtml = '';
+    if (rv === 'Rejected' && r.reject_reason) {
+      rejectHtml = `<div class="rejected-reason">↩ <strong>Reason from manager:</strong><br>${esc(r.reject_reason)}</div>`;
+    }
+
+    /* Custom fields */
+    let cfHtml = '';
+    if (cfDefs && cfDefs.length) {
+      const chips = cfDefs.map(f => {
+        const val = (cfVals && cfVals[f.id]) ? cfVals[f.id] : '—';
+        return `<div class="cf-chip"><div class="cf-chip-label">${esc(f.label)}</div><div class="cf-chip-val">${esc(String(val))}</div></div>`;
+      }).join('');
+      cfHtml = `
+        <div class="drw-section">
+          <div class="drw-section-title">Additional fields</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem">${chips}</div>
+        </div>`;
+    }
+
+    /* Build body */
+    body.innerHTML = `
+      <!-- STATUS BANNER -->
+      <div class="drw-banner ${sCls}">
+        <div class="ban-left">
+          <div class="ban-label">Work status</div>
+          <div class="ban-val">${sLabel}</div>
+        </div>
+        <div class="ban-right">
+          ${reviewBadge}
+          ${reviewedBy}
+        </div>
+      </div>
+      ${rejectHtml}
+
+      <!-- VISIT INFO GRID -->
+      <div class="drw-section">
+        <div class="drw-section-title">Visit information</div>
+        <div class="drw-grid">
+          <div>
+            <div class="drw-field-label">Work type</div>
+            <div class="drw-field-val">${esc(r.work_type||'—')}</div>
+          </div>
+          <div>
+            <div class="drw-field-label">Date</div>
+            <div class="drw-field-val">${esc(r.date||'—')}</div>
+          </div>
+          <div>
+            <div class="drw-field-label">Client</div>
+            <div class="drw-field-val">${esc(r.client_name||'—')}</div>
+          </div>
+          <div>
+            <div class="drw-field-label">Location</div>
+            <div class="drw-field-val">${esc(r.location||'—')}</div>
+          </div>
+          <div>
+            <div class="drw-field-label">Supervisor</div>
+            <div class="drw-field-val">${esc(r.supervisor_name||'—')}</div>
+          </div>
+          <div>
+            <div class="drw-field-label">Submitted at</div>
+            <div class="drw-field-val muted" style="font-size:12px">${esc(r.timestamp||'—')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOB DESCRIPTION -->
+      <div class="drw-section">
+        <div class="drw-section-title">Job description / summary</div>
+        <div class="text-box highlight">${esc(r.summary||'No description provided.')}</div>
+      </div>
+
+      <!-- REMARKS -->
+      ${r.remarks ? `
+      <div class="drw-section">
+        <div class="drw-section-title">Remarks / notes</div>
+        <div class="text-box">${esc(r.remarks)}</div>
+      </div>` : ''}
+
+      ${cfHtml}
+    `;
+
+    document.getElementById('drawerBackdrop').classList.add('open');
+    document.getElementById('detailDrawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    _drawerOpen = true;
+  }
+
+  function closeDetailDrawer() {
+    document.getElementById('drawerBackdrop').classList.remove('open');
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.body.style.overflow = '';
+    _drawerOpen = false;
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && _drawerOpen) closeDetailDrawer();
+  });
 </script>
 <script src="/static/push.js"></script>
 </body>

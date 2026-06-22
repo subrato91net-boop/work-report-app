@@ -27,9 +27,15 @@
   .filter-actions{display:flex;gap:6px;align-items:flex-end}
 
   /* ── Banners ── */
-  .banner{border-radius:11px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:1rem;display:flex;gap:9px;align-items:flex-start;line-height:1.5}
+  .banner{border-radius:11px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:.6rem;display:flex;gap:9px;align-items:flex-start;line-height:1.5;position:relative}
   .banner-ok{background:#D9F5E8;color:#0E6B43;border:1px solid #8FE0BC}
   .banner-declined{background:#FBE2E2;color:#9A2A2D;border:1px solid #F2B2B3}
+  .banner-dismiss{margin-left:auto;flex-shrink:0;background:none;border:none;font-size:17px;cursor:pointer;opacity:.55;line-height:1;padding:0 2px;color:inherit}
+  .banner-dismiss:hover{opacity:1}
+  .notif-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+  .notif-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+  .btn-dismiss-all{background:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--text-soft);cursor:pointer;font-family:inherit}
+  .btn-dismiss-all:hover{background:var(--bg-alt)}
 
   /* ── Job cards ── */
   .job-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:1.4rem 1.5rem;margin-bottom:10px;box-shadow:var(--shadow-card);position:relative;overflow:hidden}
@@ -137,21 +143,31 @@
   <div class="banner banner-ok">✅ Your edit request has been submitted! The manager will review and finalize it shortly.</div>
   {% endif %}
 
-  {% for r in recent_results %}
-    {% if r['review_status'] == 'Finalized' %}
-    <div class="banner banner-ok">
-      <span>✅</span>
-      <div>Manager finalized your edit request for <strong>{{ r['job_title'] }}</strong>. Changes are now live.
-      {% if r['manager_note'] %}<br><em>Manager note: {{ r['manager_note'] }}</em>{% endif %}</div>
+  {% if recent_results %}
+  <div id="notif-block">
+    <div class="notif-header">
+      <span class="notif-title">🔔 Notifications ({{ recent_results|length }})</span>
+      <button class="btn-dismiss-all" onclick="dismissAll()">Dismiss all</button>
     </div>
-    {% elif r['review_status'] == 'Declined' %}
-    <div class="banner banner-declined">
-      <span>❌</span>
-      <div>Manager declined your edit request for <strong>{{ r['job_title'] }}</strong>.
-      {% if r['manager_note'] %}<br><em>Reason: {{ r['manager_note'] }}</em>{% endif %}</div>
-    </div>
-    {% endif %}
-  {% endfor %}
+    {% for r in recent_results %}
+      {% if r['review_status'] == 'Finalized' %}
+      <div class="banner banner-ok" id="notif-{{ r['id'] }}">
+        <span>✅</span>
+        <div>Manager finalized your edit request for <strong>{{ r['job_title'] }}</strong>. Changes are now live.
+        {% if r['manager_note'] %}<br><em>Manager note: {{ r['manager_note'] }}</em>{% endif %}</div>
+        <button class="banner-dismiss" onclick="dismissNotif({{ r['id'] }}, this)" title="Dismiss">×</button>
+      </div>
+      {% elif r['review_status'] == 'Declined' %}
+      <div class="banner banner-declined" id="notif-{{ r['id'] }}">
+        <span>❌</span>
+        <div>Manager declined your edit request for <strong>{{ r['job_title'] }}</strong>.
+        {% if r['manager_note'] %}<br><em>Reason: {{ r['manager_note'] }}</em>{% endif %}</div>
+        <button class="banner-dismiss" onclick="dismissNotif({{ r['id'] }}, this)" title="Dismiss">×</button>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <!-- Filter bar -->
   <div class="filter-card">
@@ -356,6 +372,41 @@ function setPill(el, val) {
 
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Notification dismiss ──────────────────────────────────────────────────
+function dismissNotif(id, btn) {
+  const banner = document.getElementById('notif-' + id);
+  if (!banner) return;
+  banner.style.transition = 'opacity .25s, max-height .3s';
+  banner.style.overflow = 'hidden';
+  banner.style.opacity = '0';
+  banner.style.maxHeight = '0';
+  banner.style.marginBottom = '0';
+  banner.style.padding = '0';
+  setTimeout(() => {
+    banner.remove();
+    updateNotifHeader();
+  }, 320);
+  fetch('/my-jobs/dismiss-notification/' + id, { method: 'POST' }).catch(() => {});
+}
+
+function dismissAll() {
+  const block = document.getElementById('notif-block');
+  if (!block) return;
+  block.style.transition = 'opacity .3s';
+  block.style.opacity = '0';
+  setTimeout(() => block.remove(), 320);
+  fetch('/my-jobs/dismiss-all-notifications', { method: 'POST' }).catch(() => {});
+}
+
+function updateNotifHeader() {
+  const block = document.getElementById('notif-block');
+  if (!block) return;
+  const remaining = block.querySelectorAll('.banner').length;
+  if (remaining === 0) { block.remove(); return; }
+  const title = block.querySelector('.notif-title');
+  if (title) title.textContent = '🔔 Notifications (' + remaining + ')';
+}
 </script>
 <script src="/static/push.js"></script>
 </body>
