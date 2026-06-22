@@ -227,6 +227,8 @@ def init_db():
     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS last_edited TEXT")
     # Employee edit workflow columns
     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'Normal'")
+    # Add dismissed_at column to job_edit_requests for notification dismissal
+    cur.execute("ALTER TABLE job_edit_requests ADD COLUMN IF NOT EXISTS dismissed_at TEXT")
     # job_edit_requests: employee proposes changes, manager finalizes
     cur.execute("""
         CREATE TABLE IF NOT EXISTS job_edit_requests (
@@ -703,12 +705,17 @@ def employee_form():
         for code, info in EMPLOYEES.items() if code != get_emp_code()
     ]
 
+    report_custom_fields, report_visibility = get_form_config("report")
+    report_ids = [r["id"] for r in recent]
+    report_custom_values = load_custom_field_values("report", report_ids)
+
     return render_template("form.html", name=session["name"], success=success, lock_error=lock_error, recent=recent,
                             att_today=att_today, supervisor_choices=supervisor_choices,
                             record_count=len(recent), perms=session.get("perms", {}),
                             role=session.get("role", "employee"), sup_perms=session.get("sup_perms", {}),
-                            custom_fields=get_form_config("report")[0],
-                            visibility=get_form_config("report")[1],
+                            custom_fields=report_custom_fields,
+                            visibility=report_visibility,
+                            custom_values=report_custom_values,
                             filters={"wtype": f_wtype, "status": f_status, "from_d": f_from, "to_d": f_to, "search": f_search})
 
 # ══════════════════════════════════════════
@@ -751,12 +758,13 @@ def my_jobs():
     """, (code,))
     pending_ids = {r["job_id"] for r in cur.fetchall()}
 
-    # recent reviewed results to show notification banners
+    # recent reviewed results to show notification banners (only undismissed)
     cur.execute("""
         SELECT jer.*, j.job_title FROM job_edit_requests jer
         JOIN jobs j ON j.id=jer.job_id
         WHERE jer.submitted_code=%s AND jer.review_status IN ('Finalized','Declined')
-        ORDER BY jer.reviewed_at DESC LIMIT 5
+          AND jer.dismissed_at IS NULL
+        ORDER BY jer.reviewed_at DESC LIMIT 10
     """, (code,))
     recent_results = cur.fetchall()
 
@@ -781,9 +789,36 @@ def my_jobs():
         filters={"status": f_status, "search": f_search, "from_d": f_from, "to_d": f_to},
     )
 
-# ══════════════════════════════════════════
-#  ROUTES — MANAGER WORK REPORTS
-# ══════════════════════════════════════════
+# ── Dismiss a job-edit-request notification ──────────────────────────────────
+@app.route("/my-jobs/dismiss-notification/<int:req_id>", methods=["POST"])
+def dismiss_job_notification(req_id):
+    if not logged_in(): return ("", 403)
+    code = session.get("code")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE job_edit_requests
+        SET dismissed_at = NOW()::TEXT
+        WHERE id=%s AND submitted_code=%s AND review_status IN ('Finalized','Declined')
+    """, (req_id, code))
+    conn.commit(); cur.close(); conn.close()
+    return ("", 204)
+
+# ── Dismiss ALL job-edit-request notifications at once ───────────────────────
+@app.route("/my-jobs/dismiss-all-notifications", methods=["POST"])
+def dismiss_all_job_notifications():
+    if not logged_in(): return ("", 403)
+    code = session.get("code")
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        UPDATE job_edit_requests
+        SET dismissed_at = NOW()::TEXT
+        WHERE submitted_code=%s AND review_status IN ('Finalized','Declined')
+          AND dismissed_at IS NULL
+    """, (code,))
+    conn.commit(); cur.close(); conn.close()
+    return ("", 204)
+
+
 @app.route("/manager")
 def manager_view():
     if not logged_in() or not is_manager(): return redirect(url_for("index"))
