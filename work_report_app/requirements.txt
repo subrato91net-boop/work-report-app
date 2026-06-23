@@ -5,3 +5,4 @@ psycopg2-binary
 pdfplumber
 reportlab
 pywebpush
+APScheduler==3.10.4
