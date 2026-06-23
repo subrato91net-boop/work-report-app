@@ -5952,8 +5952,10 @@ def update_admin_info(admin_id):
 def delete_manager():
     if not logged_in() or not is_manager(): return redirect(url_for("index"))
     return render_template("delete_manager.html",
-                           username=session.get("username",""),
+                           name=session.get("name",""),
                            role=session.get("role",""),
+                           perms=session.get("perms", {}),
+                           sup_perms=session.get("sup_perms", {}),
                            active_page="delete_manager")
 
 @app.route("/manager/delete-manager/counts")
