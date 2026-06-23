@@ -339,25 +339,22 @@ def _fetch_from_company(company_key, date_from, date_to):
     cfg      = BIOTIME_COMPANIES[company_key]
     base_url = cfg["url"].rstrip("/")
 
-    # ── BioTime Cloud 2.0 UTC fix ──────────────────────────────────────────────
-    # punch_time in API responses is IST, but the start_time/end_time FILTER
-    # is interpreted by BioTime in UTC.  IST = UTC+5:30, so an IST morning
-    # punch at 06:00 IST = 00:30 UTC — it falls BEFORE the old "06:00 UTC"
-    # window start and is silently dropped.
-    # Fix: expand the query window to cover the full IST calendar day in UTC:
-    #   IST 00:00 = UTC prev-day 18:30  →  use prev-day 18:00 UTC as start
-    #   IST 23:59 = UTC same-day 18:29  →  use same-day 18:59 UTC as end
-    _dt_from_utc = datetime.strptime(date_from, "%Y-%m-%d") - timedelta(hours=6)
-    _dt_to_utc   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(hours=18, minutes=59, seconds=59)
+    # ── BioTime Cloud 2.0 — CoreAPI schema confirmed ───────────────────────────
+    # Schema: /iclock/api/transactions/ params: start_time, end_time, ordering
+    # start_time / end_time filter on punch_time which is stored & filtered in IST.
+    # No UTC conversion needed — just use the full IST day window.
+    _start = f"{date_from} 00:00:00"
+    _end   = f"{date_to} 23:59:59"
 
-    # Try both Authorization header formats
+    # Try both Authorization header formats (JWT is Cloud 2.0 standard)
     for auth_prefix in ("JWT", "Token"):
         headers  = {"Authorization": f"{auth_prefix} {token}"}
         all_data = []
         url      = f"{base_url}/iclock/api/transactions/"
         params   = {
-            "start_time": _dt_from_utc.strftime("%Y-%m-%d %H:%M:%S"),
-            "end_time":   _dt_to_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_time": _start,
+            "end_time":   _end,
+            "ordering":   "punch_time",
             "page_size":  500,
         }
         try:
@@ -456,9 +453,7 @@ def debug_biotime():
             lines.append("⚠️ All employee endpoints returned non-200 (BioTime server issue)")
 
         # Fetch today's transactions (using UTC-shifted window — see IST fix)
-        _dbg_from = (datetime.strptime(today, "%Y-%m-%d") - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M")
-        _dbg_to   = (datetime.strptime(today, "%Y-%m-%d") + timedelta(hours=18, minutes=59)).strftime("%Y-%m-%d %H:%M")
-        lines.append(f"\n--- Transactions for {today} IST (querying UTC {_dbg_from} → {_dbg_to}) ---")
+        lines.append(f"\n--- Transactions for {today} (IST 00:00:00 → 23:59:59) ---")
         txns = _fetch_from_company(company_key, today, today)
         if txns:
             lines.append(f"✅ {len(txns)} transactions")
