@@ -27,14 +27,28 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # ══════════════════════════════════════════
-#  BIOTIME API CONFIG
+#  BIOTIME CLOUD 2.0 — MULTI-COMPANY CONFIG
 # ══════════════════════════════════════════
-BIOTIME_URL      = "https://imaxsol.itimedev.minervaiot.com"
-BIOTIME_EMAIL    = "presales@conneqtortech.com"
-BIOTIME_PASSWORD = "Y@jh_ro@562"
-BIOTIME_COMPANY  = "imaxsol"
 PUNCH_START_HOUR = 6
 PUNCH_END_HOUR   = 23
+
+# Legacy single-var kept for any old references
+BIOTIME_URL = os.environ.get("BIOTIME_URL_IMAXSOL", "https://imaxsol.itimedev.minervaiot.com")
+
+BIOTIME_COMPANIES = {
+    "imaxsol": {
+        "url":      os.environ.get("BIOTIME_URL_IMAXSOL",     "https://imaxsol.itimedev.minervaiot.com"),
+        "email":    os.environ.get("BIOTIME_EMAIL_IMAXSOL",   "presales@conneqtortech.com"),
+        "password": os.environ.get("BIOTIME_PASS_IMAXSOL",    "Y@jh_ro@562"),
+        "company":  os.environ.get("BIOTIME_COMPANY_IMAXSOL", "imaxsol"),
+    },
+    "CONNEQTORTECHNOLOGY": {
+        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://imaxsol.itimedev.minervaiot.com"),
+        "email":    os.environ.get("BIOTIME_EMAIL_CONNEQTOR",   "presales@conneqtortech.com"),
+        "password": os.environ.get("BIOTIME_PASS_CONNEQTOR",    "Y@jh_ro@562"),
+        "company":  os.environ.get("BIOTIME_COMPANY_CONNEQTOR", "imaxsol"),
+    },
+}
 
 # ══════════════════════════════════════════
 #  USER SYSTEM (DB-BACKED, with legacy seed data)
@@ -263,59 +277,189 @@ def _column_exists(cur, table, column):
     return cur.fetchone() is not None
 
 # ══════════════════════════════════════════
-#  BIOTIME API — JWT TOKEN (cached)
+#  BIOTIME CLOUD 2.0 — JWT TOKEN CACHE
 # ══════════════════════════════════════════
-_biotime_token  = None
-_token_expiry   = None
+import threading as _threading
+_bt_tokens   = {}
+_bt_expiries = {}
+_bt_lock     = _threading.Lock()
 
-def get_biotime_token():
-    global _biotime_token, _token_expiry
-    if _biotime_token and _token_expiry and datetime.now() < _token_expiry:
-        return _biotime_token
-    try:
-        res = req.post(
-            f"{BIOTIME_URL}/jwt-api-token-auth/",
-            json={"company": BIOTIME_COMPANY, "email": BIOTIME_EMAIL, "password": BIOTIME_PASSWORD},
-            timeout=15
-        )
-        if res.status_code == 200:
-            data = res.json()
-            _biotime_token = data.get("token") or data.get("access")
-            _token_expiry  = datetime.now() + timedelta(hours=23)
-            return _biotime_token
-    except Exception as e:
-        print(f"BioTime auth error: {e}")
+def get_biotime_token(company_key="imaxsol"):
+    """Return a valid JWT for the given BioTime company, refreshing if needed."""
+    with _bt_lock:
+        if (_bt_tokens.get(company_key) and _bt_expiries.get(company_key)
+                and datetime.now() < _bt_expiries[company_key]):
+            return _bt_tokens[company_key]
+    cfg = BIOTIME_COMPANIES.get(company_key)
+    if not cfg:
+        print(f"BioTime: unknown company key '{company_key}'")
+        return None
+
+    base_url = cfg["url"].rstrip("/")
+
+    # ── Try both auth endpoints (Cloud 2.0 and older versions) ──
+    auth_paths = ["/jwt-api-token-auth/", "/api-token-auth/"]
+    # ── Try both payload formats (email or username) ──
+    payloads = [
+        {"company": cfg["company"], "email":    cfg["email"],    "password": cfg["password"]},
+        {"company": cfg["company"], "username": cfg["email"],    "password": cfg["password"]},
+    ]
+
+    for path in auth_paths:
+        for payload in payloads:
+            try:
+                res = req.post(f"{base_url}{path}", json=payload, timeout=15, verify=True)
+                print(f"BioTime auth [{company_key}] {path} → HTTP {res.status_code}")
+                if res.status_code == 200:
+                    data  = res.json()
+                    token = data.get("token") or data.get("access") or data.get("jwt")
+                    if token:
+                        with _bt_lock:
+                            _bt_tokens[company_key]   = token
+                            _bt_expiries[company_key] = datetime.now() + timedelta(hours=23)
+                        print(f"BioTime auth [{company_key}] ✅ Token received")
+                        return token
+                    else:
+                        print(f"BioTime auth [{company_key}] 200 OK but no token. Keys: {list(data.keys())}")
+                elif res.status_code in (400, 401):
+                    print(f"BioTime auth [{company_key}] credentials rejected: {res.text[:200]}")
+            except Exception as e:
+                print(f"BioTime auth [{company_key}] error on {path}: {e}")
+
+    print(f"BioTime auth [{company_key}] ❌ All attempts failed")
     return None
 
 # ══════════════════════════════════════════
-#  BIOTIME — FETCH ALL TRANSACTIONS (paginated)
+#  BIOTIME — FETCH TRANSACTIONS (one company, paginated)
 # ══════════════════════════════════════════
-def fetch_transactions(date_from, date_to):
-    token = get_biotime_token()
+def _fetch_from_company(company_key, date_from, date_to):
+    token = get_biotime_token(company_key)
     if not token:
         return []
-    headers  = {"Authorization": f"JWT {token}"}
-    all_data = []
-    url      = f"{BIOTIME_URL}/iclock/api/transactions/"
-    params   = {
-        "start_time": f"{date_from} {PUNCH_START_HOUR:02d}:00:00",
-        "end_time":   f"{date_to} {PUNCH_END_HOUR:02d}:59:59",
-        "page_size":  500,
-    }
-    while url:
+    cfg      = BIOTIME_COMPANIES[company_key]
+    base_url = cfg["url"].rstrip("/")
+
+    # Try both Authorization header formats
+    for auth_prefix in ("JWT", "Token"):
+        headers  = {"Authorization": f"{auth_prefix} {token}"}
+        all_data = []
+        url      = f"{base_url}/iclock/api/transactions/"
+        params   = {
+            "start_time": f"{date_from} {PUNCH_START_HOUR:02d}:00:00",
+            "end_time":   f"{date_to} {PUNCH_END_HOUR:02d}:59:59",
+            "page_size":  500,
+        }
         try:
-            res = req.get(url, headers=headers, params=params, timeout=20)
-            if res.status_code == 200:
-                data     = res.json()
-                all_data.extend(data.get("data", []))
-                url      = data.get("next")
-                params   = {}
-            else:
-                break
+            while url:
+                res = req.get(url, headers=headers, params=params, timeout=20)
+                print(f"BioTime txn [{company_key}] {auth_prefix} → HTTP {res.status_code}")
+                if res.status_code == 200:
+                    data     = res.json()
+                    rows     = data.get("data", [])
+                    all_data.extend(rows)
+                    url      = data.get("next")
+                    params   = {}
+                    if not url:
+                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched")
+                        return all_data
+                elif res.status_code == 401:
+                    print(f"BioTime txn [{company_key}] 401 with {auth_prefix}, trying next prefix…")
+                    break
+                else:
+                    print(f"BioTime txn [{company_key}] HTTP {res.status_code}: {res.text[:200]}")
+                    return []
         except Exception as e:
-            print(f"BioTime fetch error: {e}")
-            break
-    return all_data
+            print(f"BioTime txn [{company_key}] error: {e}")
+            return []
+    return []
+
+# ══════════════════════════════════════════
+#  BIOTIME — FETCH ALL COMPANIES
+# ══════════════════════════════════════════
+def fetch_transactions(date_from, date_to):
+    """Fetch transactions from ALL BioTime companies and merge."""
+    # Determine which companies are relevant for employees in EMPLOYEES dict
+    needed_companies = set(e["company"] for e in EMPLOYEES.values())
+    all_txns = []
+    for company_key in BIOTIME_COMPANIES:
+        cfg_company = BIOTIME_COMPANIES[company_key]["company"]
+        if cfg_company in needed_companies or company_key in needed_companies:
+            rows = _fetch_from_company(company_key, date_from, date_to)
+            # Tag each transaction with its source company key
+            for r in rows:
+                r["_source_company"] = cfg_company
+            all_txns.extend(rows)
+    return all_txns
+
+# ══════════════════════════════════════════
+#  BIOTIME — DEBUG ROUTE  /debug-biotime
+#  Accessible by manager only — shows live
+#  API test results so you can diagnose issues
+#  without needing a terminal.
+# ══════════════════════════════════════════
+@app.route("/debug-biotime")
+def debug_biotime():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("index"))
+    lines = ["<pre style='font-family:monospace;font-size:13px;padding:20px'>"]
+    lines.append("<b>BioTime Cloud 2.0 — Live Diagnostic</b>\n")
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    for company_key, cfg in BIOTIME_COMPANIES.items():
+        lines.append(f"\n{'='*50}")
+        lines.append(f"Company key : {company_key}")
+        lines.append(f"URL         : {cfg['url']}")
+        lines.append(f"Company slug: {cfg['company']}")
+        lines.append(f"Email       : {cfg['email']}")
+
+        # Auth test
+        lines.append("\n--- Auth test ---")
+        token = get_biotime_token(company_key)
+        if token:
+            lines.append(f"✅ Token: {token[:40]}...")
+        else:
+            lines.append("❌ Auth FAILED — check URL/email/password")
+            continue
+
+        # Fetch employees
+        lines.append("\n--- BioTime employees ---")
+        try:
+            r = req.get(f"{cfg['url'].rstrip('/')}/personnel/api/employees/",
+                        headers={"Authorization": f"JWT {token}"},
+                        params={"page_size": 50}, timeout=15)
+            if r.status_code == 200:
+                emps = r.json().get("data", [])
+                lines.append(f"✅ {len(emps)} employees found")
+                for e in emps[:20]:
+                    code = e.get("emp_no") or e.get("emp_code") or e.get("employee_code", "?")
+                    name = e.get("first_name","") + " " + e.get("last_name","")
+                    lines.append(f"   emp_code={code}  name={name.strip()}")
+            else:
+                lines.append(f"⚠️ Employees endpoint HTTP {r.status_code}")
+        except Exception as e:
+            lines.append(f"⚠️ Employees error: {e}")
+
+        # Fetch today's transactions
+        lines.append(f"\n--- Transactions for {today} ---")
+        txns = _fetch_from_company(company_key, today, today)
+        if txns:
+            lines.append(f"✅ {len(txns)} transactions")
+            for t in txns[:5]:
+                lines.append(f"   {t}")
+        else:
+            lines.append("⚠️ 0 transactions (no punches today, or emp_codes not matching)")
+
+        # Compare emp_codes
+        lines.append("\n--- EMPLOYEES dict vs BioTime emp_codes ---")
+        app_codes = [k for k, v in EMPLOYEES.items() if v.get("company") in (company_key, cfg["company"])]
+        bt_codes  = [str(t.get("emp_code","")) for t in txns]
+        lines.append(f"Your app emp_codes: {app_codes}")
+        lines.append(f"BioTime emp_codes in today's punches: {list(set(bt_codes))}")
+        matched = [c for c in app_codes if c in bt_codes]
+        lines.append(f"Matched: {matched}")
+
+    lines.append("\n</pre>")
+    return "\n".join(lines)
 
 # ══════════════════════════════════════════
 #  PROCESS TRANSACTIONS → ATTENDANCE
@@ -572,6 +716,17 @@ def login():
     if request.method == "POST":
         username = request.form.get("username","").strip().lower()
         password = request.form.get("password","").strip()
+        # ── Check DB admin accounts first ──
+        admin_row = get_admin_by_username(username)
+        if admin_row and admin_row["is_active"] and verify_password(password, admin_row["password_hash"]):
+            session.update({"username": username, "name": admin_row["name"], "role": "manager",
+                            "admin_id": admin_row["id"], "is_super": admin_row.get("is_super", False)})
+            conn2 = get_db(); cur2 = conn2.cursor()
+            cur2.execute("UPDATE admin_accounts SET last_login=%s WHERE id=%s",
+                        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), admin_row["id"]))
+            conn2.commit(); cur2.close(); conn2.close()
+            return redirect(url_for("index"))
+        # ── Legacy fallback (MANAGERS dict) ──
         if username in MANAGERS and MANAGERS[username]["password"] == password:
             session.update({"username":username,"name":MANAGERS[username]["name"],"role":"manager"})
             return redirect(url_for("index"))
@@ -905,6 +1060,51 @@ def reject_report(report_id):
     if row:
         send_push(row["emp_code"], "Work report rejected", row["work_type"] or "Your report was rejected", url="/form")
     return redirect(request.referrer or url_for("manager_view"))
+
+# ══════════════════════════════════════════
+#  FEATURE: REPORT DETAIL VIEW
+# ══════════════════════════════════════════
+@app.route("/report/<int:report_id>")
+def report_detail(report_id):
+    if not logged_in():
+        return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM reports WHERE id=%s", (report_id,))
+    report = cur.fetchone()
+    cur.close(); conn.close()
+    if not report:
+        return redirect(url_for("employee_form"))
+    role = session.get("role", "employee")
+    if role == "employee" and report["emp_code"] != get_emp_code():
+        return redirect(url_for("no_access"))
+    custom_values = []
+    try:
+        report_custom_fields, _ = get_form_config("report")
+        if report_custom_fields:
+            raw = load_custom_field_values("report", [report_id])
+            values_for_report = raw.get(report_id, {})
+            for cf in report_custom_fields:
+                val = values_for_report.get(str(cf["id"]), "")
+                if val:
+                    custom_values.append({"label": cf["label"], "value": val})
+    except Exception:
+        pass
+    if role == "manager":
+        back_url = url_for("manager_view")
+    elif role == "supervisor":
+        back_url = url_for("supervisor_reports")
+    else:
+        back_url = url_for("employee_form")
+    return render_template(
+        "report_detail.html",
+        report=report,
+        custom_values=custom_values,
+        role=role,
+        viewer_name=session.get("name", ""),
+        perms=session.get("perms", {}),
+        sup_perms=session.get("sup_perms", {}),
+        back_url=back_url,
+    )
 
 # ══════════════════════════════════════════
 #  ROUTES — MANAGER: ASSIGN JOBS
@@ -1250,11 +1450,13 @@ def attendance():
     emp_list  = [e["name"] for e in EMPLOYEES.values()]
     date_list = get_date_range(from_d, to_d)
 
+    last_sync = datetime.now().strftime("%H:%M:%S") if not error else None
     return render_template("attendance.html",
         records=filtered, stats=stats, emp_list=emp_list,
         date_list=date_list, employees=EMPLOYEES,
         filters={"from_d":from_d,"to_d":to_d,"emp":emp_f,"status":status_f,"company":company_f},
-        view=view, error=error, record_count=len(filtered)
+        view=view, error=error, record_count=len(filtered),
+        last_sync=last_sync,
     )
 
 # ══════════════════════════════════════════
@@ -1419,7 +1621,16 @@ def manage_users():
     search        = request.args.get("search", "")
 
     conn  = get_db(); cur = conn.cursor()
-    query = "SELECT * FROM users WHERE 1=1"
+    query = """SELECT u.*,
+        sp.can_view_reports, sp.can_approve_reports,
+        sp.can_view_jobs, sp.can_assign_jobs,
+        sp.can_view_ta, sp.can_approve_ta,
+        sp.can_view_users, sp.can_view_sales,
+        sp.can_view_support, sp.can_view_clients,
+        sp.can_add_employees
+    FROM users u
+    LEFT JOIN supervisor_permissions sp ON sp.emp_code = u.emp_code
+    WHERE 1=1"""
     params = []
     if status_filter == "active":
         query += " AND is_active = TRUE"
@@ -2299,6 +2510,316 @@ def manager_ta_bulk_update():
         cur.close(); conn.close()
 
     return redirect(url_for("manager_ta_reports", **{k: v for k, v in request.args.items()}))
+
+# ══════════════════════════════════════════
+#  FEATURE: TA EXPENSE CLAIM VOUCHER — PDF GENERATOR
+# ══════════════════════════════════════════
+def _build_ta_voucher_pdf(employee_info, ta_rows, company_key):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.lib.utils import simpleSplit, ImageReader
+    import os, io as _io
+
+    buf = _io.BytesIO()
+    W, H = A4
+    cv = pdfcanvas.Canvas(buf, pagesize=A4)
+
+    margin  = 14 * mm
+    left    = margin
+    right   = W - margin
+    box_w   = right - left
+    top     = H - margin
+
+    FONT   = "Helvetica"
+    FONT_B = "Helvetica-Bold"
+    FONT_I = "Helvetica-Oblique"
+
+    if 'conneqtor' in company_key.lower() or 'conn' in company_key.lower():
+        company_name = "CONNEQTOR TECHNOLOGY PVT. LTD."
+        logo_path    = os.path.join("static", "logos", "conneqtor_logo.png")
+    else:
+        company_name = "IMAX SOLUTION"
+        logo_path    = os.path.join("static", "logos", "imax_logo.png")
+
+    grand_total = sum(float(r["expense_cost"] or 0) for r in ta_rows)
+
+    def num_to_words(n):
+        n = int(round(n))
+        if n == 0: return "Zero"
+        ones = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine",
+                "Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen",
+                "Seventeen","Eighteen","Nineteen"]
+        tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"]
+        def say(x):
+            if x == 0: return ""
+            elif x < 20: return ones[x] + " "
+            elif x < 100: return tens[x//10] + (" " + ones[x%10] if x%10 else "") + " "
+            elif x < 1000: return ones[x//100] + " Hundred " + say(x%100)
+            elif x < 100000: return say(x//1000) + "Thousand " + say(x%1000)
+            elif x < 10000000: return say(x//100000) + "Lakh " + say(x%100000)
+            else: return say(x//10000000) + "Crore " + say(x%10000000)
+        return say(n).strip() + " Only"
+
+    def txt(x, y, s, font=FONT, size=9, color=colors.black):
+        cv.setFont(font, size); cv.setFillColor(color)
+        cv.drawString(x, y, str(s)); cv.setFillColor(colors.black)
+    def txt_r(x, y, s, font=FONT, size=9):
+        cv.setFont(font, size); cv.drawRightString(x, y, str(s))
+    def txt_c(x, y, s, font=FONT, size=9):
+        cv.setFont(font, size); cv.drawCentredString(x, y, str(s))
+    def hline(x1, y, x2, w=0.5):
+        cv.setLineWidth(w); cv.line(x1, y, x2, y)
+    def vline(x, y1, y2, w=0.5):
+        cv.setLineWidth(w); cv.line(x, y1, x, y2)
+    def rect(x, y, w, h, lw=0.7):
+        cv.setLineWidth(lw); cv.rect(x, y, w, h)
+
+    y = top
+
+    # Title row
+    title_h = 9 * mm
+    rect(left, y - title_h, box_w, title_h, lw=1)
+    cv.setFont(FONT_B, 13)
+    cv.drawString(left + 4*mm, y - title_h + 2.8*mm, "Expense Claim Voucher")
+    logo_x = right - 42*mm
+    logo_y = y - title_h + 1*mm
+    try:
+        logo_img = ImageReader(logo_path)
+        cv.drawImage(logo_img, logo_x, logo_y, width=38*mm, height=7*mm,
+                     preserveAspectRatio=True, anchor="c", mask="auto")
+    except Exception:
+        txt(logo_x, logo_y + 2*mm, company_name, font=FONT_B, size=7)
+    y -= title_h
+
+    # Claimant row
+    row1_h = 7.5 * mm
+    rect(left, y - row1_h, box_w, row1_h, lw=0.7)
+    txt(left + 2*mm, y - row1_h + 2.2*mm, "Claimant:", font=FONT_B, size=9)
+    txt(left + 26*mm, y - row1_h + 2.2*mm, employee_info.get("name", ""), size=9.5)
+    y -= row1_h
+
+    # Designation row
+    row2_h = 7.5 * mm
+    rect(left, y - row2_h, box_w, row2_h, lw=0.7)
+    txt(left + 2*mm, y - row2_h + 2.2*mm, "Designation:", font=FONT_B, size=9)
+    txt(left + 26*mm, y - row2_h + 2.2*mm, employee_info.get("designation", ""), size=9.5)
+    y -= row2_h
+
+    # Emp ID / Mobile / Date row
+    row3_h = 7.5 * mm
+    rect(left, y - row3_h, box_w, row3_h, lw=0.7)
+    col1_x = left; col2_x = left + box_w * 0.38; col3_x = left + box_w * 0.68
+    vline(col2_x, y - row3_h, y); vline(col3_x, y - row3_h, y)
+    txt(col1_x + 2*mm, y - row3_h + 2.2*mm, "Employee ID No.:", font=FONT_B, size=8.5)
+    txt(col1_x + 32*mm, y - row3_h + 2.2*mm, employee_info.get("emp_code", ""), size=9)
+    txt(col2_x + 2*mm, y - row3_h + 2.2*mm, "Mobile No.:", font=FONT_B, size=8.5)
+    txt(col2_x + 22*mm, y - row3_h + 2.2*mm, employee_info.get("mobile", ""), size=9)
+    txt(col3_x + 2*mm, y - row3_h + 2.2*mm, "Date:", font=FONT_B, size=8.5)
+    from datetime import date as _date
+    txt(col3_x + 13*mm, y - row3_h + 2.2*mm, _date.today().strftime("%d %b %Y"), size=9)
+    y -= row3_h
+
+    # Table header
+    tbl_hdr_h = 8 * mm
+    col_date_w = 26*mm; col_amt_w = 22*mm; col_rmk_w = 44*mm
+    col_part_w = box_w - col_date_w - col_amt_w - col_rmk_w
+    col_date_x = left; col_part_x = col_date_x + col_date_w
+    col_amt_x  = col_part_x + col_part_w; col_rmk_x = col_amt_x + col_amt_w
+
+    rect(left, y - tbl_hdr_h, box_w, tbl_hdr_h, lw=0.8)
+    vline(col_part_x, y - tbl_hdr_h, y); vline(col_amt_x, y - tbl_hdr_h, y); vline(col_rmk_x, y - tbl_hdr_h, y)
+    txt_c(col_date_x + col_date_w/2, y - tbl_hdr_h + 2.5*mm, "Date",        font=FONT_B, size=9)
+    txt_c(col_part_x + col_part_w/2, y - tbl_hdr_h + 2.5*mm, "Particulars", font=FONT_B, size=9)
+    txt_c(col_amt_x  + col_amt_w/2,  y - tbl_hdr_h + 2.5*mm, "Amount",      font=FONT_B, size=9)
+    txt_c(col_rmk_x  + col_rmk_w/2,  y - tbl_hdr_h + 2.5*mm, "REMARK",      font=FONT_B, size=9)
+    y -= tbl_hdr_h
+
+    base_row_h = 6.5*mm; part_text_w = col_part_w - 3*mm; remark_text_w = col_rmk_w - 3*mm
+    footer_reserve = 58*mm; table_top = y
+
+    def draw_row(r, row_y):
+        from_p = r.get("from_place","") or ""; to_p = r.get("to_place","") or ""; by = r.get("travel_by","") or ""
+        particulars = f"{from_p} to {to_p} via {by}" if by else f"{from_p} to {to_p}"
+        remark = r.get("description","") or ""; date_str = r.get("travel_date","") or ""
+        try:
+            from datetime import datetime as _dt
+            date_str = _dt.strptime(date_str, "%Y-%m-%d").strftime("%-d %b %Y")
+        except Exception: pass
+        part_lines = simpleSplit(particulars, FONT, 8.5, part_text_w)
+        rmk_lines  = simpleSplit(remark, FONT, 8.5, remark_text_w)
+        max_lines  = max(len(part_lines), len(rmk_lines), 1)
+        rh = max(base_row_h, max_lines * 4*mm + 2*mm)
+        cv.setLineWidth(0.4); cv.setStrokeColor(colors.Color(0.75,0.75,0.75))
+        cv.line(left, row_y - rh, right, row_y - rh); cv.setStrokeColor(colors.black)
+        vline(col_part_x, row_y-rh, row_y, w=0.4); vline(col_amt_x, row_y-rh, row_y, w=0.4); vline(col_rmk_x, row_y-rh, row_y, w=0.4)
+        cell_y = row_y - 4.2*mm
+        txt_c(col_date_x + col_date_w/2, cell_y, date_str, size=8.2)
+        for i, ln in enumerate(part_lines): txt(col_part_x + 1.5*mm, cell_y - i*4*mm, ln, size=8.5)
+        amt = float(r.get("expense_cost",0) or 0)
+        amt_str = f"{amt:,.0f}" if amt == int(amt) else f"{amt:,.2f}"
+        txt_r(col_amt_x + col_amt_w - 2*mm, cell_y, amt_str, size=8.5)
+        for i, ln in enumerate(rmk_lines): txt(col_rmk_x + 1.5*mm, cell_y - i*4*mm, ln, size=8.2)
+        return rh
+
+    for r in ta_rows:
+        from_p = r.get("from_place","") or ""; to_p = r.get("to_place","") or ""; by = r.get("travel_by","") or ""
+        particulars = f"{from_p} to {to_p} via {by}" if by else f"{from_p} to {to_p}"
+        remark = r.get("description","") or ""
+        pl = simpleSplit(particulars, FONT, 8.5, part_text_w); rl = simpleSplit(remark, FONT, 8.5, remark_text_w)
+        est_h = max(base_row_h, max(len(pl),len(rl),1)*4*mm+2*mm)
+        if y - est_h < margin + footer_reserve:
+            cv.setLineWidth(0.8); cv.rect(left, y, box_w, table_top - y)
+            cv.showPage(); y2 = H - margin
+            rect(left, y2-7*mm, box_w, 7*mm, lw=0.8)
+            txt(left+2*mm, y2-5*mm, f"{company_name} — Expense Claim Voucher (continued)", font=FONT_B, size=9)
+            y2 -= 7*mm
+            rect(left, y2-tbl_hdr_h, box_w, tbl_hdr_h, lw=0.8)
+            vline(col_part_x,y2-tbl_hdr_h,y2); vline(col_amt_x,y2-tbl_hdr_h,y2); vline(col_rmk_x,y2-tbl_hdr_h,y2)
+            txt_c(col_date_x+col_date_w/2, y2-tbl_hdr_h+2.5*mm,"Date",font=FONT_B,size=9)
+            txt_c(col_part_x+col_part_w/2, y2-tbl_hdr_h+2.5*mm,"Particulars",font=FONT_B,size=9)
+            txt_c(col_amt_x+col_amt_w/2,   y2-tbl_hdr_h+2.5*mm,"Amount",font=FONT_B,size=9)
+            txt_c(col_rmk_x+col_rmk_w/2,   y2-tbl_hdr_h+2.5*mm,"REMARK",font=FONT_B,size=9)
+            y2 -= tbl_hdr_h; table_top = y2; y = y2
+        rh = draw_row(r, y); y -= rh
+
+    for _ in range(2):
+        if y - base_row_h >= margin + footer_reserve:
+            cv.setLineWidth(0.3); cv.setStrokeColor(colors.Color(0.82,0.82,0.82))
+            cv.line(left, y-base_row_h, right, y-base_row_h); cv.setStrokeColor(colors.black)
+            vline(col_part_x,y-base_row_h,y,w=0.3); vline(col_amt_x,y-base_row_h,y,w=0.3); vline(col_rmk_x,y-base_row_h,y,w=0.3)
+            y -= base_row_h
+
+    cv.setLineWidth(0.8); cv.rect(left, y, box_w, table_top - y)
+
+    # TOTAL row
+    total_h = 7.5*mm
+    rect(left, y-total_h, box_w, total_h, lw=0.8)
+    vline(col_part_x,y-total_h,y); vline(col_amt_x,y-total_h,y); vline(col_rmk_x,y-total_h,y)
+    txt(left+2*mm, y-total_h+2.3*mm, "TOTAL", font=FONT_B, size=9.5)
+    gt_str = f"{grand_total:,.0f}" if grand_total==int(grand_total) else f"{grand_total:,.2f}"
+    txt_r(col_amt_x+col_amt_w-2*mm, y-total_h+2.3*mm, gt_str, font=FONT_B, size=9.5)
+    y -= total_h
+
+    # Grand total in words
+    words_h = 9*mm
+    rect(left, y-words_h, box_w, words_h, lw=0.7)
+    txt(left+2*mm, y-words_h+5*mm, "Grand Total (in words):", font=FONT_B, size=8.5)
+    txt(left+2*mm, y-words_h+1.5*mm, f"Rs. {num_to_words(grand_total)}", font=FONT_I, size=8.5)
+    y -= words_h
+
+    # Note row
+    note_h = 6*mm
+    rect(left, y-note_h, box_w, note_h, lw=0.6)
+    txt(left+2*mm, y-note_h+1.8*mm, "Note: All Expenses must be supported with proper bills (if any)", size=8)
+    y -= note_h
+
+    # Signature block
+    sig_h = 32*mm
+    rect(left, y-sig_h, box_w, sig_h, lw=0.8)
+    mid_x = left + box_w/2
+    vline(mid_x, y-sig_h, y, w=0.8)
+    txt_c(left+box_w/4, y-5*mm, "Received", font=FONT_B, size=10)
+    hline(left+5*mm, y-6*mm, mid_x-5*mm, w=0.8)
+    txt(left+3*mm, y-13*mm, "Advance:",    font=FONT_B, size=8.5)
+    txt(left+3*mm, y-19*mm, "Due/Return:", font=FONT_B, size=8.5)
+    txt(left+3*mm, y-25*mm, "Date:",       font=FONT_B, size=8.5)
+    hline(left+5*mm, y-sig_h+8*mm, mid_x-5*mm, w=0.8)
+    txt_c(left+box_w/4, y-sig_h+4*mm, "Signature", font=FONT_B, size=9)
+    txt_c(left+box_w*3/4, y-5*mm, "Approved By", font=FONT_B, size=10)
+    hline(mid_x+5*mm, y-6*mm, right-5*mm, w=0.8)
+    txt(mid_x+3*mm, y-13*mm, "Name:",            font=FONT_B, size=8.5)
+    txt(mid_x+3*mm, y-19*mm, "Designation:",     font=FONT_B, size=8.5)
+    txt(mid_x+3*mm, y-25*mm, "Sign. with date:", font=FONT_B, size=8.5)
+    hline(mid_x+5*mm, y-sig_h+8*mm, right-5*mm, w=0.8)
+    txt_c(left+box_w*3/4, y-sig_h+4*mm, "Company Date & Seal", font=FONT_B, size=9)
+    y -= sig_h
+
+    # APPROVED watermark
+    cv.saveState()
+    cv.setFillColor(colors.Color(0, 0.55, 0.2, alpha=0.10))
+    cv.setFont(FONT_B, 72)
+    cv.translate(W/2, H/2); cv.rotate(40)
+    cv.drawCentredString(0, 0, "APPROVED")
+    cv.restoreState()
+
+    cv.save(); buf.seek(0)
+    return buf
+
+
+@app.route("/ta-report/<int:ta_id>/pdf")
+def ta_voucher_pdf_single(ta_id):
+    if not logged_in(): return redirect(url_for("login"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM ta_reports WHERE id=%s", (ta_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return "TA record not found.", 404
+    if not is_manager():
+        if row["emp_code"] != get_emp_code():
+            cur.close(); conn.close()
+            return redirect(url_for("no_access"))
+        if row["approval_status"] != "Approved":
+            cur.close(); conn.close()
+            return "PDF is only available after manager approval.", 403
+    cur.execute("""
+        SELECT u.name, u.emp_code, u.company,
+               ep.position AS designation, ep.phone AS mobile
+        FROM users u
+        LEFT JOIN employee_profiles ep ON ep.emp_code = u.emp_code
+        WHERE u.emp_code=%s
+    """, (row["emp_code"],))
+    profile = cur.fetchone(); cur.close(); conn.close()
+    employee_info = {
+        "name":        row["emp_name"] or "",
+        "emp_code":    row["emp_code"] or "",
+        "designation": (profile["designation"] if profile and profile["designation"] else ""),
+        "mobile":      (profile["mobile"]      if profile and profile["mobile"]      else ""),
+        "company":     (profile["company"]     if profile and profile["company"]     else ""),
+    }
+    pdf_buf = _build_ta_voucher_pdf(employee_info, [row], employee_info["company"])
+    fname = f"TA_Voucher_{row['emp_name'].replace(' ','_')}_{row['travel_date']}.pdf"
+    from flask import send_file
+    return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
+
+
+@app.route("/manager/ta-reports/bulk-pdf", methods=["POST"])
+def ta_voucher_pdf_bulk():
+    if not logged_in() or not is_manager(): return redirect(url_for("login"))
+    ids = [int(i) for i in request.form.getlist("selected_ids") if i.isdigit()]
+    if not ids: return redirect(url_for("manager_ta_reports"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM ta_reports WHERE id = ANY(%s) AND approval_status='Approved'
+        ORDER BY travel_date ASC, id ASC
+    """, (ids,))
+    rows = cur.fetchall()
+    if not rows:
+        cur.close(); conn.close()
+        return "No approved TA records found in selection.", 400
+    emp_code = rows[0]["emp_code"]
+    cur.execute("""
+        SELECT u.name, u.emp_code, u.company,
+               ep.position AS designation, ep.phone AS mobile
+        FROM users u
+        LEFT JOIN employee_profiles ep ON ep.emp_code = u.emp_code
+        WHERE u.emp_code=%s
+    """, (emp_code,))
+    profile = cur.fetchone(); cur.close(); conn.close()
+    employee_info = {
+        "name":        rows[0]["emp_name"] or "",
+        "emp_code":    emp_code or "",
+        "designation": (profile["designation"] if profile and profile["designation"] else ""),
+        "mobile":      (profile["mobile"]      if profile and profile["mobile"]      else ""),
+        "company":     (profile["company"]     if profile and profile["company"]     else ""),
+    }
+    pdf_buf = _build_ta_voucher_pdf(employee_info, rows, employee_info["company"])
+    fname = f"TA_Voucher_{employee_info['name'].replace(' ','_')}_bulk.pdf"
+    from flask import send_file
+    return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
+
 
 @app.route("/export/ta-reports")
 def export_ta_reports():
@@ -5261,3 +5782,369 @@ def form_builder_visibility():
     conn.commit(); cur.close(); conn.close()
     verb = "shown" if is_visible else "hidden"
     return redirect(url_for("form_builder", flash=f"Field {verb}.", flash_type="success"))
+
+
+# ══════════════════════════════════════════
+#  ADMIN ACCOUNTS TABLE
+# ══════════════════════════════════════════
+def init_admin_accounts_db():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admin_accounts (
+            id            SERIAL PRIMARY KEY,
+            username      TEXT NOT NULL UNIQUE,
+            name          TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_active     BOOLEAN DEFAULT TRUE,
+            is_super      BOOLEAN DEFAULT FALSE,
+            last_login    TEXT,
+            created_at    TEXT,
+            created_by    TEXT,
+            notes         TEXT
+        )
+    """)
+    # Seed default admin from legacy MANAGERS dict if table is empty
+    cur.execute("SELECT COUNT(*) AS c FROM admin_accounts")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for uname, info in MANAGERS.items():
+            cur.execute("""
+                INSERT INTO admin_accounts (username, name, password_hash, is_active, is_super, created_at, created_by)
+                VALUES (%s, %s, %s, TRUE, TRUE, %s, 'system')
+                ON CONFLICT (username) DO NOTHING
+            """, (uname, info["name"], hash_password(info["password"]), now))
+    conn.commit(); cur.close(); conn.close()
+
+with app.app_context():
+    try:
+        init_admin_accounts_db()
+        print("✅ Admin accounts table ready")
+    except Exception as e:
+        print(f"⚠️ Admin accounts DB init error: {e}")
+
+def get_admin_by_username(username):
+    """Fetch admin account row by username."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM admin_accounts WHERE username=%s", (username,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return row
+
+
+
+# ══════════════════════════════════════════
+#  ROUTES — SUPER ADMIN ACCOUNT MANAGEMENT
+# ══════════════════════════════════════════
+
+@app.route("/manager/admins")
+def manage_admins():
+    """List and manage all super admin accounts."""
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM admin_accounts ORDER BY is_super DESC, is_active DESC, name ASC")
+    admins = cur.fetchall()
+    cur.close(); conn.close()
+    return render_template("manage_admins.html",
+        name=session.get("name",""),
+        admins=admins,
+        current_admin_id=session.get("admin_id"),
+        flash=request.args.get("flash",""),
+        flash_type=request.args.get("flash_type","success"),
+        temp_password=request.args.get("temp_password",""),
+        temp_password_for=request.args.get("temp_password_for",""),
+    )
+
+@app.route("/manager/admins/create", methods=["POST"])
+def create_admin():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    username = request.form.get("username","").strip().lower()
+    name     = request.form.get("name","").strip()
+    password = request.form.get("password","").strip()
+    is_super = "is_super" in request.form
+    notes    = request.form.get("notes","").strip()
+    if not username or not name or not password:
+        return redirect(url_for("manage_admins", flash="All fields required.", flash_type="error"))
+    if len(password) < 6:
+        return redirect(url_for("manage_admins", flash="Password must be at least 6 characters.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+            INSERT INTO admin_accounts (username, name, password_hash, is_active, is_super, created_at, created_by, notes)
+            VALUES (%s,%s,%s,TRUE,%s,%s,%s,%s)
+        """, (username, name, hash_password(password), is_super, now, session.get("name","Super Admin"), notes))
+        conn.commit()
+        return redirect(url_for("manage_admins", flash=f"Admin '{name}' created.", flash_type="success"))
+    except Exception as e:
+        conn.rollback()
+        return redirect(url_for("manage_admins", flash=f"Error: {e}", flash_type="error"))
+    finally:
+        cur.close(); conn.close()
+
+@app.route("/manager/admins/<int:admin_id>/reset-password", methods=["POST"])
+def reset_admin_password(admin_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    custom_pw = request.form.get("new_password","").strip()
+    new_pw = custom_pw if custom_pw else generate_temp_password()
+    if len(new_pw) < 6:
+        return redirect(url_for("manage_admins", flash="Password too short.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT name FROM admin_accounts WHERE id=%s", (admin_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_admins", flash="Admin not found.", flash_type="error"))
+    cur.execute("UPDATE admin_accounts SET password_hash=%s WHERE id=%s", (hash_password(new_pw), admin_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manage_admins",
+        flash=f"Password reset for {row['name']}.", flash_type="success",
+        temp_password=new_pw, temp_password_for=row["name"]))
+
+@app.route("/manager/admins/<int:admin_id>/toggle-active", methods=["POST"])
+def toggle_admin_active(admin_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    # Prevent self-deactivation
+    if session.get("admin_id") == admin_id:
+        return redirect(url_for("manage_admins", flash="You cannot deactivate your own account.", flash_type="error"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT name, is_active FROM admin_accounts WHERE id=%s", (admin_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_admins", flash="Admin not found.", flash_type="error"))
+    new_status = not row["is_active"]
+    cur.execute("UPDATE admin_accounts SET is_active=%s WHERE id=%s", (new_status, admin_id))
+    conn.commit(); cur.close(); conn.close()
+    verb = "reactivated" if new_status else "deactivated"
+    return redirect(url_for("manage_admins", flash=f"{row['name']} has been {verb}.", flash_type="success"))
+
+@app.route("/manager/admins/<int:admin_id>/toggle-super", methods=["POST"])
+def toggle_admin_super(admin_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT name, is_super FROM admin_accounts WHERE id=%s", (admin_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        return redirect(url_for("manage_admins", flash="Admin not found.", flash_type="error"))
+    cur.execute("UPDATE admin_accounts SET is_super=%s WHERE id=%s", (not row["is_super"], admin_id))
+    conn.commit(); cur.close(); conn.close()
+    label = "granted Super privileges" if not row["is_super"] else "removed Super privileges"
+    return redirect(url_for("manage_admins", flash=f"{row['name']}: {label}.", flash_type="success"))
+
+@app.route("/manager/admins/<int:admin_id>/update-info", methods=["POST"])
+def update_admin_info(admin_id):
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    name  = request.form.get("name","").strip()
+    notes = request.form.get("notes","").strip()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE admin_accounts SET name=COALESCE(NULLIF(%s,''),name), notes=%s WHERE id=%s",
+                (name, notes, admin_id))
+    conn.commit(); cur.close(); conn.close()
+    return redirect(url_for("manage_admins", flash="Admin info updated.", flash_type="success"))
+
+
+# ══════════════════════════════════════════════════════════════
+#  DATA DELETE MANAGER  (Super Admin only)
+# ══════════════════════════════════════════════════════════════
+
+@app.route("/manager/delete-manager")
+def delete_manager():
+    if not logged_in() or not is_manager(): return redirect(url_for("index"))
+    return render_template("delete_manager.html",
+                           username=session.get("username",""),
+                           role=session.get("role",""),
+                           active_page="delete_manager")
+
+@app.route("/manager/delete-manager/counts")
+def delete_manager_counts():
+    """Return row counts for each deletable table — used by the page via fetch()."""
+    if not logged_in() or not is_manager():
+        return {"error": "Unauthorized"}, 403
+    conn = get_db(); cur = conn.cursor()
+    tables = {
+        "reports":         "SELECT COUNT(*) AS c FROM reports",
+        "jobs":            "SELECT COUNT(*) AS c FROM jobs",
+        "job_edit_requests": "SELECT COUNT(*) AS c FROM job_edit_requests",
+        "sales_visits":    "SELECT COUNT(*) AS c FROM sales_visits",
+        "ta_reports":      "SELECT COUNT(*) AS c FROM ta_reports",
+        "support_reports": "SELECT COUNT(*) AS c FROM support_reports",
+        "challans":        "SELECT COUNT(*) AS c FROM challans",
+        "stock_uploads":   "SELECT COUNT(*) AS c FROM stock_uploads",
+        "stock_upload_log":"SELECT COUNT(*) AS c FROM stock_upload_log",
+        "products":        "SELECT COUNT(*) AS c FROM products",
+        "product_brands":  "SELECT COUNT(*) AS c FROM product_brands",
+        "companies":       "SELECT COUNT(*) AS c FROM companies",
+        "departments":     "SELECT COUNT(*) AS c FROM departments",
+        "employee_profiles":"SELECT COUNT(*) AS c FROM employee_profiles",
+        "users":           "SELECT COUNT(*) AS c FROM users",
+    }
+    counts = {}
+    for key, sql in tables.items():
+        try:
+            cur.execute(sql)
+            counts[key] = cur.fetchone()["c"]
+        except Exception:
+            counts[key] = "?"
+    cur.close(); conn.close()
+    return counts
+
+@app.route("/manager/delete-manager/execute", methods=["POST"])
+def delete_manager_execute():
+    """
+    Unified delete endpoint.
+    JSON body:
+      {
+        "table":      "reports" | "jobs" | ... ,
+        "mode":       "date_range" | "multi_select" | "all",
+        "date_from":  "YYYY-MM-DD",   // for date_range
+        "date_to":    "YYYY-MM-DD",   // for date_range
+        "ids":        [1,2,3]         // for multi_select
+      }
+    """
+    from flask import jsonify
+    if not logged_in() or not is_manager():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data      = request.get_json(force=True, silent=True) or {}
+    table     = data.get("table", "").strip()
+    mode      = data.get("mode", "").strip()       # date_range | multi_select | all
+    date_from = data.get("date_from", "").strip()
+    date_to   = data.get("date_to",   "").strip()
+    ids       = data.get("ids", [])
+
+    # ── Allowed tables and their date columns ──────────────────
+    ALLOWED = {
+        "reports":           "date",
+        "jobs":              "created_at",
+        "job_edit_requests": "submitted_at",
+        "sales_visits":      "visit_date",
+        "ta_reports":        "travel_date",
+        "support_reports":   "report_date",
+        "challans":          "challan_date",
+        "stock_uploads":     "uploaded_at",
+        "stock_upload_log":  "uploaded_at",
+        "products":          None,
+        "product_brands":    None,
+        "companies":         None,
+        "departments":       None,
+        "employee_profiles": None,
+        "users":             "created_at",
+    }
+
+    if table not in ALLOWED:
+        return jsonify({"error": f"Table '{table}' is not allowed."}), 400
+
+    date_col = ALLOWED[table]
+
+    conn = get_db(); cur = conn.cursor()
+    deleted = 0
+
+    try:
+        if mode == "all":
+            cur.execute(f"DELETE FROM {table}")
+            deleted = cur.rowcount
+
+        elif mode == "date_range":
+            if not date_col:
+                return jsonify({"error": f"Table '{table}' does not support date-range deletion."}), 400
+            if not date_from or not date_to:
+                return jsonify({"error": "date_from and date_to are required."}), 400
+            cur.execute(
+                f"DELETE FROM {table} WHERE {date_col}::date BETWEEN %s AND %s",
+                (date_from, date_to)
+            )
+            deleted = cur.rowcount
+
+        elif mode == "multi_select":
+            if not ids or not isinstance(ids, list):
+                return jsonify({"error": "ids list is required for multi_select."}), 400
+            ids = [int(i) for i in ids]
+            cur.execute(f"DELETE FROM {table} WHERE id = ANY(%s)", (ids,))
+            deleted = cur.rowcount
+
+        else:
+            return jsonify({"error": "Invalid mode."}), 400
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        cur.close(); conn.close()
+        return jsonify({"error": str(e)}), 500
+
+    cur.close(); conn.close()
+    return jsonify({"deleted": deleted, "table": table, "mode": mode})
+
+
+@app.route("/manager/delete-manager/preview")
+def delete_manager_preview():
+    """
+    Returns sample rows so the user can see what they're about to delete.
+    Query params: table, mode, date_from, date_to, ids (comma-separated)
+    """
+    from flask import jsonify
+    if not logged_in() or not is_manager():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    table     = request.args.get("table","").strip()
+    mode      = request.args.get("mode","").strip()
+    date_from = request.args.get("date_from","").strip()
+    date_to   = request.args.get("date_to","").strip()
+    ids_raw   = request.args.get("ids","").strip()
+
+    ALLOWED_DATE = {
+        "reports":           "date",
+        "jobs":              "created_at",
+        "job_edit_requests": "submitted_at",
+        "sales_visits":      "visit_date",
+        "ta_reports":        "travel_date",
+        "support_reports":   "report_date",
+        "challans":          "challan_date",
+        "stock_uploads":     "uploaded_at",
+        "stock_upload_log":  "uploaded_at",
+        "products":          None,
+        "product_brands":    None,
+        "companies":         None,
+        "departments":       None,
+        "employee_profiles": None,
+        "users":             "created_at",
+    }
+    if table not in ALLOWED_DATE:
+        return jsonify({"error": "Invalid table."}), 400
+
+    date_col = ALLOWED_DATE[table]
+    conn = get_db(); cur = conn.cursor()
+    rows = []
+
+    try:
+        if mode == "all":
+            cur.execute(f"SELECT * FROM {table} LIMIT 5")
+            rows = [dict(r) for r in cur.fetchall()]
+            cur.execute(f"SELECT COUNT(*) AS c FROM {table}")
+            total = cur.fetchone()["c"]
+        elif mode == "date_range" and date_col:
+            cur.execute(
+                f"SELECT * FROM {table} WHERE {date_col}::date BETWEEN %s AND %s LIMIT 5",
+                (date_from, date_to)
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            cur.execute(
+                f"SELECT COUNT(*) AS c FROM {table} WHERE {date_col}::date BETWEEN %s AND %s",
+                (date_from, date_to)
+            )
+            total = cur.fetchone()["c"]
+        elif mode == "multi_select":
+            ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
+            cur.execute(f"SELECT * FROM {table} WHERE id = ANY(%s) LIMIT 5", (ids,))
+            rows = [dict(r) for r in cur.fetchall()]
+            total = len(ids)
+        else:
+            total = 0
+    except Exception as e:
+        cur.close(); conn.close()
+        return jsonify({"error": str(e)}), 500
+
+    cur.close(); conn.close()
+    # Convert to plain strings so JSON serialises fine
+    rows = [{k: str(v) if v is not None else "" for k, v in r.items()} for r in rows]
+    return jsonify({"rows": rows, "total": total})
