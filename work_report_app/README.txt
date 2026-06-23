@@ -1,3 +1,38 @@
+NEW IN THIS UPDATE (v4.0 — two-company fix + employee auto-sync)
+────────────────────────────────────────────────────────────────
+BUG FIX — conneqtortech attendance now loads correctly
+  Root cause in v41: company key was labelled "CONNEQTORTECHNOLOGY" (all caps)
+  in BIOTIME_COMPANIES but the fetch logic filtered by "needed_companies" from
+  EMPLOYEES which used "conneqtortech" (lowercase). The mismatch meant the
+  conneqtortech BioTime tenant was silently skipped on every fetch.
+
+  Fix: renamed the key and internal label to "conneqtortech" everywhere so
+  BIOTIME_COMPANIES["conneqtortech"]["company"] == EMPLOYEES[...]["company"].
+  A one-time DB migration runs on startup to patch any rows with the old label.
+
+NEW FEATURE — Employee auto-sync from BioTime
+  Any emp_code that shows up in BioTime attendance but has no account yet in
+  your users table gets created automatically:
+  • Real name is pulled from BioTime's /personnel/api/employees/ endpoint
+  • A username + temp password are generated
+  • The new account is logged to /biotime-sync-log (manager only)
+  • The manager can then share the temp password with the employee and update
+    it from Manage Users
+
+NEW FEATURE — Deduplication of transactions
+  If both company tenants ever return the same underlying BioTime record (same
+  "id"), it is counted only once so attendance hours are never double-counted.
+
+NEW FEATURE — BioTime sync log route
+  /biotime-sync-log  → shows auto-created users with their temp passwords
+  (manager-only; linked from the /debug-biotime page)
+
+ENVIRONMENT VARIABLES — add these for conneqtortech:
+  BIOTIME_URL_CONNEQTOR    = https://conneqtortech.itimedev.minervaiot.com
+  BIOTIME_EMAIL_CONNEQTOR  = presales@conneqtortech.com
+  BIOTIME_PASS_CONNEQTOR   = Y@jh_ro@562
+  BIOTIME_COMPANY_CONNEQTOR= conneqtortech
+
 NEW IN THIS UPDATE (v3.9)
 - Attendance page — fully redesigned with dual-tab layout:
     "Summary" tab (default): same processed daily/weekly/monthly views as before,
