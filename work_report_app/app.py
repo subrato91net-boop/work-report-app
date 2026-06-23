@@ -46,7 +46,7 @@ BIOTIME_COMPANIES = {
         "company":  "imaxsol",
     },
     "CONNEQTORTECHNOLOGY": {
-        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://conneqtortech.itimedev.minervaiot.com"),
+        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://conneqtortechnology.itimedev.minervaiot.com"),
         "email":    os.environ.get("BIOTIME_EMAIL_CONNEQTOR",   "presales@conneqtortech.com"),
         "password": os.environ.get("BIOTIME_PASS_CONNEQTOR",    "Y@jh_ro@562"),
         # biotime_company = slug sent to BioTime's own login API for this tenant
