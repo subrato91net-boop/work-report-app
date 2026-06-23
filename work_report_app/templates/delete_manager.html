@@ -242,9 +242,9 @@ a{color:inherit;text-decoration:none}
       <!-- Multi-select IDs -->
       <div id="panelMultiSelect" style="display:none">
         <div class="field" style="margin-bottom:10px">
-          <label>Record IDs (comma-separated)</label>
+          <label id="idsLabel">Record IDs (comma-separated)</label>
           <textarea class="ids-input" id="idsInput" placeholder="e.g.  12, 45, 78, 102" onchange="clearPreview()"></textarea>
-          <div class="ids-hint">💡 Enter the IDs from the table's <b>id</b> column, separated by commas.</div>
+          <div class="ids-hint" id="idsHint">💡 Enter the IDs from the table's <b>id</b> column, separated by commas.</div>
         </div>
       </div>
 
@@ -329,6 +329,12 @@ let previewData   = null;
 let counts        = {};
 let sessionLog    = [];
 
+// Tables whose primary key is NOT a numeric 'id' — map to their actual PK column
+const TEXT_PK_TABLES = {
+  users:             "emp_code",
+  employee_profiles: "emp_code",
+};
+
 // Tables that have date columns
 const DATE_COLS = {
   reports:           "date",
@@ -407,6 +413,19 @@ function selectTable(key) {
   document.getElementById('step1Selected').textContent = '✓ ' + TABLE_META[key].label;
   document.getElementById('step1Selected').style.display = '';
 
+  // Update the multi-select hint to show the correct PK column
+  const pkCol = TEXT_PK_TABLES[key] || 'id';
+  const isTextPk = !!TEXT_PK_TABLES[key];
+  document.getElementById('idsLabel').textContent = isTextPk
+    ? `Employee Codes (comma-separated)`
+    : `Record IDs (comma-separated)`;
+  document.getElementById('idsInput').placeholder = isTextPk
+    ? `e.g.  1001, 1002, 2002`
+    : `e.g.  12, 45, 78, 102`;
+  document.getElementById('idsHint').innerHTML = isTextPk
+    ? `💡 Enter the <b>${pkCol}</b> values (employee codes) separated by commas. E.g. <b>1001, 2002</b>`
+    : `💡 Enter the IDs from the table's <b>${pkCol}</b> column, separated by commas.`;
+
   // Reset step 2
   selectedMode = null;
   previewData  = null;
@@ -484,9 +503,12 @@ async function loadPreview() {
   }
   if (selectedMode === 'multi_select') {
     const raw = document.getElementById('idsInput').value.trim();
-    if (!raw) { alert('Please enter at least one record ID.'); resetPreviewBtn(btn); return; }
-    const ids = raw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
-    if (!ids.length) { alert('No valid numeric IDs found.'); resetPreviewBtn(btn); return; }
+    if (!raw) { alert('Please enter at least one ID or employee code.'); resetPreviewBtn(btn); return; }
+    const isTextPk = !!TEXT_PK_TABLES[selectedTable];
+    const ids = isTextPk
+      ? raw.split(',').map(s=>s.trim()).filter(Boolean)
+      : raw.split(',').map(s=>s.trim()).filter(s=>/^\d+$/.test(s));
+    if (!ids.length) { alert(isTextPk ? 'No valid codes found.' : 'No valid numeric IDs found.'); resetPreviewBtn(btn); return; }
     params.append('ids', ids.join(','));
   }
 
@@ -590,8 +612,9 @@ async function executeDelete() {
     payload.date_to   = document.getElementById('dateTo').value;
   }
   if (selectedMode === 'multi_select') {
-    payload.ids = document.getElementById('idsInput').value
-      .split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+    const isTextPk = !!TEXT_PK_TABLES[selectedTable];
+    const raw = document.getElementById('idsInput').value.split(',').map(s=>s.trim()).filter(Boolean);
+    payload.ids = isTextPk ? raw : raw.map(s=>parseInt(s)).filter(n=>!isNaN(n));
   }
 
   try {

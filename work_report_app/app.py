@@ -6258,8 +6258,23 @@ def delete_manager_execute():
         elif mode == "multi_select":
             if not ids or not isinstance(ids, list):
                 return jsonify({"error": "ids list is required for multi_select."}), 400
-            ids = [int(i) for i in ids]
-            cur.execute(f"DELETE FROM {table} WHERE id = ANY(%s)", (ids,))
+            # Tables whose PK is not a numeric 'id' column
+            TEXT_PK_TABLES = {
+                "users":             "emp_code",
+                "employee_profiles": "emp_code",
+                "companies":         "id",   # companies has serial id
+                "departments":       "id",
+                "products":          "id",
+                "product_brands":    "id",
+            }
+            pk_col = TEXT_PK_TABLES.get(table, "id")
+            if pk_col == "emp_code":
+                # emp_code is text — keep as strings
+                ids_clean = [str(i).strip() for i in ids]
+                cur.execute(f"DELETE FROM {table} WHERE {pk_col} = ANY(%s)", (ids_clean,))
+            else:
+                ids_clean = [int(i) for i in ids]
+                cur.execute(f"DELETE FROM {table} WHERE {pk_col} = ANY(%s)", (ids_clean,))
             deleted = cur.rowcount
 
         else:
@@ -6333,10 +6348,20 @@ def delete_manager_preview():
             )
             total = cur.fetchone()["c"]
         elif mode == "multi_select":
-            ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
-            cur.execute(f"SELECT * FROM {table} WHERE id = ANY(%s) LIMIT 5", (ids,))
+            TEXT_PK_TABLES = {
+                "users":             "emp_code",
+                "employee_profiles": "emp_code",
+            }
+            pk_col = TEXT_PK_TABLES.get(table, "id")
+            if pk_col == "emp_code":
+                ids_clean = [i.strip() for i in ids_raw.split(",") if i.strip()]
+                cur.execute(f"SELECT * FROM {table} WHERE {pk_col} = ANY(%s) LIMIT 5", (ids_clean,))
+                total = len(ids_clean)
+            else:
+                ids_clean = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
+                cur.execute(f"SELECT * FROM {table} WHERE {pk_col} = ANY(%s) LIMIT 5", (ids_clean,))
+                total = len(ids_clean)
             rows = [dict(r) for r in cur.fetchall()]
-            total = len(ids)
         else:
             total = 0
     except Exception as e:
