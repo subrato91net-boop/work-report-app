@@ -330,14 +330,95 @@ def get_biotime_token(company_key="imaxsol"):
     return None
 
 # ══════════════════════════════════════════
+#  BIOTIME CLOUD 2.0 — SESSION/COOKIE LOGIN
+#  Workaround for a server-side bug on the vendor's
+#  BioTime Cloud install: their JWT auth path crashes
+#  with "module 'jwt' has no attribute 'ExpiredSignature'"
+#  (PyJWT 2.x removed that old attribute name).
+#  Logging in the same way the browser's "Log in" link
+#  on the Django REST Framework page does (Django session
+#  cookie) goes through a different code path and works.
+# ══════════════════════════════════════════
+import re as _re
+
+_bt_web_sessions = {}
+_bt_web_expiries = {}
+_bt_web_lock     = _threading.Lock()
+
+def _biotime_login_session(company_key):
+    """Create a fresh authenticated requests.Session by logging in
+    the same way the browser does (Django session auth), not JWT."""
+    cfg = BIOTIME_COMPANIES.get(company_key)
+    if not cfg:
+        return None
+    base_url = cfg["url"].rstrip("/")
+    api_url  = f"{base_url}/iclock/api/transactions/"
+
+    s = req.Session()
+    try:
+        # Step 1: hit the API page to discover the "Log in" link + get a csrftoken cookie
+        r0 = s.get(api_url, timeout=15)
+        login_url = f"{base_url}/api-auth/login/"   # standard DRF default convention
+        m = _re.search(r'href="([^"]*\blogin[^"]*)"', r0.text, _re.IGNORECASE)
+        if m:
+            href = m.group(1)
+            login_url = href if href.startswith("http") else f"{base_url}{href}"
+
+        # Step 2: load the login form itself (this is what sets the real csrf cookie
+        # and gives us the hidden csrfmiddlewaretoken value to echo back)
+        r1  = s.get(login_url, params={"next": "/iclock/api/transactions/"}, timeout=15)
+        csrf = s.cookies.get("csrftoken")
+        m2 = _re.search(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)["\']', r1.text)
+        if m2:
+            csrf = m2.group(1)
+        if not csrf:
+            print(f"BioTime web-login [{company_key}] ❌ could not find CSRF token at {login_url}")
+            return None
+
+        # Step 3: submit the login form, exactly like the browser did in your screenshot
+        payload = {
+            "username": cfg["email"],
+            "password": cfg["password"],
+            "csrfmiddlewaretoken": csrf,
+            "next": "/iclock/api/transactions/",
+        }
+        headers = {"Referer": r1.url}
+        s.post(login_url, data=payload, headers=headers, timeout=15, allow_redirects=True)
+
+        # Step 4: confirm it actually worked by calling the real endpoint
+        check = s.get(api_url, params={"page_size": 1}, timeout=15)
+        if check.status_code == 200:
+            print(f"BioTime web-login [{company_key}] ✅ session login OK")
+            return s
+        print(f"BioTime web-login [{company_key}] ❌ HTTP {check.status_code}: {check.text[:200]}")
+        return None
+    except Exception as e:
+        print(f"BioTime web-login [{company_key}] error: {e}")
+        return None
+
+
+def get_biotime_web_session(company_key="imaxsol", force_new=False):
+    """Return a cached, logged-in requests.Session for this company, refreshing if needed."""
+    with _bt_web_lock:
+        cached = _bt_web_sessions.get(company_key)
+        if (not force_new and cached and _bt_web_expiries.get(company_key)
+                and datetime.now() < _bt_web_expiries[company_key]):
+            return cached
+
+    s = _biotime_login_session(company_key)
+    if s:
+        with _bt_web_lock:
+            _bt_web_sessions[company_key]  = s
+            _bt_web_expiries[company_key]  = datetime.now() + timedelta(hours=6)
+    return s
+
+# ══════════════════════════════════════════
 #  BIOTIME — FETCH TRANSACTIONS (one company, paginated)
 # ══════════════════════════════════════════
 def _fetch_from_company(company_key, date_from, date_to):
-    token = get_biotime_token(company_key)
-    if not token:
-        return []
     cfg      = BIOTIME_COMPANIES[company_key]
     base_url = cfg["url"].rstrip("/")
+    api_url  = f"{base_url}/iclock/api/transactions/"
 
     # ── BioTime Cloud 2.0 — CoreAPI schema confirmed ───────────────────────────
     # Schema: /iclock/api/transactions/ params: start_time, end_time, ordering
@@ -346,11 +427,52 @@ def _fetch_from_company(company_key, date_from, date_to):
     _start = f"{date_from} 00:00:00"
     _end   = f"{date_to} 23:59:59"
 
-    # Try both Authorization header formats (JWT is Cloud 2.0 standard)
+    # ── METHOD 1 (primary): session/cookie login — works around the server's
+    #    broken JWT auth. Retries once with a forced fresh login if the
+    #    cached session has expired server-side. ──
+    for attempt in range(2):
+        sess = get_biotime_web_session(company_key, force_new=(attempt == 1))
+        if not sess:
+            break
+        all_data = []
+        url      = api_url
+        params   = {"start_time": _start, "end_time": _end, "ordering": "punch_time", "page_size": 500}
+        retry_needed = False
+        try:
+            while url:
+                res = sess.get(url, params=params, timeout=20)
+                print(f"BioTime txn [{company_key}] web-session → HTTP {res.status_code}")
+                if res.status_code == 200:
+                    data   = res.json()
+                    rows   = data.get("data", [])
+                    all_data.extend(rows)
+                    url    = data.get("next")
+                    params = {}
+                    if not url:
+                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched (session)")
+                        return all_data
+                elif res.status_code in (401, 403):
+                    print(f"BioTime txn [{company_key}] session expired/rejected, retrying with fresh login…")
+                    retry_needed = True
+                    break
+                else:
+                    print(f"BioTime txn [{company_key}] HTTP {res.status_code}: {res.text[:200]}")
+                    return []
+        except Exception as e:
+            print(f"BioTime txn [{company_key}] session error: {e}")
+            break
+        if not retry_needed:
+            break
+
+    # ── METHOD 2 (fallback): old JWT bearer-token method. Currently broken on
+    #    the vendor's server, but kept here in case they fix it later. ──
+    token = get_biotime_token(company_key)
+    if not token:
+        return []
     for auth_prefix in ("JWT", "Token"):
         headers  = {"Authorization": f"{auth_prefix} {token}"}
         all_data = []
-        url      = f"{base_url}/iclock/api/transactions/"
+        url      = api_url
         params   = {
             "start_time": _start,
             "end_time":   _end,
@@ -368,7 +490,7 @@ def _fetch_from_company(company_key, date_from, date_to):
                     url      = data.get("next")
                     params   = {}
                     if not url:
-                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched")
+                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched (jwt)")
                         return all_data
                 elif res.status_code == 401:
                     print(f"BioTime txn [{company_key}] 401 with {auth_prefix}, trying next prefix…")
@@ -431,8 +553,26 @@ def debug_biotime():
         lines.append(f"URL         : {cfg['url']}")
         lines.append(f"Company slug: {cfg['company']}")
 
-        # ── 1. Auth ──────────────────────────────────────────────────────────
-        lines.append("\n--- 1. Auth test ---")
+        # ── 0. Session/cookie login test (the new, working method) ───────────
+        lines.append("\n--- 0. Session/cookie login test (workaround for server JWT bug) ---")
+        try:
+            web_sess = get_biotime_web_session(company_key, force_new=True)
+            if web_sess:
+                chk = web_sess.get(f"{base_url}/iclock/api/transactions/",
+                                    params={"page_size": 3, "ordering": "-punch_time"}, timeout=15)
+                lines.append(f"   ✅ Session login OK — HTTP {chk.status_code}")
+                if chk.status_code == 200:
+                    d = chk.json()
+                    lines.append(f"   Total records visible: {d.get('count', '?')}")
+                    for t in d.get("data", [])[:3]:
+                        lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}")
+            else:
+                lines.append("   ❌ Session login FAILED — see server logs for details")
+        except Exception as e:
+            lines.append(f"   ❌ Exception: {e}")
+
+        # ── 1. Auth (JWT — currently broken on vendor's server, kept for reference) ──
+        lines.append("\n--- 1. Auth test (legacy JWT path) ---")
         token = get_biotime_token(company_key)
         if not token:
             lines.append("❌ Auth FAILED — check URL/email/password")
