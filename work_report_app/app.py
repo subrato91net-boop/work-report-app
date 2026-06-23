@@ -40,14 +40,21 @@ BIOTIME_COMPANIES = {
         "url":      os.environ.get("BIOTIME_URL_IMAXSOL",     "https://imaxsol.itimedev.minervaiot.com"),
         "email":    os.environ.get("BIOTIME_EMAIL_IMAXSOL",   "presales@conneqtortech.com"),
         "password": os.environ.get("BIOTIME_PASS_IMAXSOL",    "Y@jh_ro@562"),
-        "company":  os.environ.get("BIOTIME_COMPANY_IMAXSOL", "imaxsol"),
+        # biotime_company = slug sent to BioTime's own login API for this tenant
+        "biotime_company": os.environ.get("BIOTIME_COMPANY_IMAXSOL", "imaxsol"),
+        # company = YOUR internal label, must match EMPLOYEES[...]["company"]
+        "company":  "imaxsol",
     },
     "CONNEQTORTECHNOLOGY": {
-        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://imaxsol.itimedev.minervaiot.com"),
+        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://conneqtortech.itimedev.minervaiot.com"),
         "email":    os.environ.get("BIOTIME_EMAIL_CONNEQTOR",   "presales@conneqtortech.com"),
         "password": os.environ.get("BIOTIME_PASS_CONNEQTOR",    "Y@jh_ro@562"),
-        "company":  os.environ.get("BIOTIME_COMPANY_CONNEQTOR", "imaxsol"),
+        # biotime_company = slug sent to BioTime's own login API for this tenant
+        "biotime_company": os.environ.get("BIOTIME_COMPANY_CONNEQTOR", "conneqtortech"),
+        # company = YOUR internal label, must match EMPLOYEES[...]["company"]
+        "company":  "CONNEQTORTECHNOLOGY",
     },
+
 }
 
 # ══════════════════════════════════════════
@@ -301,8 +308,8 @@ def get_biotime_token(company_key="imaxsol"):
     auth_paths = ["/jwt-api-token-auth/", "/api-token-auth/"]
     # ── Try both payload formats (email or username) ──
     payloads = [
-        {"company": cfg["company"], "email":    cfg["email"],    "password": cfg["password"]},
-        {"company": cfg["company"], "username": cfg["email"],    "password": cfg["password"]},
+        {"company": cfg["biotime_company"], "email":    cfg["email"],    "password": cfg["password"]},
+        {"company": cfg["biotime_company"], "username": cfg["email"],    "password": cfg["password"]},
     ]
 
     for path in auth_paths:
@@ -551,7 +558,7 @@ def debug_biotime():
         lines.append(f"\n{'='*50}")
         lines.append(f"Company key : {company_key}")
         lines.append(f"URL         : {cfg['url']}")
-        lines.append(f"Company slug: {cfg['company']}")
+        lines.append(f"Company slug: {cfg['biotime_company']}  (internal label: {cfg['company']})")
 
         # ── 0. Session/cookie login test (the new, working method) ───────────
         lines.append("\n--- 0. Session/cookie login test (workaround for server JWT bug) ---")
