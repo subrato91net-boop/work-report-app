@@ -29,32 +29,30 @@ if DATABASE_URL.startswith("postgres://"):
 # ══════════════════════════════════════════
 #  BIOTIME CLOUD 2.0 — MULTI-COMPANY CONFIG
 # ══════════════════════════════════════════
-PUNCH_START_HOUR = 0   # IST punches at 6 AM = 00:30 UTC — must start from 0
+PUNCH_START_HOUR = 0
 PUNCH_END_HOUR   = 23
 
-# Legacy single-var kept for any old references
-BIOTIME_URL = os.environ.get("BIOTIME_URL_IMAXSOL", "https://imaxsol.itimedev.minervaiot.com")
+# ── Single BioTime server for both companies ──
+# Set these three env vars on your server; the defaults below are the
+# fallback values used when no env var is present.
+BIOTIME_BASE_URL = os.environ.get("BIOTIME_URL",      "https://itimedev.minervaiot.com")
+BIOTIME_USERNAME = os.environ.get("BIOTIME_USERNAME",  "presales@conneqtortech.com")
+BIOTIME_PASSWORD = os.environ.get("BIOTIME_PASSWORD",  "Y@jh_ro@562")
 
+# Legacy alias kept so any old reference to BIOTIME_URL still resolves
+BIOTIME_URL = BIOTIME_BASE_URL
+
+# BIOTIME_COMPANIES maps internal company labels to the shared server.
+# Both entries use the same URL/credentials.
 BIOTIME_COMPANIES = {
     "imaxsol": {
-        "url":      os.environ.get("BIOTIME_URL_IMAXSOL",     "https://imaxsol.itimedev.minervaiot.com"),
-        "email":    os.environ.get("BIOTIME_EMAIL_IMAXSOL",   "presales@conneqtortech.com"),
-        "password": os.environ.get("BIOTIME_PASS_IMAXSOL",    "Y@jh_ro@562"),
-        # biotime_company = slug sent to BioTime's own login API for this tenant
-        "biotime_company": os.environ.get("BIOTIME_COMPANY_IMAXSOL", "imaxsol"),
-        # company = YOUR internal label, must match EMPLOYEES[...]["company"]
-        "company":  "imaxsol",
+        "url":     BIOTIME_BASE_URL,
+        "company": "imaxsol",
     },
     "CONNEQTORTECHNOLOGY": {
-        "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://conneqtortechnology.itimedev.minervaiot.com"),
-        "email":    os.environ.get("BIOTIME_EMAIL_CONNEQTOR",   "presales@conneqtortech.com"),
-        "password": os.environ.get("BIOTIME_PASS_CONNEQTOR",    "Y@jh_ro@562"),
-        # biotime_company = slug sent to BioTime's own login API for this tenant
-        "biotime_company": os.environ.get("BIOTIME_COMPANY_CONNEQTOR", "conneqtortech"),
-        # company = YOUR internal label, must match EMPLOYEES[...]["company"]
-        "company":  "CONNEQTORTECHNOLOGY",
+        "url":     BIOTIME_BASE_URL,
+        "company": "CONNEQTORTECHNOLOGY",
     },
-
 }
 
 # ══════════════════════════════════════════
@@ -284,251 +282,122 @@ def _column_exists(cur, table, column):
     return cur.fetchone() is not None
 
 # ══════════════════════════════════════════
-#  BIOTIME CLOUD 2.0 — JWT TOKEN CACHE
+#  BIOTIME — SESSION LOGIN (single server, username + password)
 # ══════════════════════════════════════════
 import threading as _threading
-_bt_tokens   = {}
-_bt_expiries = {}
-_bt_lock     = _threading.Lock()
-
-def get_biotime_token(company_key="imaxsol"):
-    """Return a valid JWT for the given BioTime company, refreshing if needed."""
-    with _bt_lock:
-        if (_bt_tokens.get(company_key) and _bt_expiries.get(company_key)
-                and datetime.now() < _bt_expiries[company_key]):
-            return _bt_tokens[company_key]
-    cfg = BIOTIME_COMPANIES.get(company_key)
-    if not cfg:
-        print(f"BioTime: unknown company key '{company_key}'")
-        return None
-
-    base_url = cfg["url"].rstrip("/")
-
-    # ── Try both auth endpoints (Cloud 2.0 and older versions) ──
-    auth_paths = ["/jwt-api-token-auth/", "/api-token-auth/"]
-    # ── Try both payload formats (email or username) ──
-    payloads = [
-        {"company": cfg["biotime_company"], "email":    cfg["email"],    "password": cfg["password"]},
-        {"company": cfg["biotime_company"], "username": cfg["email"],    "password": cfg["password"]},
-    ]
-
-    for path in auth_paths:
-        for payload in payloads:
-            try:
-                res = req.post(f"{base_url}{path}", json=payload, timeout=15, verify=True)
-                print(f"BioTime auth [{company_key}] {path} → HTTP {res.status_code}")
-                if res.status_code == 200:
-                    data  = res.json()
-                    token = data.get("token") or data.get("access") or data.get("jwt")
-                    if token:
-                        with _bt_lock:
-                            _bt_tokens[company_key]   = token
-                            _bt_expiries[company_key] = datetime.now() + timedelta(hours=23)
-                        print(f"BioTime auth [{company_key}] ✅ Token received")
-                        return token
-                    else:
-                        print(f"BioTime auth [{company_key}] 200 OK but no token. Keys: {list(data.keys())}")
-                elif res.status_code in (400, 401):
-                    print(f"BioTime auth [{company_key}] credentials rejected: {res.text[:200]}")
-            except Exception as e:
-                print(f"BioTime auth [{company_key}] error on {path}: {e}")
-
-    print(f"BioTime auth [{company_key}] ❌ All attempts failed")
-    return None
-
-# ══════════════════════════════════════════
-#  BIOTIME CLOUD 2.0 — SESSION/COOKIE LOGIN
-#  Workaround for a server-side bug on the vendor's
-#  BioTime Cloud install: their JWT auth path crashes
-#  with "module 'jwt' has no attribute 'ExpiredSignature'"
-#  (PyJWT 2.x removed that old attribute name).
-#  Logging in the same way the browser's "Log in" link
-#  on the Django REST Framework page does (Django session
-#  cookie) goes through a different code path and works.
-# ══════════════════════════════════════════
 import re as _re
 
-_bt_web_sessions = {}
-_bt_web_expiries = {}
-_bt_web_lock     = _threading.Lock()
+_bt_session  = None
+_bt_session_expiry = None
+_bt_session_lock   = _threading.Lock()
 
-def _biotime_login_session(company_key):
-    """Create a fresh authenticated requests.Session by logging in
-    the same way the browser does (Django session auth), not JWT."""
-    cfg = BIOTIME_COMPANIES.get(company_key)
-    if not cfg:
-        return None
-    base_url = cfg["url"].rstrip("/")
-    api_url  = f"{base_url}/iclock/api/transactions/"
+def _biotime_login_session():
+    """Log in to BioTime via Django session (username + password, no company field)."""
+    base_url  = BIOTIME_BASE_URL.rstrip("/")
+    api_url   = f"{base_url}/iclock/api/transactions/"
+    login_url = f"{base_url}/api-auth/login/"
 
     s = req.Session()
     try:
-        # Step 1: hit the API page to discover the "Log in" link + get a csrftoken cookie
-        r0 = s.get(api_url, timeout=15)
-        login_url = f"{base_url}/api-auth/login/"   # standard DRF default convention
-        m = _re.search(r'href="([^"]*\blogin[^"]*)"', r0.text, _re.IGNORECASE)
+        # Step 1: GET the login page to obtain csrftoken cookie + hidden field
+        r1 = s.get(login_url, params={"next": "/iclock/api/transactions/"}, timeout=15)
+        csrf = s.cookies.get("csrftoken", "")
+        m = _re.search(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\' ]+)', r1.text)
         if m:
-            href = m.group(1)
-            login_url = href if href.startswith("http") else f"{base_url}{href}"
-
-        # Step 2: load the login form itself (this is what sets the real csrf cookie
-        # and gives us the hidden csrfmiddlewaretoken value to echo back)
-        r1  = s.get(login_url, params={"next": "/iclock/api/transactions/"}, timeout=15)
-        csrf = s.cookies.get("csrftoken")
-        m2 = _re.search(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)["\']', r1.text)
-        if m2:
-            csrf = m2.group(1)
+            csrf = m.group(1)
         if not csrf:
-            print(f"BioTime web-login [{company_key}] ❌ could not find CSRF token at {login_url}")
+            print("BioTime login ❌ could not find CSRF token")
             return None
 
-        # Step 3: submit the login form, exactly like the browser did in your screenshot
+        # Step 2: POST the login form — username + password only, no company slug
         payload = {
-            "username": cfg["email"],
-            "password": cfg["password"],
+            "username":            BIOTIME_USERNAME,
+            "password":            BIOTIME_PASSWORD,
             "csrfmiddlewaretoken": csrf,
-            "next": "/iclock/api/transactions/",
+            "next":                "/iclock/api/transactions/",
         }
-        headers = {"Referer": r1.url}
-        s.post(login_url, data=payload, headers=headers, timeout=15, allow_redirects=True)
+        s.post(login_url, data=payload, headers={"Referer": r1.url},
+               timeout=15, allow_redirects=True)
 
-        # Step 4: confirm it actually worked by calling the real endpoint
+        # Step 3: verify the session works
         check = s.get(api_url, params={"page_size": 1}, timeout=15)
         if check.status_code == 200:
-            print(f"BioTime web-login [{company_key}] ✅ session login OK")
+            print("BioTime login ✅ session OK")
             return s
-        print(f"BioTime web-login [{company_key}] ❌ HTTP {check.status_code}: {check.text[:200]}")
+        print(f"BioTime login ❌ HTTP {check.status_code}: {check.text[:200]}")
         return None
     except Exception as e:
-        print(f"BioTime web-login [{company_key}] error: {e}")
+        print(f"BioTime login error: {e}")
         return None
 
-
-def get_biotime_web_session(company_key="imaxsol", force_new=False):
-    """Return a cached, logged-in requests.Session for this company, refreshing if needed."""
-    with _bt_web_lock:
-        cached = _bt_web_sessions.get(company_key)
-        if (not force_new and cached and _bt_web_expiries.get(company_key)
-                and datetime.now() < _bt_web_expiries[company_key]):
-            return cached
-
-    s = _biotime_login_session(company_key)
+def get_biotime_session(force_new=False):
+    """Return a cached logged-in session, refreshing after 6 hours."""
+    global _bt_session, _bt_session_expiry
+    with _bt_session_lock:
+        if (not force_new and _bt_session and _bt_session_expiry
+                and datetime.now() < _bt_session_expiry):
+            return _bt_session
+    s = _biotime_login_session()
     if s:
-        with _bt_web_lock:
-            _bt_web_sessions[company_key]  = s
-            _bt_web_expiries[company_key]  = datetime.now() + timedelta(hours=6)
+        with _bt_session_lock:
+            _bt_session        = s
+            _bt_session_expiry = datetime.now() + timedelta(hours=6)
     return s
 
+# ── compatibility shims so old call-sites don't break ──
+def get_biotime_web_session(company_key=None, force_new=False):
+    return get_biotime_session(force_new=force_new)
+
+def get_biotime_token(company_key=None):
+    return None   # JWT path removed; session login is used exclusively
+
 # ══════════════════════════════════════════
-#  BIOTIME — FETCH TRANSACTIONS (one company, paginated)
+#  BIOTIME — FETCH TRANSACTIONS
 # ══════════════════════════════════════════
-def _fetch_from_company(company_key, date_from, date_to):
-    cfg      = BIOTIME_COMPANIES[company_key]
-    base_url = cfg["url"].rstrip("/")
+def fetch_transactions(date_from, date_to):
+    """Fetch all punch transactions from the single BioTime server."""
+    base_url = BIOTIME_BASE_URL.rstrip("/")
     api_url  = f"{base_url}/iclock/api/transactions/"
+    _start   = f"{date_from} 00:00:00"
+    _end     = f"{date_to} 23:59:59"
+    params   = {"start_time": _start, "end_time": _end,
+                "ordering": "punch_time", "page_size": 500}
 
-    # ── BioTime Cloud 2.0 — CoreAPI schema confirmed ───────────────────────────
-    # Schema: /iclock/api/transactions/ params: start_time, end_time, ordering
-    # start_time / end_time filter on punch_time which is stored & filtered in IST.
-    # No UTC conversion needed — just use the full IST day window.
-    _start = f"{date_from} 00:00:00"
-    _end   = f"{date_to} 23:59:59"
-
-    # ── METHOD 1 (primary): session/cookie login — works around the server's
-    #    broken JWT auth. Retries once with a forced fresh login if the
-    #    cached session has expired server-side. ──
     for attempt in range(2):
-        sess = get_biotime_web_session(company_key, force_new=(attempt == 1))
+        sess = get_biotime_session(force_new=(attempt == 1))
         if not sess:
-            break
+            print("BioTime ❌ no session available")
+            return []
         all_data = []
-        url      = api_url
-        params   = {"start_time": _start, "end_time": _end, "ordering": "punch_time", "page_size": 500}
-        retry_needed = False
+        url = api_url
+        p   = params.copy()
         try:
             while url:
-                res = sess.get(url, params=params, timeout=20)
-                print(f"BioTime txn [{company_key}] web-session → HTTP {res.status_code}")
+                res = sess.get(url, params=p, timeout=20)
+                print(f"BioTime txn attempt={attempt} → HTTP {res.status_code}")
                 if res.status_code == 200:
-                    data   = res.json()
-                    rows   = data.get("data", [])
-                    all_data.extend(rows)
-                    url    = data.get("next")
-                    params = {}
+                    data = res.json()
+                    all_data.extend(data.get("data", []))
+                    url = data.get("next")
+                    p   = {}
                     if not url:
-                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched (session)")
+                        print(f"BioTime ✅ {len(all_data)} records fetched")
                         return all_data
                 elif res.status_code in (401, 403):
-                    print(f"BioTime txn [{company_key}] session expired/rejected, retrying with fresh login…")
-                    retry_needed = True
-                    break
+                    print("BioTime session expired, retrying with fresh login…")
+                    break   # triggers attempt=1 with force_new=True
                 else:
-                    print(f"BioTime txn [{company_key}] HTTP {res.status_code}: {res.text[:200]}")
+                    print(f"BioTime HTTP {res.status_code}: {res.text[:200]}")
                     return []
         except Exception as e:
-            print(f"BioTime txn [{company_key}] session error: {e}")
-            break
-        if not retry_needed:
-            break
-
-    # ── METHOD 2 (fallback): old JWT bearer-token method. Currently broken on
-    #    the vendor's server, but kept here in case they fix it later. ──
-    token = get_biotime_token(company_key)
-    if not token:
-        return []
-    for auth_prefix in ("JWT", "Token"):
-        headers  = {"Authorization": f"{auth_prefix} {token}"}
-        all_data = []
-        url      = api_url
-        params   = {
-            "start_time": _start,
-            "end_time":   _end,
-            "ordering":   "punch_time",
-            "page_size":  500,
-        }
-        try:
-            while url:
-                res = req.get(url, headers=headers, params=params, timeout=20)
-                print(f"BioTime txn [{company_key}] {auth_prefix} → HTTP {res.status_code}")
-                if res.status_code == 200:
-                    data     = res.json()
-                    rows     = data.get("data", [])
-                    all_data.extend(rows)
-                    url      = data.get("next")
-                    params   = {}
-                    if not url:
-                        print(f"BioTime txn [{company_key}] ✅ {len(all_data)} records fetched (jwt)")
-                        return all_data
-                elif res.status_code == 401:
-                    print(f"BioTime txn [{company_key}] 401 with {auth_prefix}, trying next prefix…")
-                    break
-                else:
-                    print(f"BioTime txn [{company_key}] HTTP {res.status_code}: {res.text[:200]}")
-                    return []
-        except Exception as e:
-            print(f"BioTime txn [{company_key}] error: {e}")
+            print(f"BioTime fetch error: {e}")
             return []
     return []
 
-# ══════════════════════════════════════════
-#  BIOTIME — FETCH ALL COMPANIES
-# ══════════════════════════════════════════
-def fetch_transactions(date_from, date_to):
-    """Fetch transactions from ALL BioTime companies and merge."""
-    # Determine which companies are relevant for employees in EMPLOYEES dict
-    needed_companies = set(e["company"] for e in EMPLOYEES.values())
-    all_txns = []
-    for company_key in BIOTIME_COMPANIES:
-        cfg_company = BIOTIME_COMPANIES[company_key]["company"]
-        if cfg_company in needed_companies or company_key in needed_companies:
-            rows = _fetch_from_company(company_key, date_from, date_to)
-            # Tag each transaction with its source company key
-            for r in rows:
-                r["_source_company"] = cfg_company
-            all_txns.extend(rows)
-    return all_txns
+def _fetch_from_company(company_key, date_from, date_to):
+    """Compatibility shim — all companies share one server now."""
+    return fetch_transactions(date_from, date_to)
 
-# ══════════════════════════════════════════
 #  BIOTIME — DEBUG ROUTE  /debug-biotime
 #  Accessible by manager only — shows live
 #  API test results so you can diagnose issues
@@ -539,161 +408,55 @@ def debug_biotime():
     if not logged_in() or not is_manager():
         return redirect(url_for("index"))
     lines = ["<pre style='font-family:monospace;font-size:13px;padding:20px'>"]
-    lines.append("<b>BioTime Cloud 2.0 — Live Diagnostic v2</b>\n")
+    lines.append("<b>BioTime — Live Diagnostic</b>\n")
+    lines.append(f"Server time : {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}")
+    lines.append(f"BioTime URL : {BIOTIME_BASE_URL}")
+    lines.append(f"Username    : {BIOTIME_USERNAME}")
+    lines.append(f"Password    : {'*' * len(BIOTIME_PASSWORD)}\n")
+
+    # Step 1 — login
+    lines.append("=== Step 1: Session Login ===")
+    try:
+        sess = _biotime_login_session()
+        if sess:
+            lines.append("✅ Login successful")
+        else:
+            lines.append("❌ Login FAILED — check username/password")
+            lines.append("</pre>")
+            return "\n".join(lines)
+    except Exception as e:
+        lines.append(f"❌ Login exception: {e}")
+        lines.append("</pre>")
+        return "\n".join(lines)
+
+    # Step 2 — fetch one page of transactions for today
+    lines.append("\n=== Step 2: Fetch Today's Transactions ===")
     today = datetime.now().strftime("%Y-%m-%d")
-    now_ist = datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")
-    lines.append(f"Server time : {now_ist}")
-
-    # Only run for the first company key (both are same URL/creds)
-    seen_urls = set()
-
-    for company_key, cfg in BIOTIME_COMPANIES.items():
-        base_url = cfg["url"].rstrip("/")
-        if base_url in seen_urls:
-            lines.append(f"\n{'='*50}")
-            lines.append(f"Company key : {company_key}  [skipped — same URL as above]")
-            continue
-        seen_urls.add(base_url)
-
-        lines.append(f"\n{'='*50}")
-        lines.append(f"Company key : {company_key}")
-        lines.append(f"URL         : {cfg['url']}")
-        lines.append(f"Company slug: {cfg['biotime_company']}  (internal label: {cfg['company']})")
-
-        # ── 0. Session/cookie login test (the new, working method) ───────────
-        lines.append("\n--- 0. Session/cookie login test (workaround for server JWT bug) ---")
-        try:
-            web_sess = get_biotime_web_session(company_key, force_new=True)
-            if web_sess:
-                chk = web_sess.get(f"{base_url}/iclock/api/transactions/",
-                                    params={"page_size": 3, "ordering": "-punch_time"}, timeout=15)
-                lines.append(f"   ✅ Session login OK — HTTP {chk.status_code}")
-                if chk.status_code == 200:
-                    d = chk.json()
-                    lines.append(f"   Total records visible: {d.get('count', '?')}")
-                    for t in d.get("data", [])[:3]:
-                        lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}")
-            else:
-                lines.append("   ❌ Session login FAILED — see server logs for details")
-        except Exception as e:
-            lines.append(f"   ❌ Exception: {e}")
-
-        # ── 1. Auth (JWT — currently broken on vendor's server, kept for reference) ──
-        lines.append("\n--- 1. Auth test (legacy JWT path) ---")
-        token = get_biotime_token(company_key)
-        if not token:
-            lines.append("❌ Auth FAILED — check URL/email/password")
-            continue
-        lines.append(f"✅ Token: {token[:40]}...")
-
-        headers_jwt   = {"Authorization": f"JWT {token}"}
-        headers_token = {"Authorization": f"Token {token}"}
-
-        # ── 2. Raw no-filter fetch (last 5 records) ───────────────────────────
-        lines.append("\n--- 2. Raw fetch — last 5 records (no date filter) ---")
-        try:
-            r = req.get(f"{base_url}/iclock/api/transactions/",
-                        headers=headers_jwt,
-                        params={"page_size": 5, "ordering": "-punch_time"},
-                        timeout=20)
-            lines.append(f"   HTTP {r.status_code}  (JWT prefix)")
-            if r.status_code == 200:
-                data = r.json()
-                lines.append(f"   Total records on server: {data.get('count', '?')}")
-                for t in data.get("data", []):
-                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  punch_state={t.get('punch_state')}")
-            elif r.status_code == 401:
-                # Try Token prefix
-                r2 = req.get(f"{base_url}/iclock/api/transactions/",
-                             headers=headers_token,
-                             params={"page_size": 5, "ordering": "-punch_time"},
-                             timeout=20)
-                lines.append(f"   HTTP {r2.status_code}  (Token prefix)")
-                if r2.status_code == 200:
-                    data = r2.json()
-                    lines.append(f"   Total records on server: {data.get('count', '?')}")
-                    for t in data.get("data", []):
-                        lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  punch_state={t.get('punch_state')}")
-                else:
-                    lines.append(f"   ❌ Both JWT and Token prefix failed. Body: {r2.text[:300]}")
-            else:
-                lines.append(f"   ❌ Unexpected HTTP {r.status_code}: {r.text[:300]}")
-        except Exception as e:
-            lines.append(f"   ❌ Exception: {e}")
-
-        # ── 3. Today filter test ──────────────────────────────────────────────
-        lines.append(f"\n--- 3. Today filter: {today} 00:00:00 → {today} 23:59:59 ---")
-        try:
-            r = req.get(f"{base_url}/iclock/api/transactions/",
-                        headers=headers_jwt,
-                        params={"start_time": f"{today} 00:00:00",
-                                "end_time":   f"{today} 23:59:59",
-                                "ordering":   "punch_time",
-                                "page_size":  100},
-                        timeout=20)
-            lines.append(f"   HTTP {r.status_code}")
-            if r.status_code == 200:
-                data = r.json()
-                count = data.get("count", 0)
-                rows  = data.get("data", [])
-                lines.append(f"   count={count}  rows_this_page={len(rows)}")
-                for t in rows[:10]:
-                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  upload_time={t.get('upload_time')}")
-                if count == 0:
-                    lines.append("   ⚠️  No punches recorded for today yet — employees haven't punched in/out today")
-            else:
-                lines.append(f"   ❌ HTTP {r.status_code}: {r.text[:300]}")
-        except Exception as e:
-            lines.append(f"   ❌ Exception: {e}")
-
-        # ── 4. Yesterday filter test ──────────────────────────────────────────
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-        lines.append(f"\n--- 4. Yesterday filter: {yesterday} 00:00:00 → {yesterday} 23:59:59 ---")
-        try:
-            r = req.get(f"{base_url}/iclock/api/transactions/",
-                        headers=headers_jwt,
-                        params={"start_time": f"{yesterday} 00:00:00",
-                                "end_time":   f"{yesterday} 23:59:59",
-                                "ordering":   "punch_time",
-                                "page_size":  100},
-                        timeout=20)
-            lines.append(f"   HTTP {r.status_code}")
-            if r.status_code == 200:
-                data = r.json()
-                count = data.get("count", 0)
-                rows  = data.get("data", [])
-                lines.append(f"   count={count}  rows_this_page={len(rows)}")
-                for t in rows[:10]:
-                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  upload_time={t.get('upload_time')}")
-            else:
-                lines.append(f"   ❌ HTTP {r.status_code}: {r.text[:300]}")
-        except Exception as e:
-            lines.append(f"   ❌ Exception: {e}")
-
-        # ── 5. emp_code matching ──────────────────────────────────────────────
-        lines.append("\n--- 5. EMPLOYEES dict emp_codes ---")
-        app_codes = [k for k, v in EMPLOYEES.items() if v.get("company") in (company_key, cfg["company"])]
-        lines.append(f"   Your app emp_codes: {app_codes}")
-
-        # ── 6. Employee endpoints ─────────────────────────────────────────────
-        lines.append("\n--- 6. Employee endpoint probe ---")
-        for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
-                         "/iclock/api/employees/", "/att/api/employees/"]:
-            try:
-                r = req.get(f"{base_url}{emp_path}", headers=headers_jwt,
-                            params={"page_size": 5}, timeout=10)
-                lines.append(f"   {emp_path}  → HTTP {r.status_code}")
-                if r.status_code == 200:
-                    d = r.json()
-                    lines.append(f"      count={d.get('count','?')}  keys={list(d.keys())}")
-                    for e in d.get("data", [])[:5]:
-                        ec = e.get("emp_code") or e.get("emp_no") or e.get("employee_code", "?")
-                        lines.append(f"      emp_code={ec}")
-            except Exception as ex:
-                lines.append(f"   {emp_path}  → error: {ex}")
+    base_url = BIOTIME_BASE_URL.rstrip("/")
+    api_url  = f"{base_url}/iclock/api/transactions/"
+    try:
+        res = sess.get(api_url, params={
+            "start_time": f"{today} 00:00:00",
+            "end_time":   f"{today} 23:59:59",
+            "page_size":  5,
+        }, timeout=20)
+        lines.append(f"HTTP status : {res.status_code}")
+        if res.status_code == 200:
+            data  = res.json()
+            count = data.get("count", "?")
+            rows  = data.get("data", [])
+            lines.append(f"✅ Total records today: {count}")
+            lines.append(f"Sample (up to 5):")
+            for r in rows[:5]:
+                lines.append(f"  emp={r.get('emp_code')}  time={r.get('punch_time')}  state={r.get('punch_state')}")
+        else:
+            lines.append(f"❌ Response: {res.text[:500]}")
+    except Exception as e:
+        lines.append(f"❌ Fetch error: {e}")
 
     lines.append("\n</pre>")
     return "\n".join(lines)
+
 
 # ══════════════════════════════════════════
 #  PROCESS TRANSACTIONS → ATTENDANCE
