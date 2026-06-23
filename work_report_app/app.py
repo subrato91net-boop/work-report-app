@@ -665,6 +665,21 @@ def fetch_transactions(date_from, date_to):
             r["_source_company"] = cfg_company
         all_txns.extend(rows)
 
+    # Safety net: if two configured companies happen to return the same
+    # underlying punch (e.g. a reseller/dealer login that surfaces the same
+    # data as the client tenant), de-duplicate by BioTime's own record "id"
+    # so nobody's attendance/hours get counted twice.
+    seen_ids = set()
+    deduped  = []
+    for r in all_txns:
+        rid = r.get("id")
+        if rid is not None:
+            if rid in seen_ids:
+                continue
+            seen_ids.add(rid)
+        deduped.append(r)
+    all_txns = deduped
+
     try:
         auto_provision_employees_from_transactions(all_txns)
     except Exception as e:
