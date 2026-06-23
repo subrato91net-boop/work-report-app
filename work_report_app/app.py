@@ -45,14 +45,14 @@ BIOTIME_COMPANIES = {
         # company = YOUR internal label, must match EMPLOYEES[...]["company"]
         "company":  "imaxsol",
     },
-    "CONNEQTORTECHNOLOGY": {
+    "conneqtortech": {
         "url":      os.environ.get("BIOTIME_URL_CONNEQTOR",     "https://conneqtortech.itimedev.minervaiot.com"),
         "email":    os.environ.get("BIOTIME_EMAIL_CONNEQTOR",   "presales@conneqtortech.com"),
         "password": os.environ.get("BIOTIME_PASS_CONNEQTOR",    "Y@jh_ro@562"),
         # biotime_company = slug sent to BioTime's own login API for this tenant
         "biotime_company": os.environ.get("BIOTIME_COMPANY_CONNEQTOR", "conneqtortech"),
         # company = YOUR internal label, must match EMPLOYEES[...]["company"]
-        "company":  "CONNEQTORTECHNOLOGY",
+        "company":  "conneqtortech",
     },
 
 }
@@ -72,7 +72,7 @@ SEED_EMPLOYEES = {
     "1012": {"name": "Sujata Pahari",        "company": "imaxsol",             "username": "sujata",  "password": "1012123456"},
     "2001": {"name": "Gourab Kumar Das",     "company": "imaxsol",             "username": "gourab",  "password": "2001123456"},
     "1013": {"name": "Subrato Halder",       "company": "imaxsol",             "username": "subrato", "password": "1013123456"},
-    "2002": {"name": "Pritam Pal",           "company": "CONNEQTORTECHNOLOGY", "username": "pritam",  "password": "2002123456"},
+    "2002": {"name": "Pritam Pal",           "company": "conneqtortech",       "username": "pritam",  "password": "2002123456"},
 }
 MANAGERS = {"manager": {"password": "manager123", "name": "Manager"}}
 
@@ -141,6 +141,27 @@ def init_users_db():
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_sales_visit BOOLEAN DEFAULT TRUE")
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_my_jobs BOOLEAN DEFAULT TRUE")
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS can_ta BOOLEAN DEFAULT TRUE")
+
+    # Log of users that were auto-created from BioTime attendance data,
+    # so the manager has somewhere to see the generated temp passwords
+    # (instead of digging through hosting logs).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS biotime_sync_log (
+            id            SERIAL PRIMARY KEY,
+            emp_code      TEXT NOT NULL,
+            name          TEXT,
+            username      TEXT,
+            temp_password TEXT,
+            company       TEXT,
+            created_at    TEXT
+        )
+    """)
+    conn.commit()
+
+    # Migration: earlier versions used "CONNEQTORTECHNOLOGY" as the company
+    # label. Renamed to lowercase "conneqtortech" for consistency with the
+    # BioTime URL/slug — update any existing rows so nothing falls out of sync.
+    cur.execute("UPDATE users SET company = 'conneqtortech' WHERE company = 'CONNEQTORTECHNOLOGY'")
     conn.commit()
 
     # One-time seed: only runs if the table is empty, so existing
@@ -420,6 +441,55 @@ def get_biotime_web_session(company_key="imaxsol", force_new=False):
     return s
 
 # ══════════════════════════════════════════
+#  BIOTIME — EMPLOYEE / PERSONNEL DIRECTORY
+#  Pulls real names (and department, if present) from BioTime
+#  using the working session auth. Used to fill in proper names
+#  when a new employee shows up in attendance.
+# ══════════════════════════════════════════
+def get_biotime_employee_directory(company_key="imaxsol"):
+    """Return {emp_code: {"name": ..., "department": ...}} from BioTime."""
+    sess = get_biotime_web_session(company_key)
+    if not sess:
+        return {}
+    cfg       = BIOTIME_COMPANIES[company_key]
+    base_url  = cfg["url"].rstrip("/")
+    directory = {}
+
+    for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
+                      "/iclock/api/employees/", "/att/api/employees/"]:
+        url       = f"{base_url}{emp_path}"
+        params    = {"page_size": 500}
+        found_any = False
+        try:
+            while url:
+                res = sess.get(url, params=params, timeout=20)
+                if res.status_code != 200:
+                    break
+                data = res.json()
+                rows = data.get("data", [])
+                for e in rows:
+                    code = str(e.get("emp_code") or e.get("emp_no") or e.get("employee_code") or "").strip()
+                    if not code:
+                        continue
+                    first = (e.get("first_name") or "").strip()
+                    last  = (e.get("last_name") or "").strip()
+                    name  = (f"{first} {last}".strip() or e.get("nickname")
+                              or e.get("name") or e.get("full_name") or "").strip()
+                    dept  = e.get("department")
+                    dept_name = dept.get("dept_name") if isinstance(dept, dict) else dept
+                    directory[code] = {"name": name, "department": dept_name}
+                    found_any = True
+                url    = data.get("next")
+                params = {}
+        except Exception as ex:
+            print(f"BioTime directory [{company_key}] {emp_path} error: {ex}")
+            continue
+        if found_any:
+            print(f"BioTime directory [{company_key}] ✅ {len(directory)} employees via {emp_path}")
+            break  # this endpoint exists and works on this server — stop probing the rest
+    return directory
+
+# ══════════════════════════════════════════
 #  BIOTIME — FETCH TRANSACTIONS (one company, paginated)
 # ══════════════════════════════════════════
 def _fetch_from_company(company_key, date_from, date_to):
@@ -513,19 +583,93 @@ def _fetch_from_company(company_key, date_from, date_to):
 # ══════════════════════════════════════════
 #  BIOTIME — FETCH ALL COMPANIES
 # ══════════════════════════════════════════
+# ══════════════════════════════════════════
+#  BIOTIME — AUTO-CREATE USERS FOUND IN ATTENDANCE
+#  Any emp_code that shows up in BioTime punches but doesn't
+#  exist yet in your `users` table gets created automatically,
+#  using the real name from BioTime's personnel API when available.
+# ══════════════════════════════════════════
+def auto_provision_employees_from_transactions(transactions):
+    unknown = {}   # emp_code -> source company (internal label)
+    for t in transactions:
+        code = str(t.get("emp_code", "")).strip()
+        if code and code not in EMPLOYEES:
+            unknown.setdefault(code, t.get("_source_company") or "")
+    if not unknown:
+        return []
+
+    # One directory fetch per company involved, not one per employee
+    directories = {}
+    for company_key, cfg in BIOTIME_COMPANIES.items():
+        if cfg["company"] in unknown.values() and cfg["company"] not in directories:
+            directories[cfg["company"]] = get_biotime_employee_directory(company_key)
+
+    conn = get_db(); cur = conn.cursor()
+    now     = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    created = []
+    try:
+        for code, source_company in unknown.items():
+            cur.execute("SELECT 1 FROM users WHERE emp_code=%s", (code,))
+            if cur.fetchone():
+                continue  # created a moment ago, e.g. by another request
+
+            info = directories.get(source_company, {}).get(code, {})
+            real_name = (info.get("name") or "").strip()
+            name      = real_name or f"Employee {code}"
+
+            base_username = "".join(ch for ch in (real_name.lower().replace(" ", "") if real_name else f"emp{code}") if ch.isalnum()) or f"emp{code}"
+            username, suffix = base_username, 1
+            while True:
+                cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+                if not cur.fetchone():
+                    break
+                suffix  += 1
+                username = f"{base_username}{suffix}"
+
+            temp_password = generate_temp_password()
+            cur.execute("""
+                INSERT INTO users (emp_code, name, username, password_hash, company,
+                                    is_active, can_work_report, can_sales_visit, can_my_jobs, can_ta,
+                                    created_at, created_by)
+                VALUES (%s,%s,%s,%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, %s, 'biotime-auto-sync')
+                ON CONFLICT (emp_code) DO NOTHING
+            """, (code, name, username, hash_password(temp_password), source_company, now))
+            cur.execute("""
+                INSERT INTO biotime_sync_log (emp_code, name, username, temp_password, company, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s)
+            """, (code, name, username, temp_password, source_company, now))
+            conn.commit()
+            created.append(code)
+            print(f"BioTime auto-sync: created user emp_code={code} name='{name}' username={username} company={source_company}")
+    except Exception as e:
+        conn.rollback()
+        print(f"BioTime auto-sync error: {e}")
+    finally:
+        cur.close(); conn.close()
+
+    if created:
+        refresh_employees()
+    return created
+
+# ══════════════════════════════════════════
+#  BIOTIME — FETCH ALL COMPANIES
+# ══════════════════════════════════════════
 def fetch_transactions(date_from, date_to):
-    """Fetch transactions from ALL BioTime companies and merge."""
-    # Determine which companies are relevant for employees in EMPLOYEES dict
-    needed_companies = set(e["company"] for e in EMPLOYEES.values())
+    """Fetch transactions from ALL configured BioTime companies and merge."""
     all_txns = []
-    for company_key in BIOTIME_COMPANIES:
-        cfg_company = BIOTIME_COMPANIES[company_key]["company"]
-        if cfg_company in needed_companies or company_key in needed_companies:
-            rows = _fetch_from_company(company_key, date_from, date_to)
-            # Tag each transaction with its source company key
-            for r in rows:
-                r["_source_company"] = cfg_company
-            all_txns.extend(rows)
+    for company_key, cfg in BIOTIME_COMPANIES.items():
+        cfg_company = cfg["company"]
+        rows = _fetch_from_company(company_key, date_from, date_to)
+        # Tag each transaction with its source company key
+        for r in rows:
+            r["_source_company"] = cfg_company
+        all_txns.extend(rows)
+
+    try:
+        auto_provision_employees_from_transactions(all_txns)
+    except Exception as e:
+        print(f"BioTime auto-sync hook error: {e}")
+
     return all_txns
 
 # ══════════════════════════════════════════
@@ -675,31 +819,62 @@ def debug_biotime():
         app_codes = [k for k, v in EMPLOYEES.items() if v.get("company") in (company_key, cfg["company"])]
         lines.append(f"   Your app emp_codes: {app_codes}")
 
-        # ── 6. Employee endpoints ─────────────────────────────────────────────
-        lines.append("\n--- 6. Employee endpoint probe ---")
-        for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
-                         "/iclock/api/employees/", "/att/api/employees/"]:
-            try:
-                r = req.get(f"{base_url}{emp_path}", headers=headers_jwt,
-                            params={"page_size": 5}, timeout=10)
-                lines.append(f"   {emp_path}  → HTTP {r.status_code}")
-                if r.status_code == 200:
-                    d = r.json()
-                    lines.append(f"      count={d.get('count','?')}  keys={list(d.keys())}")
-                    for e in d.get("data", [])[:5]:
-                        ec = e.get("emp_code") or e.get("emp_no") or e.get("employee_code", "?")
-                        lines.append(f"      emp_code={ec}")
-            except Exception as ex:
-                lines.append(f"   {emp_path}  → error: {ex}")
+        # ── 6. Employee endpoints (via session — the working auth method) ─────
+        lines.append("\n--- 6. Employee endpoint probe (session auth) ---")
+        web_sess_probe = get_biotime_web_session(company_key)
+        if not web_sess_probe:
+            lines.append("   ❌ No working session — see Step 0 above")
+        else:
+            for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
+                             "/iclock/api/employees/", "/att/api/employees/"]:
+                try:
+                    r = web_sess_probe.get(f"{base_url}{emp_path}",
+                                            params={"page_size": 5}, timeout=10)
+                    lines.append(f"   {emp_path}  → HTTP {r.status_code}")
+                    if r.status_code == 200:
+                        d = r.json()
+                        lines.append(f"      count={d.get('count','?')}  keys={list(d.keys())}")
+                        for e in d.get("data", [])[:3]:
+                            lines.append(f"      record fields: {list(e.keys())}")
+                            ec = e.get("emp_code") or e.get("emp_no") or e.get("employee_code", "?")
+                            lines.append(f"      emp_code={ec}  sample={ {k: e[k] for k in list(e.keys())[:8]} }")
+                except Exception as ex:
+                    lines.append(f"   {emp_path}  → error: {ex}")
 
+    lines.append('\n<a href="/biotime-sync-log">→ View auto-created users &amp; temp passwords</a>')
     lines.append("\n</pre>")
     return "\n".join(lines)
 
 # ══════════════════════════════════════════
-#  PROCESS TRANSACTIONS → ATTENDANCE
+#  VIEW: USERS AUTO-CREATED FROM BIOTIME
+#  Shows the generated temp password ONCE per
+#  user so the manager can hand it over — no
+#  need to dig through hosting logs.
 # ══════════════════════════════════════════
-def process_attendance(transactions, date_from, date_to):
-    from collections import defaultdict
+@app.route("/biotime-sync-log")
+def biotime_sync_log_view():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("index"))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM biotime_sync_log ORDER BY id DESC LIMIT 200")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+
+    html = ["<div style='font-family:sans-serif;padding:20px'>",
+            "<h2>Users auto-created from BioTime attendance</h2>",
+            "<p>These were created automatically because their emp_code appeared in BioTime "
+            "punches but had no account yet. Share the temp password with the employee, "
+            "then ask them to log in and you can change it from Manage Users.</p>",
+            "<table border='1' cellpadding='6' style='border-collapse:collapse'>",
+            "<tr><th>Created</th><th>Emp Code</th><th>Name</th><th>Username</th>"
+            "<th>Temp Password</th><th>Company</th></tr>"]
+    for r in rows:
+        html.append(
+            f"<tr><td>{r['created_at']}</td><td>{r['emp_code']}</td><td>{r['name']}</td>"
+            f"<td>{r['username']}</td><td>{r['temp_password']}</td><td>{r['company']}</td></tr>"
+        )
+    html.append("</table></div>")
+    return "\n".join(html)
     punch_map  = defaultdict(list)
     valid_dates = set(get_date_range(date_from, date_to))
     for t in transactions:
