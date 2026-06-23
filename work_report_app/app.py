@@ -410,66 +410,140 @@ def debug_biotime():
     if not logged_in() or not is_manager():
         return redirect(url_for("index"))
     lines = ["<pre style='font-family:monospace;font-size:13px;padding:20px'>"]
-    lines.append("<b>BioTime Cloud 2.0 — Live Diagnostic</b>\n")
+    lines.append("<b>BioTime Cloud 2.0 — Live Diagnostic v2</b>\n")
     today = datetime.now().strftime("%Y-%m-%d")
+    now_ist = datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")
+    lines.append(f"Server time : {now_ist}")
+
+    # Only run for the first company key (both are same URL/creds)
+    seen_urls = set()
 
     for company_key, cfg in BIOTIME_COMPANIES.items():
+        base_url = cfg["url"].rstrip("/")
+        if base_url in seen_urls:
+            lines.append(f"\n{'='*50}")
+            lines.append(f"Company key : {company_key}  [skipped — same URL as above]")
+            continue
+        seen_urls.add(base_url)
+
         lines.append(f"\n{'='*50}")
         lines.append(f"Company key : {company_key}")
         lines.append(f"URL         : {cfg['url']}")
         lines.append(f"Company slug: {cfg['company']}")
-        lines.append(f"Email       : {cfg['email']}")
 
-        # Auth test
-        lines.append("\n--- Auth test ---")
+        # ── 1. Auth ──────────────────────────────────────────────────────────
+        lines.append("\n--- 1. Auth test ---")
         token = get_biotime_token(company_key)
-        if token:
-            lines.append(f"✅ Token: {token[:40]}...")
-        else:
+        if not token:
             lines.append("❌ Auth FAILED — check URL/email/password")
             continue
+        lines.append(f"✅ Token: {token[:40]}...")
 
-        # Fetch employees — try both known endpoint paths
-        lines.append("\n--- BioTime employees ---")
-        emp_found = False
-        for emp_path in ["/personnel/api/employees/", "/hr/api/employees/"]:
-            try:
-                r = req.get(f"{cfg['url'].rstrip('/')}{emp_path}",
-                            headers={"Authorization": f"JWT {token}"},
-                            params={"page_size": 50}, timeout=15)
-                lines.append(f"   {emp_path} → HTTP {r.status_code}")
-                if r.status_code == 200:
-                    emps = r.json().get("data", [])
-                    lines.append(f"✅ {len(emps)} employees found via {emp_path}")
-                    for e in emps[:20]:
-                        code = e.get("emp_no") or e.get("emp_code") or e.get("employee_code", "?")
-                        name = e.get("first_name","") + " " + e.get("last_name","")
-                        lines.append(f"   emp_code={code}  name={name.strip()}")
-                    emp_found = True
-                    break
-            except Exception as e:
-                lines.append(f"   {emp_path} → error: {e}")
-        if not emp_found:
-            lines.append("⚠️ All employee endpoints returned non-200 (BioTime server issue)")
+        headers_jwt   = {"Authorization": f"JWT {token}"}
+        headers_token = {"Authorization": f"Token {token}"}
 
-        # Fetch today's transactions (using UTC-shifted window — see IST fix)
-        lines.append(f"\n--- Transactions for {today} (IST 00:00:00 → 23:59:59) ---")
-        txns = _fetch_from_company(company_key, today, today)
-        if txns:
-            lines.append(f"✅ {len(txns)} transactions")
-            for t in txns[:5]:
-                lines.append(f"   {t}")
-        else:
-            lines.append("⚠️ 0 transactions (no punches today, or emp_codes not matching)")
+        # ── 2. Raw no-filter fetch (last 5 records) ───────────────────────────
+        lines.append("\n--- 2. Raw fetch — last 5 records (no date filter) ---")
+        try:
+            r = req.get(f"{base_url}/iclock/api/transactions/",
+                        headers=headers_jwt,
+                        params={"page_size": 5, "ordering": "-punch_time"},
+                        timeout=20)
+            lines.append(f"   HTTP {r.status_code}  (JWT prefix)")
+            if r.status_code == 200:
+                data = r.json()
+                lines.append(f"   Total records on server: {data.get('count', '?')}")
+                for t in data.get("data", []):
+                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  punch_state={t.get('punch_state')}")
+            elif r.status_code == 401:
+                # Try Token prefix
+                r2 = req.get(f"{base_url}/iclock/api/transactions/",
+                             headers=headers_token,
+                             params={"page_size": 5, "ordering": "-punch_time"},
+                             timeout=20)
+                lines.append(f"   HTTP {r2.status_code}  (Token prefix)")
+                if r2.status_code == 200:
+                    data = r2.json()
+                    lines.append(f"   Total records on server: {data.get('count', '?')}")
+                    for t in data.get("data", []):
+                        lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  punch_state={t.get('punch_state')}")
+                else:
+                    lines.append(f"   ❌ Both JWT and Token prefix failed. Body: {r2.text[:300]}")
+            else:
+                lines.append(f"   ❌ Unexpected HTTP {r.status_code}: {r.text[:300]}")
+        except Exception as e:
+            lines.append(f"   ❌ Exception: {e}")
 
-        # Compare emp_codes
-        lines.append("\n--- EMPLOYEES dict vs BioTime emp_codes ---")
+        # ── 3. Today filter test ──────────────────────────────────────────────
+        lines.append(f"\n--- 3. Today filter: {today} 00:00:00 → {today} 23:59:59 ---")
+        try:
+            r = req.get(f"{base_url}/iclock/api/transactions/",
+                        headers=headers_jwt,
+                        params={"start_time": f"{today} 00:00:00",
+                                "end_time":   f"{today} 23:59:59",
+                                "ordering":   "punch_time",
+                                "page_size":  100},
+                        timeout=20)
+            lines.append(f"   HTTP {r.status_code}")
+            if r.status_code == 200:
+                data = r.json()
+                count = data.get("count", 0)
+                rows  = data.get("data", [])
+                lines.append(f"   count={count}  rows_this_page={len(rows)}")
+                for t in rows[:10]:
+                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  upload_time={t.get('upload_time')}")
+                if count == 0:
+                    lines.append("   ⚠️  No punches recorded for today yet — employees haven't punched in/out today")
+            else:
+                lines.append(f"   ❌ HTTP {r.status_code}: {r.text[:300]}")
+        except Exception as e:
+            lines.append(f"   ❌ Exception: {e}")
+
+        # ── 4. Yesterday filter test ──────────────────────────────────────────
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        lines.append(f"\n--- 4. Yesterday filter: {yesterday} 00:00:00 → {yesterday} 23:59:59 ---")
+        try:
+            r = req.get(f"{base_url}/iclock/api/transactions/",
+                        headers=headers_jwt,
+                        params={"start_time": f"{yesterday} 00:00:00",
+                                "end_time":   f"{yesterday} 23:59:59",
+                                "ordering":   "punch_time",
+                                "page_size":  100},
+                        timeout=20)
+            lines.append(f"   HTTP {r.status_code}")
+            if r.status_code == 200:
+                data = r.json()
+                count = data.get("count", 0)
+                rows  = data.get("data", [])
+                lines.append(f"   count={count}  rows_this_page={len(rows)}")
+                for t in rows[:10]:
+                    lines.append(f"   emp_code={t.get('emp_code')}  punch_time={t.get('punch_time')}  upload_time={t.get('upload_time')}")
+            else:
+                lines.append(f"   ❌ HTTP {r.status_code}: {r.text[:300]}")
+        except Exception as e:
+            lines.append(f"   ❌ Exception: {e}")
+
+        # ── 5. emp_code matching ──────────────────────────────────────────────
+        lines.append("\n--- 5. EMPLOYEES dict emp_codes ---")
         app_codes = [k for k, v in EMPLOYEES.items() if v.get("company") in (company_key, cfg["company"])]
-        bt_codes  = [str(t.get("emp_code","")) for t in txns]
-        lines.append(f"Your app emp_codes: {app_codes}")
-        lines.append(f"BioTime emp_codes in today's punches: {list(set(bt_codes))}")
-        matched = [c for c in app_codes if c in bt_codes]
-        lines.append(f"Matched: {matched}")
+        lines.append(f"   Your app emp_codes: {app_codes}")
+
+        # ── 6. Employee endpoints ─────────────────────────────────────────────
+        lines.append("\n--- 6. Employee endpoint probe ---")
+        for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
+                         "/iclock/api/employees/", "/att/api/employees/"]:
+            try:
+                r = req.get(f"{base_url}{emp_path}", headers=headers_jwt,
+                            params={"page_size": 5}, timeout=10)
+                lines.append(f"   {emp_path}  → HTTP {r.status_code}")
+                if r.status_code == 200:
+                    d = r.json()
+                    lines.append(f"      count={d.get('count','?')}  keys={list(d.keys())}")
+                    for e in d.get("data", [])[:5]:
+                        ec = e.get("emp_code") or e.get("emp_no") or e.get("employee_code", "?")
+                        lines.append(f"      emp_code={ec}")
+            except Exception as ex:
+                lines.append(f"   {emp_path}  → error: {ex}")
 
     lines.append("\n</pre>")
     return "\n".join(lines)
