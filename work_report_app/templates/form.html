@@ -315,11 +315,7 @@
             {% endif %}
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            {% set cf_vals = custom_values.get(r['id'], {}) if custom_values else {} %}
-            <button type="button" class="btn-view-rep"
-              onclick='openDetailDrawer({{ r|tojson|e }}, {{ cf_vals|tojson|e }}, {{ custom_fields|default([])|tojson|e }})'>
-              👁 View
-            </button>
+            <a href="/report/{{ r['id'] }}" class="btn-edit-rep" style="text-decoration:none;padding:6px 13px">👁 View</a>
             {% if editable %}
             <button type="button" class="btn-edit-rep"
               onclick='editReport({{ {
@@ -371,11 +367,7 @@
         </td>
         <td>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            {% set cf_vals = custom_values.get(r['id'], {}) if custom_values else {} %}
-            <button type="button" class="btn-view-rep" style="padding:5px 11px;font-size:11.5px"
-              onclick='openDetailDrawer({{ r|tojson|e }}, {{ cf_vals|tojson|e }}, {{ custom_fields|default([])|tojson|e }})'>
-              👁 View
-            </button>
+            <a href="/report/{{ r['id'] }}" class="btn-edit-rep" style="text-decoration:none;padding:5px 11px;font-size:11.5px">👁 View</a>
           {% if editable %}
           <button type="button" class="btn-edit-rep" style="padding:5px 11px;font-size:11.5px"
             onclick='editReport({{ {

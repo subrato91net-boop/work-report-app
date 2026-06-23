@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Report Detail</title>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+/* ── Page layout ── */
+.detail-wrap{max-width:680px;margin:0 auto;padding:20px 16px 60px}
+
+/* ── Back button ── */
+.btn-back{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:var(--r-pill);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:700;text-decoration:none;transition:background .15s}
+.btn-back:hover{background:rgba(255,255,255,.16)}
+
+/* ── Status hero banner ── */
+.status-hero{border-radius:var(--r-lg);padding:20px 22px;margin:18px 0 20px;display:flex;align-items:center;gap:16px}
+.status-hero.approved{background:linear-gradient(135deg,#0F3D28,#145C38);border:1px solid #1E7A4A}
+.status-hero.awaiting{background:linear-gradient(135deg,#2E2000,#4A3500);border:1px solid #8A6400}
+.status-hero.rejected{background:linear-gradient(135deg,#3D0F0F,#5C1414);border:1px solid #9A2A2D}
+.status-hero.draft{background:linear-gradient(135deg,#1A1E35,#252B48);border:1px solid rgba(255,255,255,.1)}
+.status-hero-icon{font-size:34px;flex-shrink:0}
+.status-hero-text{}
+.status-hero-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:3px}
+.status-hero-title{font-size:18px;font-weight:800;color:#fff;line-height:1.2}
+.status-hero-sub{font-size:12px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.5}
+
+/* ── Detail card ── */
+.detail-card{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.detail-card-head{background:var(--navy);padding:14px 18px;display:flex;align-items:center;gap:9px}
+.detail-card-head .ic{font-size:18px}
+.detail-card-head h3{font-size:13px;font-weight:800;color:#fff;letter-spacing:.02em}
+.detail-body{padding:0}
+
+/* ── Field rows ── */
+.detail-row{display:grid;grid-template-columns:130px 1fr;align-items:start;padding:13px 18px;border-bottom:1px solid var(--line-soft);gap:12px}
+.detail-row:last-child{border-bottom:none}
+.detail-label{font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;padding-top:1px}
+.detail-value{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.55}
+.detail-value.summary{font-size:13px;font-weight:500;color:var(--text);line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.detail-value.empty{color:var(--text-faint);font-style:italic;font-weight:500}
+
+/* ── Badge inline ── */
+.ibadge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);font-size:11.5px;font-weight:800}
+.ibadge-green{background:var(--green-soft);color:#0B4D2A}
+.ibadge-amber{background:var(--amber-soft);color:#5A3300}
+.ibadge-red{background:var(--red-soft);color:#6B1A1A}
+.ibadge-navy{background:var(--blue-soft);color:#0B2A6B}
+.ibadge-gray{background:var(--paper-2);color:var(--text-soft);border:1px solid var(--line)}
+
+/* ── Company pill ── */
+.co-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--r-pill);font-size:12px;font-weight:800;border:1.5px solid}
+.co-imax{background:#EEF4FF;color:#1A3A7A;border-color:#B8D0FF}
+.co-conn{background:#FFF4EE;color:#7A3A1A;border-color:#FFD0B8}
+
+/* ── Reject note box ── */
+.reject-box{background:#FDF2F2;border:1px solid #F5C6C6;border-radius:var(--r-md);padding:13px 16px;margin:0 18px 14px;display:flex;gap:10px;align-items:flex-start}
+.reject-box-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.reject-box-text{font-size:12.5px;color:#7A1A1A;line-height:1.6;font-weight:500}
+.reject-box-label{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#9A2A2A;margin-bottom:3px}
+
+/* ── Timeline / review trail ── */
+.timeline{padding:14px 18px;display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:12px;position:relative;padding-bottom:16px}
+.tl-item:last-child{padding-bottom:0}
+.tl-item:not(:last-child)::after{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--line)}
+.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;z-index:1}
+.tl-dot-blue{background:var(--blue-soft)}
+.tl-dot-green{background:var(--green-soft)}
+.tl-dot-red{background:var(--red-soft)}
+.tl-dot-amber{background:var(--amber-soft)}
+.tl-content{}
+.tl-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.tl-meta{font-size:11.5px;color:var(--text-faint);margin-top:2px;font-weight:500}
+
+/* ── Manager action bar (only shown to manager on awaiting-review reports) ── */
+.action-bar{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.action-bar h4{font-size:12px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.action-btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn-approve{padding:10px 22px;border-radius:var(--r-pill);background:var(--green);border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-approve:hover{opacity:.88}
+.btn-reject-open{padding:10px 22px;border-radius:var(--r-pill);background:#fff;border:1.5px solid var(--red);color:var(--red);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s}
+.btn-reject-open:hover{background:var(--red-soft)}
+.reject-form{display:none;margin-top:14px;border-top:1px solid var(--line-soft);padding-top:14px}
+.reject-form textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--r-md);padding:10px 13px;font-size:13px;font-family:inherit;color:var(--text);resize:vertical;min-height:72px;outline:none}
+.reject-form textarea:focus{border-color:var(--signal)}
+.btn-confirm-reject{margin-top:9px;padding:9px 20px;border-radius:var(--r-pill);background:var(--red);border:none;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+
+/* ── Print styles ── */
+@media print{
+  .topbar,.sidebar,.btn-back,.action-bar,#sb-overlay,#sidebar,body>script{display:none!important}
+  .detail-wrap{padding:0;max-width:100%}
+  .status-hero,.detail-card{box-shadow:none;border:1px solid #ccc}
+}
+
+@media(max-width:500px){
+  .detail-row{grid-template-columns:1fr;gap:3px}
+  .detail-label{margin-bottom:2px}
+}
+</style>
+</head>
+<body>
+{% from 'sidebar_macro.html' import sidebar %}
+{{ sidebar(role|default('employee'), perms|default({}), 'form', viewer_name|default(''), sup_perms|default({})) }}
+
+<!-- Topbar -->
+<div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
+  <div class="topbar-left">
+    <div class="avatar">{{ (viewer_name or 'U')[:2].upper() }}</div>
+    <div>
+      <div class="tname">Report Detail</div>
+      <div class="trole">
+        {% if role == 'manager' %}👑 Super Admin
+        {% elif role == 'supervisor' %}👔 Supervisor
+        {% else %}👤 Employee{% endif %}
+      </div>
+    </div>
+  </div>
+  <a href="{{ back_url }}" class="logout">← Back</a>
+</div>
+
+<div class="detail-wrap">
+
+  <!-- Back link (also at top for mobile) -->
+  <a href="{{ back_url }}" class="btn-back">← Back to Reports</a>
+
+  <!-- ── Status Hero ── -->
+  {% set rv = report.review_status or 'Draft' %}
+  {% set s  = report.status|lower %}
+  <div class="status-hero {% if rv == 'Approved' %}approved{% elif rv == 'Awaiting Review' %}awaiting{% elif rv == 'Rejected' %}rejected{% else %}draft{% endif %}">
+    <div class="status-hero-icon">
+      {% if rv == 'Approved' %}✅
+      {% elif rv == 'Awaiting Review' %}🔒
+      {% elif rv == 'Rejected' %}↩
+      {% else %}📝{% endif %}
+    </div>
+    <div class="status-hero-text">
+      <div class="status-hero-label">Review Status</div>
+      <div class="status-hero-title">
+        {% if rv == 'Approved' %}Approved
+        {% elif rv == 'Awaiting Review' %}Awaiting Manager Review
+        {% elif rv == 'Rejected' %}Rejected — needs correction
+        {% else %}Draft{% endif %}
+      </div>
+      {% if rv == 'Approved' and report.reviewed_by %}
+      <div class="status-hero-sub">Approved by {{ report.reviewed_by }}{% if report.reviewed_at %} · {{ report.reviewed_at[:16] }}{% endif %}</div>
+      {% elif rv == 'Awaiting Review' %}
+      <div class="status-hero-sub">Submitted for manager review · awaiting action</div>
+      {% elif rv == 'Rejected' and report.reviewed_by %}
+      <div class="status-hero-sub">Reviewed by {{ report.reviewed_by }}{% if report.reviewed_at %} · {{ report.reviewed_at[:16] }}{% endif %}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Manager Action Bar (only if manager + awaiting review) ── -->
+  {% if role == 'manager' and rv == 'Awaiting Review' %}
+  <div class="action-bar">
+    <h4>⚡ Manager Action</h4>
+    <div class="action-btns">
+      <form method="POST" action="/manager/reports/{{ report.id }}/approve" style="display:inline">
+        <button type="submit" class="btn-approve">✅ Approve Report</button>
+      </form>
+      <button type="button" class="btn-reject-open" onclick="toggleRejectForm()">↩ Reject</button>
+    </div>
+    <div class="reject-form" id="rejectForm">
+      <form method="POST" action="/manager/reports/{{ report.id }}/reject">
+        <textarea name="reason" placeholder="Reason for rejection (shown to employee)..." required></textarea>
+        <button type="submit" class="btn-confirm-reject">Confirm Reject</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Rejection reason box ── -->
+  {% if rv == 'Rejected' and report.reject_reason %}
+  <div class="detail-card">
+    <div class="detail-card-head"><span class="ic">↩</span><h3>Rejection Reason</h3></div>
+    <div class="reject-box" style="margin:14px 18px 14px">
+      <div class="reject-box-icon">⚠️</div>
+      <div>
+        <div class="reject-box-label">Manager's Note</div>
+        <div class="reject-box-text">{{ report.reject_reason }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Employee & Work Details ── -->
+  <div class="detail-card">
+    <div class="detail-card-head"><span class="ic">👤</span><h3>Employee & Work Details</h3></div>
+    <div class="detail-body">
+
+      <div class="detail-row">
+        <div class="detail-label">Employee</div>
+        <div class="detail-value">{{ report.emp_name or '—' }}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Company</div>
+        <div class="detail-value">
+          {% set co = (report.company or '')|lower %}
+          {% if 'conneqtor' in co or 'conn' in co %}
+            <span class="co-pill co-conn">🏢 Conneqtor Technology</span>
+          {% elif 'imax' in co %}
+            <span class="co-pill co-imax">🏢 Imax Solution</span>
+          {% else %}
+            <span class="detail-value empty">{{ report.company or 'Not specified' }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Date</div>
+        <div class="detail-value">{{ report.date or '—' }}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Submitted</div>
+        <div class="detail-value">{{ report.timestamp[:16] if report.timestamp else '—' }}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Work Type</div>
+        <div class="detail-value">
+          {% set wt = report.work_type or '' %}
+          {% if wt %}
+            <span class="ibadge ibadge-navy">{{ wt }}</span>
+          {% else %}
+            <span class="detail-value empty">Not specified</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Job Status</div>
+        <div class="detail-value">
+          {% set s = report.status|lower %}
+          {% if s in ['done','completed'] %}
+            <span class="ibadge ibadge-green">✅ Completed</span>
+          {% elif s == 'pending' %}
+            <span class="ibadge ibadge-amber">⏳ Pending</span>
+          {% elif s == 'partial' %}
+            <span class="ibadge" style="background:var(--violet-soft);color:#3A1A7A">🔄 Partial</span>
+          {% else %}
+            <span class="ibadge ibadge-gray">{{ report.status|title }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Supervisor</div>
+        <div class="detail-value">{{ report.supervisor_name or '—' }}</div>
+      </div>
+
+      {% if report.client_name %}
+      <div class="detail-row">
+        <div class="detail-label">Client</div>
+        <div class="detail-value">{{ report.client_name }}</div>
+      </div>
+      {% endif %}
+
+      {% if report.location %}
+      <div class="detail-row">
+        <div class="detail-label">Location</div>
+        <div class="detail-value">{{ report.location }}</div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- ── Job Details ── -->
+  <div class="detail-card">
+    <div class="detail-card-head"><span class="ic">📋</span><h3>Job Details</h3></div>
+    <div class="detail-body">
+      <div class="detail-row">
+        <div class="detail-label">Description</div>
+        <div class="detail-value summary">{{ report.summary or '—' }}</div>
+      </div>
+      {% if report.remarks %}
+      <div class="detail-row">
+        <div class="detail-label">Remarks</div>
+        <div class="detail-value summary">{{ report.remarks }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Custom Fields (if any) ── -->
+  {% if custom_values %}
+  <div class="detail-card">
+    <div class="detail-card-head"><span class="ic">📌</span><h3>Additional Fields</h3></div>
+    <div class="detail-body">
+      {% for cf in custom_values %}
+      <div class="detail-row">
+        <div class="detail-label">{{ cf.label }}</div>
+        <div class="detail-value">{{ cf.value or '—' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Review Timeline ── -->
+  <div class="detail-card">
+    <div class="detail-card-head"><span class="ic">🕐</span><h3>Activity Timeline</h3></div>
+    <div class="timeline">
+
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-blue">📝</div>
+        <div class="tl-content">
+          <div class="tl-title">Report Submitted</div>
+          <div class="tl-meta">{{ report.emp_name }} · {{ report.timestamp[:16] if report.timestamp else '—' }}</div>
+        </div>
+      </div>
+
+      {% if rv in ['Awaiting Review', 'Approved', 'Rejected'] %}
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-amber">🔒</div>
+        <div class="tl-content">
+          <div class="tl-title">Sent for Manager Review</div>
+          <div class="tl-meta">Report locked · status marked Completed</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if rv == 'Approved' %}
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-green">✅</div>
+        <div class="tl-content">
+          <div class="tl-title">Approved</div>
+          <div class="tl-meta">{{ report.reviewed_by or 'Manager' }}{% if report.reviewed_at %} · {{ report.reviewed_at[:16] }}{% endif %}</div>
+        </div>
+      </div>
+      {% elif rv == 'Rejected' %}
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-red">↩</div>
+        <div class="tl-content">
+          <div class="tl-title">Rejected — returned to employee</div>
+          <div class="tl-meta">{{ report.reviewed_by or 'Manager' }}{% if report.reviewed_at %} · {{ report.reviewed_at[:16] }}{% endif %}</div>
+        </div>
+      </div>
+      {% elif rv == 'Awaiting Review' %}
+      <div class="tl-item">
+        <div class="tl-dot" style="background:var(--paper-2);border:2px dashed var(--line)">⏳</div>
+        <div class="tl-content">
+          <div class="tl-title" style="color:var(--text-faint)">Awaiting manager decision…</div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div><!-- /.detail-wrap -->
+
+<script>
+function toggleRejectForm(){
+  var f = document.getElementById('rejectForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+<script src="/static/push.js"></script>
+</body>
+</html>

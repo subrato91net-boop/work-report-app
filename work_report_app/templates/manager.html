@@ -333,13 +333,12 @@
           <td>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               <!-- VIEW DETAIL BUTTON -->
-              <button type="button" class="btn-view"
-                onclick="openDrawer({{ r['id'] }}, {{ loop.index }}, {{ r|tojson|e }}, {{ cf_vals|tojson|e }}, {{ custom_fields|default([])|tojson|e }})">
+              <a href="/report/{{ r['id'] }}" class="btn-view" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                   <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/>
                 </svg>
                 View
-              </button>
+              </a>
               <!-- QUICK ACTIONS -->
               {% if rv == 'Awaiting Review' %}
               <form method="POST" action="/manager/reports/{{ r['id'] }}/approve" class="hidden-form" id="af-{{ r['id'] }}"></form>

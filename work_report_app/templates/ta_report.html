@@ -199,7 +199,15 @@
           ✏️ Edit
         </button>
         {% else %}
-        <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
+          <a href="/ta-report/{{ r.id }}/pdf" target="_blank"
+             style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;
+                    border-radius:999px;background:#EEF4FF;color:#1A3A7A;
+                    font-size:11px;font-weight:800;text-decoration:none;border:1px solid #B8D0FF">
+            🖨 Print Voucher
+          </a>
+        </div>
         {% endif %}
       </div>
     </div>
@@ -252,7 +260,15 @@
                 ✏️ Edit
               </button>
               {% else %}
-              <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:11px;color:var(--text-faint)">🔒 locked</span>
+                <a href="/ta-report/{{ r.id }}/pdf" target="_blank"
+                   style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
+                          border-radius:999px;background:#EEF4FF;color:#1A3A7A;
+                          font-size:11px;font-weight:800;text-decoration:none;border:1px solid #B8D0FF">
+                  🖨 PDF
+                </a>
+              </div>
               {% endif %}
             </td>
           </tr>

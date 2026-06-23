@@ -101,8 +101,14 @@
   <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">📊 Work Report System V3</div>
   <div class="topbar-right">
-    <span class="live-dot"></span><span class="live-label">Live</span>
+    {% if last_sync %}
+      <span style="font-size:11px;color:#7EE0B2;font-weight:600">⟳ {{ last_sync }}</span>
+    {% else %}
+      <span class="live-dot"></span><span class="live-label">Live</span>
+    {% endif %}
     &nbsp;
+    <a href="/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}&emp={{ filters.emp }}&status={{ filters.status }}&company={{ filters.company }}" class="btn-sm" title="Reload data from BioTime">↻ Sync</a>
+    <a href="/debug-biotime" class="btn-sm" title="BioTime API diagnostic" target="_blank">🔧 Debug</a>
     <a href="/export/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}" class="btn-sm">⬇ Export</a>
     <a href="/logout" class="btn-sm">Logout</a>
   </div>
@@ -110,7 +116,12 @@
 <div class="main">
 
   {% if error %}
-  <div class="error-box">⚠️ API Error: {{ error }} — Check BioTime credentials in app.py</div>
+  <div class="error-box">
+    ⚠️ BioTime API Error: {{ error }}<br>
+    <span style="font-weight:400;font-size:12px">
+      → Click <b>🔧 Debug</b> above to run a live diagnostic and see exactly what is failing.
+    </span>
+  </div>
   {% endif %}
 
   <!-- STATS -->

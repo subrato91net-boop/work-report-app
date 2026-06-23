@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Admin Accounts — WorkReport</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.topbar{background:#10193A;padding:0 1.1rem;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.18);gap:10px}
+#sb-toggle{width:38px;height:38px;background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#sb-toggle:hover{background:rgba(255,255,255,.16)}
+.topbar-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.tb-back{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;font-weight:600;margin-right:6px}
+.tb-logout{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;font-weight:600}
+.main{max-width:960px;margin:0 auto;padding:1.4rem 1rem 3rem}
+.flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+.flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+.pw-reveal{background:#FFF7E8;border:1.5px dashed #FF7A1A;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.1rem}
+.pw-label{font-size:11px;color:#9A4B0A;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.pw-value{font-size:18px;font-weight:800;font-family:'SF Mono',Consolas,monospace;color:#10193A;background:#fff;border:1px solid #E7E4DA;border-radius:8px;padding:8px 12px;display:inline-block;user-select:all}
+.pw-note{font-size:11.5px;color:#9A4B0A;margin-top:7px;font-weight:600}
+
+/* Page header */
+.page-head{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.1rem;display:flex;align-items:center;gap:14px;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+.ph-icon{width:48px;height:48px;border-radius:13px;background:linear-gradient(135deg,#10193A,#2D7FF9);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ph-title{font-size:17px;font-weight:800;color:#10193A}
+.ph-desc{font-size:12px;color:#696B78;font-weight:600;margin-top:3px}
+
+/* Create card */
+.ccard{background:#fff;border:1px solid #E7E4DA;border-radius:13px;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+.ccard-hdr{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.ccard-hdr-title{font-size:13px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:7px}
+.chev{font-size:13px;color:#A8A4C4;transition:transform .15s}
+.chev.open{transform:rotate(180deg)}
+.ccard-body{padding:1.1rem 1.2rem;display:none;border-top:1px solid #F0EEE6}
+.ccard-body.open{display:block}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.field label{display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
+.field input,.field select,.field textarea{width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;color:#14141A}
+.field input:focus,.field select:focus{border-color:#FF7A1A;background:#fff}
+.field small{display:block;font-size:10.5px;color:#A8A4C4;margin-top:4px;font-weight:600}
+.super-chk{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#FFFDF9;border:1.5px solid #FFD700;border-radius:10px;font-size:13px;font-weight:700;color:#9A6A00;cursor:pointer;margin-bottom:14px}
+.super-chk input{width:17px;height:17px;accent-color:#C9820A;cursor:pointer}
+.btn-primary{padding:10px 20px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
+
+/* Admin cards */
+.admin-list{display:flex;flex-direction:column;gap:10px}
+.admin-card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;box-shadow:0 1px 3px rgba(16,25,58,.04);overflow:hidden}
+.admin-card.inactive{opacity:.65}
+.admin-card.is-self{border-color:#2D7FF9;box-shadow:0 0 0 2px rgba(45,127,249,.15)}
+.ac-top{display:flex;align-items:center;gap:12px;padding:13px 14px 11px}
+.ac-avatar{width:42px;height:42px;border-radius:11px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:linear-gradient(135deg,#10193A,#2D7FF9);color:#fff}
+.ac-info{flex:1;min-width:0}
+.ac-name{font-size:14px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ac-meta{font-size:11px;color:#696B78;font-weight:600;margin-top:2px}
+.super-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800;background:#FFFACC;color:#7A4A00;border:1px solid #FFD700}
+.self-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800;background:#DCE9FF;color:#1A5CCC;border:1px solid #B3CCFF}
+.badge{display:inline-block;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase}
+.badge-active{background:#D9F5E8;color:#0E6B43}
+.badge-inactive{background:#FBE2E2;color:#9A2A2D}
+.ac-actions{padding:9px 14px;border-top:1px solid #F0EEE6;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.a-btn{padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78;white-space:nowrap}
+.a-btn:hover{border-color:#10193A;color:#10193A}
+.a-btn.danger{border-color:#F5C2C2;color:#9A2A2D}
+.a-btn.danger:hover{background:#FBE2E2}
+.a-btn.safe{border-color:#B3EBD0;color:#0E6B43}
+.a-btn.safe:hover{background:#D9F5E8}
+.a-btn.gold{border-color:#FFD700;color:#7A4A00;background:#FFFACC}
+.a-btn.gold:hover{background:#FFE566}
+.ac-meta-row{padding:4px 14px 10px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#696B78;font-weight:600;border-top:1px solid #F0EEE6}
+.ac-meta-item span{font-weight:800;color:#10193A}
+.table-hdr{background:#fff;border:1px solid #E7E4DA;border-radius:13px 13px 0 0;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F0EEE6}
+.table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
+.rec-count{font-size:12px;color:#696B78;font-weight:600}
+</style>
+</head>
+<body>
+
+{% include "sidebar_macro.html" ignore missing %}
+{% from "sidebar_macro.html" import sidebar %}
+{{ sidebar('manager', {}, 'users', name) }}
+
+<div class="topbar">
+  <button id="sb-toggle" onclick="openSB()">☰</button>
+  <div class="topbar-title">🔐 Admin Accounts</div>
+  <a href="/manager/users" class="tb-back">← Users</a>
+  <a href="/logout" class="tb-logout">Logout</a>
+</div>
+
+<div class="main">
+
+  {% if flash %}
+  <div class="flash flash-{{ flash_type }}">{{ '✅' if flash_type == 'success' else '⚠️' }} {{ flash }}</div>
+  {% endif %}
+
+  {% if temp_password %}
+  <div class="pw-reveal">
+    <div class="pw-label">🔑 New password for {{ temp_password_for }}</div>
+    <div class="pw-value">{{ temp_password }}</div>
+    <div class="pw-note">⚠️ Shown only once — copy and share securely now.</div>
+  </div>
+  {% endif %}
+
+  <!-- Page header -->
+  <div class="page-head">
+    <div class="ph-icon">🔐</div>
+    <div>
+      <div class="ph-title">Super Admin Accounts</div>
+      <div class="ph-desc">Manage who can log in as a manager. Multiple admins can co-exist. Each has their own password and last-login tracking.</div>
+    </div>
+  </div>
+
+  <!-- Create Admin -->
+  <div class="ccard">
+    <div class="ccard-hdr" onclick="toggleCreate()">
+      <div class="ccard-hdr-title">➕ Add New Admin Account</div>
+      <span class="chev" id="createChev">▾</span>
+    </div>
+    <div class="ccard-body" id="createBody">
+      <form method="POST" action="/manager/admins/create">
+        <div class="form-grid">
+          <div class="field">
+            <label>Login Username</label>
+            <input name="username" placeholder="e.g. admin2" required>
+            <small>Used to log in — must be unique</small>
+          </div>
+          <div class="field">
+            <label>Display Name</label>
+            <input name="name" placeholder="e.g. Rajeev Kumar" required>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input name="password" placeholder="Min 6 characters" required minlength="6">
+          </div>
+          <div class="field">
+            <label>Notes (optional)</label>
+            <input name="notes" placeholder="e.g. Regional Manager, Kolkata">
+          </div>
+        </div>
+        <label class="super-chk">
+          <input type="checkbox" name="is_super" checked>
+          ⭐ Grant Super Admin privileges (full access to all settings)
+        </label>
+        <button type="submit" class="btn-primary">Create Admin Account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin list header -->
+  <div class="table-hdr">
+    <div class="table-hdr-title">All Admin Accounts</div>
+    <div class="rec-count">{{ admins|length }} account{{ 's' if admins|length != 1 }}</div>
+  </div>
+
+  <div class="admin-list" style="border:1px solid #E7E4DA;border-top:none;border-radius:0 0 13px 13px;background:#F6F4EF;padding:10px 10px 12px">
+  {% for a in admins %}
+  <div class="admin-card {{ '' if a['is_active'] else 'inactive' }} {{ 'is-self' if a['id'] == current_admin_id }}">
+    <div class="ac-top">
+      <div class="ac-avatar">{{ a['name'][:2].upper() }}</div>
+      <div class="ac-info">
+        <div class="ac-name">
+          {{ a['name'] }}
+          {% if a['is_super'] %}<span class="super-badge">⭐ Super</span>{% endif %}
+          {% if a['id'] == current_admin_id %}<span class="self-badge">👤 You</span>{% endif %}
+        </div>
+        <div class="ac-meta">@{{ a['username'] }}{% if a['notes'] %} · {{ a['notes'] }}{% endif %}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span class="badge {{ 'badge-active' if a['is_active'] else 'badge-inactive' }}">{{ 'Active' if a['is_active'] else 'Inactive' }}</span>
+      </div>
+    </div>
+
+    <div class="ac-meta-row">
+      <div class="ac-meta-item">Created: <span>{{ a['created_at'][:10] if a['created_at'] else '—' }}</span></div>
+      <div class="ac-meta-item">By: <span>{{ a['created_by'] or '—' }}</span></div>
+      <div class="ac-meta-item">Last login: <span>{{ a['last_login'][:16] if a['last_login'] else 'Never' }}</span></div>
+    </div>
+
+    <div class="ac-actions">
+      <button class="a-btn" onclick="openAdminReset({{ a['id'] }},'{{ a['name']|e }}')" type="button">🔑 Reset PW</button>
+
+      {% if a['id'] != current_admin_id %}
+      <form method="POST" action="/manager/admins/{{ a['id'] }}/toggle-active" style="display:inline">
+        {% if a['is_active'] %}
+        <button class="a-btn danger" type="submit" onclick="return confirm('Deactivate {{ a['name']|e }}?')">🚫 Deactivate</button>
+        {% else %}
+        <button class="a-btn safe" type="submit">✅ Reactivate</button>
+        {% endif %}
+      </form>
+      <form method="POST" action="/manager/admins/{{ a['id'] }}/toggle-super" style="display:inline">
+        {% if a['is_super'] %}
+        <button class="a-btn danger" type="submit" onclick="return confirm('Remove Super privileges from this admin?')">⭐ Remove Super</button>
+        {% else %}
+        <button class="a-btn gold" type="submit">⭐ Grant Super</button>
+        {% endif %}
+      </form>
+      {% else %}
+      <span style="font-size:11.5px;color:#A8A4C4;font-weight:600;padding:6px 4px">↑ Your account — cannot deactivate yourself</span>
+      {% endif %}
+
+      <button class="a-btn" onclick="openEditAdmin({{ a['id'] }},'{{ a['name']|e }}','{{ (a['notes'] or '')|e }}')" type="button" style="margin-left:auto">✏️ Edit</button>
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+
+</div>
+
+<!-- Reset PW Modal -->
+<div id="resetOverlay" style="display:none;position:fixed;inset:0;background:rgba(16,25,58,.55);z-index:300;align-items:center;justify-content:center;padding:1.25rem">
+  <div style="background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(8,12,32,.35)">
+    <div style="font-size:15px;font-weight:800;color:#10193A;margin-bottom:4px">🔑 Reset Admin Password</div>
+    <div style="font-size:12.5px;color:#696B78;margin-bottom:16px" id="resetAdminName">—</div>
+    <form method="POST" id="resetAdminForm">
+      <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em">New password (leave blank to auto-generate)</label>
+      <input type="text" name="new_password" placeholder="Leave blank to auto-generate" minlength="6"
+             style="width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;margin-bottom:14px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="a-btn" onclick="closeResetAdmin()">Cancel</button>
+        <button type="submit" style="padding:9px 16px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700">Reset Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Admin Info Modal -->
+<div id="editOverlay" style="display:none;position:fixed;inset:0;background:rgba(16,25,58,.55);z-index:300;align-items:center;justify-content:center;padding:1.25rem">
+  <div style="background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:400px;box-shadow:0 24px 60px rgba(8,12,32,.35)">
+    <div style="font-size:15px;font-weight:800;color:#10193A;margin-bottom:14px">✏️ Edit Admin Info</div>
+    <form method="POST" id="editAdminForm">
+      <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em">Display Name</label>
+      <input type="text" name="name" id="editAdminName" placeholder="Full name"
+             style="width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;margin-bottom:12px" required>
+      <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em">Notes</label>
+      <input type="text" name="notes" id="editAdminNotes" placeholder="e.g. Regional Manager"
+             style="width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;margin-bottom:14px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="a-btn" onclick="closeEdit()">Cancel</button>
+        <button type="submit" style="padding:9px 16px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleCreate(){
+  document.getElementById('createBody').classList.toggle('open');
+  document.getElementById('createChev').classList.toggle('open');
+}
+function openAdminReset(id, name){
+  document.getElementById('resetAdminForm').action = '/manager/admins/' + id + '/reset-password';
+  document.getElementById('resetAdminName').textContent = name;
+  document.getElementById('resetOverlay').style.display = 'flex';
+}
+function closeResetAdmin(){ document.getElementById('resetOverlay').style.display = 'none'; }
+function openEditAdmin(id, name, notes){
+  document.getElementById('editAdminForm').action = '/manager/admins/' + id + '/update-info';
+  document.getElementById('editAdminName').value = name;
+  document.getElementById('editAdminNotes').value = notes;
+  document.getElementById('editOverlay').style.display = 'flex';
+}
+function closeEdit(){ document.getElementById('editOverlay').style.display = 'none'; }
+</script>
+<script src="/static/push.js"></script>
+</body>
+</html>

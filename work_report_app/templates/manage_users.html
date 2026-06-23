@@ -9,42 +9,43 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="WorkReport">
 <title>User Management — WorkReport</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
-/* ── Topbar ── */
+/* Topbar */
 .topbar{background:#10193A;padding:0 1.1rem;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.18);gap:10px}
 #sb-toggle{width:38px;height:38px;background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 #sb-toggle:hover{background:rgba(255,255,255,.16)}
 .topbar-title{font-size:14px;font-weight:800;color:#fff;flex:1}
-.tb-logout{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;text-decoration:none;font-weight:600}
+.tb-logout{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;font-weight:600}
+.tb-admins{padding:6px 13px;border:1px solid rgba(255,255,255,.28);border-radius:8px;background:rgba(255,200,0,.12);font-size:12px;color:#FFD700;font-weight:700;margin-right:6px}
+.tb-admins:hover{background:rgba(255,200,0,.22)}
 
-/* ── Main ── */
+/* Main */
 .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem 3rem}
 
-/* ── Stats ── */
+/* Stats */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:11px;margin-bottom:1.3rem}
 .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,.04)}
 .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 .stat-val{font-size:25px;font-weight:800}
-.blue{color:#2D7FF9}.green{color:#1AAE6F}.red{color:#C7333A}.purple{color:#7C5CFC}
+.blue{color:#2D7FF9}.green{color:#1AAE6F}.red{color:#C7333A}.purple{color:#7C5CFC}.gold{color:#C9820A}
 
-/* ── Flash ── */
+/* Flash */
 .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
 .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
 .flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
 
-/* ── Password reveal ── */
+/* Password reveal */
 .pw-reveal{background:#FFF7E8;border:1.5px dashed #FF7A1A;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.1rem}
 .pw-label{font-size:11px;color:#9A4B0A;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 .pw-value{font-size:18px;font-weight:800;font-family:'SF Mono',Consolas,monospace;color:#10193A;background:#fff;border:1px solid #E7E4DA;border-radius:8px;padding:8px 12px;display:inline-block;user-select:all}
 .pw-note{font-size:11.5px;color:#9A4B0A;margin-top:7px;font-weight:600}
 
-/* ── Collapsible create card ── */
+/* Create card */
 .ccard{background:#fff;border:1px solid #E7E4DA;border-radius:13px;box-shadow:0 1px 3px rgba(16,25,58,.04);margin-bottom:1.1rem}
 .ccard-hdr{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
 .ccard-hdr-title{font-size:13px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:7px}
@@ -57,13 +58,14 @@ a{color:inherit;text-decoration:none}
 .field input,.field select{width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;color:#14141A}
 .field input:focus,.field select:focus{border-color:#FF7A1A;background:#fff}
 .field small{display:block;font-size:10.5px;color:#A8A4C4;margin-top:4px;font-weight:600}
-.perm-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;padding:12px 14px;background:#F6F4EF;border-radius:10px}
+.perm-section-title{font-size:11px;color:#696B78;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;margin-top:14px}
+.perm-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding:11px 13px;background:#F6F4EF;border-radius:10px}
 .perm-chk{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:#10193A;cursor:pointer}
 .perm-chk input{width:16px;height:16px;accent-color:#FF7A1A;cursor:pointer}
 .btn-primary{padding:10px 20px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700}
 .btn-primary:hover{background:#0B1228}
 
-/* ── Filters ── */
+/* Filters */
 .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,.04)}
 .fg{display:flex;flex-direction:column;gap:4px}
 .fg label{font-size:11px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
@@ -72,26 +74,33 @@ a{color:inherit;text-decoration:none}
 .btn-filter{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
 .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
 
-/* ── User cards (mobile-first) ── */
-.users-list{display:flex;flex-direction:column;gap:12px}
-.user-card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;box-shadow:0 1px 3px rgba(16,25,58,.04);overflow:hidden}
-.user-card.inactive{opacity:.6}
-.uc-top{display:flex;align-items:center;gap:12px;padding:13px 14px 10px}
-.uc-avatar{width:40px;height:40px;border-radius:11px;background:#FFE4CC;color:#9A4B0A;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* User cards */
+.users-list{display:flex;flex-direction:column;gap:10px}
+.user-card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;box-shadow:0 1px 3px rgba(16,25,58,.04);overflow:hidden;transition:box-shadow .15s}
+.user-card:hover{box-shadow:0 3px 12px rgba(16,25,58,.09)}
+.user-card.inactive{opacity:.65}
+.uc-top{display:flex;align-items:center;gap:12px;padding:13px 14px 11px}
+.uc-avatar{width:42px;height:42px;border-radius:11px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.av-emp{background:#FFE4CC;color:#9A4B0A}
+.av-sup{background:#EDE9FE;color:#5B21B6}
 .uc-info{flex:1;min-width:0}
 .uc-name{font-size:14px;font-weight:800;color:#10193A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .uc-meta{font-size:11px;color:#696B78;font-weight:600;margin-top:2px}
 .badge{display:inline-block;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
 .badge-active{background:#D9F5E8;color:#0E6B43}
 .badge-inactive{background:#FBE2E2;color:#9A2A2D}
-.role-badge{display:inline-block;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800;margin-left:5px}
+.role-badge{display:inline-block;padding:3px 9px;border-radius:7px;font-size:10.5px;font-weight:800}
 .role-sup{background:#EDE9FE;color:#5B21B6}
 .role-emp{background:#F0EEE6;color:#696B78}
+
+/* Quick perm toggles */
 .uc-perms{padding:8px 14px 10px;display:flex;flex-wrap:wrap;gap:5px;border-top:1px solid #F0EEE6}
 .ptoggle{display:flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#696B78;background:#F0EEE6;border-radius:6px;padding:3px 7px 3px 5px;cursor:pointer;white-space:nowrap;user-select:none}
 .ptoggle input{width:13px;height:13px;accent-color:#FF7A1A;cursor:pointer}
 .ptoggle.on{background:#FFE4CC;color:#9A4B0A}
-.uc-actions{padding:10px 14px;border-top:1px solid #F0EEE6;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
+/* Actions */
+.uc-actions{padding:9px 14px;border-top:1px solid #F0EEE6;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .a-btn{padding:6px 11px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78;white-space:nowrap}
 .a-btn:hover{border-color:#10193A;color:#10193A}
 .a-btn.danger{border-color:#F5C2C2;color:#9A2A2D}
@@ -100,19 +109,83 @@ a{color:inherit;text-decoration:none}
 .a-btn.safe:hover{background:#D9F5E8}
 .a-btn.purple{border-color:#DDD8FF;color:#5B21B6}
 .a-btn.purple:hover{background:#EDE9FE}
+.a-btn.blue{border-color:#B3D4FF;color:#1A5CCC}
+.a-btn.blue:hover{background:#DCE9FF}
 
-/* ── Role selector inline ── */
+/* Role form inline */
 .role-form{display:flex;align-items:center;gap:6px;margin-left:auto}
 .role-select{padding:5px 8px;font-size:11.5px;border:1.5px solid #DDD8FF;border-radius:7px;background:#F5F3FF;font-family:inherit;color:#5B21B6;font-weight:700;outline:none;cursor:pointer}
-.role-select:focus{border-color:#7C5CFC}
 .btn-role{padding:5px 10px;border:none;border-radius:7px;background:#7C5CFC;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
 .btn-role:hover{background:#5B21B6}
 
-/* ── Empty ── */
+/* Empty/header */
 .empty{padding:3.5rem;text-align:center;color:#696B78;font-weight:500;background:#fff;border-radius:13px;border:1px solid #E7E4DA}
-.table-hdr{background:#fff;border:1px solid #E7E4DA;border-radius:13px 13px 0 0;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:none}
+.table-hdr{background:#fff;border:1px solid #E7E4DA;border-radius:13px 13px 0 0;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F0EEE6}
 .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
 .rec-count{font-size:12px;color:#696B78;font-weight:600}
+
+/* ══ DETAIL DRAWER ══ */
+.drw-backdrop{display:none;position:fixed;inset:0;background:rgba(16,25,58,.48);z-index:200;backdrop-filter:blur(2px);opacity:0;transition:opacity .22s ease}
+.drw-backdrop.open{display:block;opacity:1}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(700px,100vw);background:#fff;box-shadow:-6px 0 40px rgba(16,25,58,.18);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden}
+.drawer.open{transform:translateX(0)}
+.drw-head{background:#10193A;padding:1.1rem 1.4rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.drw-head-left{display:flex;flex-direction:column;gap:3px}
+.drw-head-title{font-size:15px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px}
+.drw-head-sub{font-size:11.5px;color:rgba(255,255,255,.55);font-weight:600}
+.drw-close{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;flex-shrink:0;transition:background .15s}
+.drw-close:hover{background:rgba(255,255,255,.22)}
+.drw-body{flex:1;overflow-y:auto;padding:0;display:flex;flex-direction:column}
+.drw-tabs{display:flex;border-bottom:2px solid #F0EEE6;background:#fff;flex-shrink:0;padding:0 1.4rem}
+.drw-tab{padding:.75rem 1.1rem;font-size:12.5px;font-weight:700;color:#696B78;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;white-space:nowrap}
+.drw-tab.active{color:#10193A;border-bottom-color:#FF7A1A}
+.drw-panel{display:none;padding:1.4rem;flex-direction:column;gap:1.1rem;flex:1}
+.drw-panel.active{display:flex}
+
+/* Drawer sections */
+.drw-section{background:#F6F4EF;border-radius:12px;padding:1.1rem 1.2rem}
+.drw-section-title{font-size:10.5px;font-weight:800;color:#A8A4C4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.9rem}
+.drw-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.4rem}
+.drw-field-label{font-size:10.5px;color:#A8A4C4;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.drw-field-val{font-size:13.5px;color:#14141A;font-weight:600}
+.drw-field-val.muted{color:#696B78;font-size:12px}
+.drw-input{width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#fff;font-family:inherit;outline:none;color:#14141A}
+.drw-input:focus{border-color:#FF7A1A}
+.drw-save{padding:9px 18px;border:none;border-radius:9px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-start}
+.drw-save:hover{background:#0B1228}
+
+/* Supervisor permission switches */
+.sup-perm-groups{display:flex;flex-direction:column;gap:12px}
+.sup-perm-group{background:#fff;border:1.5px solid #E7E4DA;border-radius:12px;overflow:hidden}
+.spg-head{padding:.7rem 1rem;background:#F6F4EF;font-size:11px;font-weight:800;color:#696B78;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #E7E4DA}
+.spg-body{padding:.8rem 1rem;display:flex;flex-direction:column;gap:8px}
+.perm-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.perm-switch-label{font-size:13px;font-weight:600;color:#14141A;display:flex;align-items:center;gap:8px}
+.perm-switch-desc{font-size:11px;color:#A8A4C4;font-weight:600;margin-top:1px}
+/* Toggle switch */
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:#E7E4DA;border-radius:24px;transition:.25s}
+.slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+input:checked + .slider{background:#1AAE6F}
+input:checked + .slider:before{transform:translateX(18px)}
+.switch-danger input:checked + .slider{background:#FF7A1A}
+
+/* Action bar inside drawer */
+.drw-action-bar{display:flex;gap:8px;flex-wrap:wrap;padding:1rem 1.4rem;border-top:1px solid #F0EEE6;background:#fff;flex-shrink:0}
+.drw-act-btn{padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid #E7E4DA;background:#fff;color:#696B78}
+.drw-act-btn:hover{border-color:#10193A;color:#10193A}
+.drw-act-btn.danger{border-color:#F5C2C2;color:#9A2A2D}
+.drw-act-btn.danger:hover{background:#FBE2E2}
+.drw-act-btn.safe{border-color:#B3EBD0;color:#0E6B43;background:#D9F5E8}
+.drw-act-btn.primary{background:#10193A;color:#fff;border-color:#10193A}
+.drw-act-btn.primary:hover{background:#0B1228}
+
+@media(max-width:500px){
+  .drw-grid{grid-template-columns:1fr}
+  .drawer{width:100vw}
+  .drw-tabs{overflow-x:auto}
+}
 </style>
 </head>
 <body>
@@ -121,10 +194,10 @@ a{color:inherit;text-decoration:none}
 {% from "sidebar_macro.html" import sidebar %}
 {{ sidebar('manager', {}, 'users', name) }}
 
-<!-- Topbar -->
 <div class="topbar">
   <button id="sb-toggle" onclick="openSB()">☰</button>
   <div class="topbar-title">👑 User Management</div>
+  <a href="/manager/admins" class="tb-admins">🔐 Admins</a>
   <a href="/logout" class="tb-logout">Logout</a>
 </div>
 
@@ -176,12 +249,13 @@ a{color:inherit;text-decoration:none}
           <div class="field"><label>Password</label><input name="password" placeholder="Min 6 chars" required minlength="6"></div>
           <div class="field">
             <label>Role</label>
-            <select name="user_role">
+            <select name="user_role" id="createRoleSelect" onchange="toggleSupPerms(this.value)">
               <option value="employee">👤 Employee</option>
               <option value="supervisor">👔 Supervisor</option>
             </select>
           </div>
         </div>
+        <div class="perm-section-title">Employee Module Access</div>
         <div class="perm-row">
           <label class="perm-chk"><input type="checkbox" name="can_work_report" checked> 📋 Work Report</label>
           <label class="perm-chk"><input type="checkbox" name="can_sales_visit" checked> 🤝 Sales Visit</label>
@@ -221,32 +295,34 @@ a{color:inherit;text-decoration:none}
     </div>
   </form>
 
-  <!-- User List -->
+  <!-- User list header -->
   <div class="table-hdr">
     <div class="table-hdr-title">All Users</div>
     <div class="rec-count">{{ record_count }} record{{ 's' if record_count != 1 }}</div>
   </div>
 
   {% if users %}
-  <div class="users-list" style="border:1px solid #E7E4DA;border-top:none;border-radius:0 0 13px 13px;overflow:hidden;background:#F6F4EF;padding:10px 10px 12px">
+  <div class="users-list" style="border:1px solid #E7E4DA;border-top:none;border-radius:0 0 13px 13px;background:#F6F4EF;padding:10px 10px 12px">
     {% for u in users %}
+    {% set is_sup = u.get('user_role','employee') == 'supervisor' %}
     <div class="user-card {{ '' if u['is_active'] else 'inactive' }}">
-      <!-- Top row: avatar + name + status + role badge -->
+
+      <!-- Top row -->
       <div class="uc-top">
-        <div class="uc-avatar">{{ u['name'][:2].upper() }}</div>
+        <div class="uc-avatar {{ 'av-sup' if is_sup else 'av-emp' }}">{{ u['name'][:2].upper() }}</div>
         <div class="uc-info">
           <div class="uc-name">{{ u['name'] }}</div>
-          <div class="uc-meta">@{{ u['username'] }} · {{ u['emp_code'] }} · {{ u['company'] or '—' }}</div>
+          <div class="uc-meta">@{{ u['username'] }} · {{ u['emp_code'] }}{% if u['company'] %} · {{ u['company'] }}{% endif %}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
           <span class="badge {{ 'badge-active' if u['is_active'] else 'badge-inactive' }}">{{ 'Active' if u['is_active'] else 'Inactive' }}</span>
-          <span class="role-badge {{ 'role-sup' if u.get('user_role','employee')=='supervisor' else 'role-emp' }}">
-            {{ '👔 Supervisor' if u.get('user_role','employee')=='supervisor' else '👤 Employee' }}
+          <span class="role-badge {{ 'role-sup' if is_sup else 'role-emp' }}">
+            {{ '👔 Supervisor' if is_sup else '👤 Employee' }}
           </span>
         </div>
       </div>
 
-      <!-- Permissions row -->
+      <!-- Quick permission toggles -->
       <form method="POST" action="/manager/users/{{ u['emp_code'] }}/update-permissions">
         <input type="hidden" name="name" value="">
         <input type="hidden" name="company" value="">
@@ -255,14 +331,32 @@ a{color:inherit;text-decoration:none}
           <label class="ptoggle {{ 'on' if u['can_sales_visit'] }}"><input type="checkbox" name="can_sales_visit" onchange="this.form.requestSubmit()" {% if u['can_sales_visit'] %}checked{% endif %}> 🤝 Sales</label>
           <label class="ptoggle {{ 'on' if u['can_my_jobs'] }}"><input type="checkbox" name="can_my_jobs" onchange="this.form.requestSubmit()" {% if u['can_my_jobs'] %}checked{% endif %}> 📌 Jobs</label>
           <label class="ptoggle {{ 'on' if u['can_ta'] }}"><input type="checkbox" name="can_ta" onchange="this.form.requestSubmit()" {% if u['can_ta'] %}checked{% endif %}> 🧾 TA</label>
-          <label class="ptoggle {{ 'on' if u.get('can_support', True) }}"><input type="checkbox" name="can_support" onchange="this.form.requestSubmit()" {% if u.get('can_support', True) %}checked{% endif %}> 🔧 Support</label>
-          <label class="ptoggle {{ 'on' if u.get('can_products', False) }}"><input type="checkbox" name="can_products" onchange="this.form.requestSubmit()" {% if u.get('can_products', False) %}checked{% endif %}> 📦 Products</label>
-          <label class="ptoggle {{ 'on' if u.get('can_challan', False) }}"><input type="checkbox" name="can_challan" onchange="this.form.requestSubmit()" {% if u.get('can_challan', False) %}checked{% endif %}> 🧾 Challan</label>
+          <label class="ptoggle {{ 'on' if u.get('can_support',True) }}"><input type="checkbox" name="can_support" onchange="this.form.requestSubmit()" {% if u.get('can_support',True) %}checked{% endif %}> 🔧 Support</label>
+          <label class="ptoggle {{ 'on' if u.get('can_products',False) }}"><input type="checkbox" name="can_products" onchange="this.form.requestSubmit()" {% if u.get('can_products',False) %}checked{% endif %}> 📦 Products</label>
+          <label class="ptoggle {{ 'on' if u.get('can_challan',False) }}"><input type="checkbox" name="can_challan" onchange="this.form.requestSubmit()" {% if u.get('can_challan',False) %}checked{% endif %}> 🧾 Challan</label>
         </div>
       </form>
 
       <!-- Actions row -->
       <div class="uc-actions">
+        {% set sup_data = {} %}
+        {% if is_sup %}
+        {% set sup_data = {
+          'can_view_reports': u.get('can_view_reports', True),
+          'can_approve_reports': u.get('can_approve_reports', False),
+          'can_view_jobs': u.get('can_view_jobs', True),
+          'can_assign_jobs': u.get('can_assign_jobs', False),
+          'can_view_ta': u.get('can_view_ta', True),
+          'can_approve_ta': u.get('can_approve_ta', False),
+          'can_view_users': u.get('can_view_users', False),
+          'can_view_sales': u.get('can_view_sales', True),
+          'can_view_support': u.get('can_view_support', False),
+          'can_view_clients': u.get('can_view_clients', False),
+          'can_add_employees': u.get('can_add_employees', False)
+        } %}
+        {% endif %}
+        {% set u_with_sup = dict(u, **{'_sup': sup_data}) %}
+        <button class="a-btn blue" onclick='openUserDrawer({{ u_with_sup|tojson|e }})' type="button">✏️ Manage</button>
         <button class="a-btn" onclick="openReset('{{ u['emp_code'] }}','{{ u['name']|e }}')" type="button">🔑 Reset PW</button>
         <form method="POST" action="/manager/users/{{ u['emp_code'] }}/toggle-active" style="display:inline">
           {% if u['is_active'] %}
@@ -271,7 +365,6 @@ a{color:inherit;text-decoration:none}
           <button class="a-btn safe" type="submit">✅ Reactivate</button>
           {% endif %}
         </form>
-        <!-- ▶ ROLE ASSIGNMENT — the missing feature! -->
         <form method="POST" action="/manager/users/{{ u['emp_code'] }}/set-role" class="role-form">
           <select name="user_role" class="role-select">
             <option value="employee" {{ 'selected' if u.get('user_role','employee')=='employee' }}>👤 Employee</option>
@@ -287,12 +380,199 @@ a{color:inherit;text-decoration:none}
   <div class="empty">🔍 No users found. Try clearing the filters.</div>
   {% endif %}
 
+</div><!-- /.main -->
+
+<!-- ══════════ USER DETAIL DRAWER ══════════ -->
+<div class="drw-backdrop" id="drwBackdrop" onclick="closeUserDrawer()"></div>
+<div class="drawer" id="userDrawer">
+  <div class="drw-head">
+    <div class="drw-head-left">
+      <div class="drw-head-title">
+        <span id="drw-avatar" style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0"></span>
+        <div>
+          <div id="drw-name" style="font-size:15px;font-weight:800;color:#fff"></div>
+          <div id="drw-sub" style="font-size:11.5px;color:rgba(255,255,255,.55);font-weight:600;margin-top:1px"></div>
+        </div>
+      </div>
+    </div>
+    <button class="drw-close" onclick="closeUserDrawer()">&times;</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="drw-tabs">
+    <div class="drw-tab active" onclick="switchTab('info')">👤 Info</div>
+    <div class="drw-tab" onclick="switchTab('modules')" id="tab-modules">📋 Modules</div>
+    <div class="drw-tab sup-only" onclick="switchTab('supperms')" id="tab-supperms" style="display:none">🔑 Sup. Perms</div>
+  </div>
+
+  <!-- Panel: Info -->
+  <div class="drw-panel active" id="panel-info">
+    <div class="drw-section">
+      <div class="drw-section-title">Identity</div>
+      <div class="drw-grid" id="drw-identity-grid"><!-- filled by JS --></div>
+    </div>
+    <form method="POST" id="updateInfoForm">
+      <div class="drw-section">
+        <div class="drw-section-title">Edit Details</div>
+        <div class="drw-grid">
+          <div>
+            <div class="drw-field-label">Display Name</div>
+            <input class="drw-input" name="name" id="edit-name" placeholder="Full name">
+          </div>
+          <div>
+            <div class="drw-field-label">Company</div>
+            <input class="drw-input" name="company" id="edit-company" placeholder="e.g. imaxsol">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button type="submit" class="drw-save">Save Info</button>
+        </div>
+      </div>
+    </form>
+    <div class="drw-section" id="role-section">
+      <div class="drw-section-title">Role Assignment</div>
+      <form method="POST" id="setRoleForm" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select name="user_role" id="drawer-role-select" class="drw-input" style="max-width:200px">
+          <option value="employee">👤 Employee</option>
+          <option value="supervisor">👔 Supervisor</option>
+        </select>
+        <button type="submit" class="drw-save">Change Role</button>
+      </form>
+      <p style="font-size:11px;color:#A8A4C4;font-weight:600;margin-top:8px">Changing to Supervisor unlocks the Supervisor Permissions tab.</p>
+    </div>
+  </div>
+
+  <!-- Panel: Modules -->
+  <div class="drw-panel" id="panel-modules">
+    <form method="POST" id="updatePermsForm">
+      <input type="hidden" name="name" value="">
+      <input type="hidden" name="company" value="">
+      <div class="sup-perm-groups">
+        <div class="sup-perm-group">
+          <div class="spg-head">📱 Module Access</div>
+          <div class="spg-body">
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">📋 Work Report</div><div class="perm-switch-desc">Submit daily work reports</div></div>
+              <label class="switch"><input type="checkbox" name="can_work_report" id="sw-work"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">🤝 Sales Visit</div><div class="perm-switch-desc">Log sales visits</div></div>
+              <label class="switch"><input type="checkbox" name="can_sales_visit" id="sw-sales"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">📌 My Jobs</div><div class="perm-switch-desc">View assigned jobs</div></div>
+              <label class="switch"><input type="checkbox" name="can_my_jobs" id="sw-jobs"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">🧾 Travel Expense</div><div class="perm-switch-desc">Submit TA reports</div></div>
+              <label class="switch"><input type="checkbox" name="can_ta" id="sw-ta"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">🔧 Support</div><div class="perm-switch-desc">Submit support reports</div></div>
+              <label class="switch"><input type="checkbox" name="can_support" id="sw-support"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">📦 Products</div><div class="perm-switch-desc">View product catalog</div></div>
+              <label class="switch"><input type="checkbox" name="can_products" id="sw-products"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">🧾 Challan</div><div class="perm-switch-desc">Create delivery challans</div></div>
+              <label class="switch"><input type="checkbox" name="can_challan" id="sw-challan"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button type="submit" class="drw-save">Save Module Access</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Panel: Supervisor Permissions -->
+  <div class="drw-panel" id="panel-supperms">
+    <form method="POST" id="supPermsForm">
+      <div class="sup-perm-groups">
+        <div class="sup-perm-group">
+          <div class="spg-head">📋 Reports</div>
+          <div class="spg-body">
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Reports</div><div class="perm-switch-desc">See team work reports</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_reports" id="sp-vreports"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">Approve / Reject Reports</div><div class="perm-switch-desc">Can review and approve</div></div>
+              <label class="switch switch-danger"><input type="checkbox" name="can_approve_reports" id="sp-areports"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="sup-perm-group">
+          <div class="spg-head">📌 Jobs</div>
+          <div class="spg-body">
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Jobs</div><div class="perm-switch-desc">See all assigned jobs</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_jobs" id="sp-vjobs"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">Assign Jobs</div><div class="perm-switch-desc">Create and assign jobs to team</div></div>
+              <label class="switch switch-danger"><input type="checkbox" name="can_assign_jobs" id="sp-ajobs"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="sup-perm-group">
+          <div class="spg-head">🧾 Attendance</div>
+          <div class="spg-body">
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View TA</div><div class="perm-switch-desc">See team travel reports</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_ta" id="sp-vta"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">Approve TA</div><div class="perm-switch-desc">Approve travel allowances</div></div>
+              <label class="switch switch-danger"><input type="checkbox" name="can_approve_ta" id="sp-ata"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="sup-perm-group">
+          <div class="spg-head">🔓 Extra Access</div>
+          <div class="spg-body">
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Users</div><div class="perm-switch-desc">See user directory</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_users" id="sp-vusers"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Sales</div><div class="perm-switch-desc">See sales visit data</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_sales" id="sp-vsales"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Support</div><div class="perm-switch-desc">See support ticket data</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_support" id="sp-vsupport"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">View Clients</div><div class="perm-switch-desc">Access client database</div></div>
+              <label class="switch"><input type="checkbox" name="can_view_clients" id="sp-vclients"><span class="slider"></span></label>
+            </div>
+            <div class="perm-switch-row">
+              <div><div class="perm-switch-label">Add Employees</div><div class="perm-switch-desc">Create new employee accounts</div></div>
+              <label class="switch switch-danger"><input type="checkbox" name="can_add_employees" id="sp-addemployees"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button type="submit" class="drw-save">Save Supervisor Permissions</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Bottom action bar -->
+  <div class="drw-action-bar" id="drwActionBar">
+    <!-- dynamically filled -->
+  </div>
 </div>
 
 <!-- Reset Password Modal -->
 <div id="resetOverlay" style="display:none;position:fixed;inset:0;background:rgba(16,25,58,.55);z-index:300;align-items:center;justify-content:center;padding:1.25rem">
   <div style="background:#fff;border-radius:16px;padding:1.6rem;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(8,12,32,.35)">
-    <div style="font-size:15px;font-weight:800;color:#10193A;margin-bottom:4px">Reset Password</div>
+    <div style="font-size:15px;font-weight:800;color:#10193A;margin-bottom:4px">🔑 Reset Password</div>
     <div style="font-size:12.5px;color:#696B78;margin-bottom:16px" id="resetUserName">—</div>
     <form method="POST" id="resetForm">
       <label style="display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em">New password (leave blank to auto-generate)</label>
@@ -307,6 +587,7 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <script>
+/* ── Toggles ── */
 function toggleCreate(){
   document.getElementById('createBody').classList.toggle('open');
   document.getElementById('createChev').classList.toggle('open');
@@ -317,6 +598,115 @@ function openReset(empCode, name){
   document.getElementById('resetOverlay').style.display = 'flex';
 }
 function closeReset(){ document.getElementById('resetOverlay').style.display = 'none'; }
+
+/* ── Tabs ── */
+function switchTab(tab){
+  document.querySelectorAll('.drw-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.drw-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.drw-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+/* ── User Drawer ── */
+let _drawerOpen = false;
+
+function openUserDrawer(u) {
+  const isSup = (u.user_role || 'employee') === 'supervisor';
+
+  // Header
+  const av = document.getElementById('drw-avatar');
+  av.textContent = u.name.slice(0,2).toUpperCase();
+  av.style.background = isSup ? '#EDE9FE' : '#FFE4CC';
+  av.style.color = isSup ? '#5B21B6' : '#9A4B0A';
+  document.getElementById('drw-name').textContent = u.name;
+  document.getElementById('drw-sub').textContent = '@' + u.username + ' · ' + u.emp_code + (u.company ? ' · ' + u.company : '');
+
+  // Identity grid
+  document.getElementById('drw-identity-grid').innerHTML = `
+    <div><div class="drw-field-label">Emp. Code</div><div class="drw-field-val">${esc(u.emp_code)}</div></div>
+    <div><div class="drw-field-label">Username</div><div class="drw-field-val">@${esc(u.username)}</div></div>
+    <div><div class="drw-field-label">Status</div><div class="drw-field-val">${u.is_active ? '<span style="color:#1AAE6F;font-weight:800">● Active</span>' : '<span style="color:#C7333A;font-weight:800">● Inactive</span>'}</div></div>
+    <div><div class="drw-field-label">Role</div><div class="drw-field-val">${isSup ? '👔 Supervisor' : '👤 Employee'}</div></div>
+    <div><div class="drw-field-label">Department</div><div class="drw-field-val muted">${esc(u.department_id || '—')}</div></div>
+    <div><div class="drw-field-label">Created</div><div class="drw-field-val muted">${esc(u.created_at || '—')}</div></div>
+  `;
+
+  // Edit form
+  document.getElementById('edit-name').value = u.name;
+  document.getElementById('edit-company').value = u.company || '';
+  document.getElementById('updateInfoForm').action = '/manager/users/' + u.emp_code + '/update-permissions';
+  document.getElementById('updatePermsForm').action = '/manager/users/' + u.emp_code + '/update-permissions';
+
+  // Role select
+  document.getElementById('drawer-role-select').value = u.user_role || 'employee';
+  document.getElementById('setRoleForm').action = '/manager/users/' + u.emp_code + '/set-role';
+
+  // Module toggles
+  document.getElementById('sw-work').checked    = !!u.can_work_report;
+  document.getElementById('sw-sales').checked   = !!u.can_sales_visit;
+  document.getElementById('sw-jobs').checked    = !!u.can_my_jobs;
+  document.getElementById('sw-ta').checked      = !!u.can_ta;
+  document.getElementById('sw-support').checked = u.can_support !== false;
+  document.getElementById('sw-products').checked= !!u.can_products;
+  document.getElementById('sw-challan').checked = !!u.can_challan;
+
+  // Supervisor tab visibility
+  const supTab = document.getElementById('tab-supperms');
+  supTab.style.display = isSup ? '' : 'none';
+
+  // Sup perms form action
+  document.getElementById('supPermsForm').action = '/manager/supervisors/' + u.emp_code + '/permissions';
+
+  // If supervisor, fetch sup perms via inline data attribute
+  if (isSup && u._sup) {
+    const s = u._sup;
+    document.getElementById('sp-vreports').checked    = !!s.can_view_reports;
+    document.getElementById('sp-areports').checked    = !!s.can_approve_reports;
+    document.getElementById('sp-vjobs').checked       = !!s.can_view_jobs;
+    document.getElementById('sp-ajobs').checked       = !!s.can_assign_jobs;
+    document.getElementById('sp-vta').checked         = !!s.can_view_ta;
+    document.getElementById('sp-ata').checked         = !!s.can_approve_ta;
+    document.getElementById('sp-vusers').checked      = !!s.can_view_users;
+    document.getElementById('sp-vsales').checked      = !!s.can_view_sales;
+    document.getElementById('sp-vsupport').checked    = !!s.can_view_support;
+    document.getElementById('sp-vclients').checked    = !!s.can_view_clients;
+    document.getElementById('sp-addemployees').checked= !!s.can_add_employees;
+  }
+
+  // Action bar
+  document.getElementById('drwActionBar').innerHTML = `
+    <button type="button" class="drw-act-btn" onclick="openReset('${esc(u.emp_code)}','${esc(u.name)}')">🔑 Reset Password</button>
+    <form method="POST" action="/manager/users/${esc(u.emp_code)}/toggle-active" style="display:inline">
+      ${u.is_active
+        ? `<button class="drw-act-btn danger" type="submit" onclick="return confirm('Deactivate ${esc(u.name)}?')">🚫 Deactivate</button>`
+        : `<button class="drw-act-btn safe" type="submit">✅ Reactivate</button>`
+      }
+    </form>
+  `;
+
+  // Reset to info tab
+  switchTab('info');
+  document.getElementById('drwBackdrop').classList.add('open');
+  document.getElementById('userDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  _drawerOpen = true;
+}
+
+function closeUserDrawer(){
+  document.getElementById('drwBackdrop').classList.remove('open');
+  document.getElementById('userDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+  _drawerOpen = false;
+}
+
+function esc(str){
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape' && _drawerOpen) closeUserDrawer(); });
 </script>
 <script src="/static/push.js"></script>
 </body>

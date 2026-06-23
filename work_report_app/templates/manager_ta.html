@@ -154,6 +154,14 @@
       <button type="button" class="bulk-btn bulk-due" onclick="submitBulk('mark_due')">🕓 Mark Due</button>
       <button type="button" class="bulk-btn bulk-clear" onclick="clearSelection()">✕ Clear</button>
     </form>
+    <form method="POST" action="/manager/ta-reports/bulk-pdf" id="bulkPdfForm" style="display:inline">
+      <span id="bulkPdfIdsHolder"></span>
+      <button type="button" onclick="submitBulkPdf()"
+              style="padding:7px 16px;border-radius:999px;background:#1A3A7A;color:#fff;border:none;
+                     font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">
+        🖨 Generate PDF Voucher
+      </button>
+    </form>
   </div>
   <div class="table-card">
     <div class="table-hdr">
@@ -183,12 +191,22 @@
           <td><span class="badge {{ 'badge-paid' if r['payment_status']=='Paid' else 'badge-due' }}">{{ r['payment_status'] }}</span></td>
           <td><span class="badge {{ 'badge-approved' if r['approval_status']=='Approved' else 'badge-notapproved' }}">{{ r['approval_status'] }}</span></td>
           <td>
-            <button type="button" class="edit-btn" onclick='openEdit({{ {
-                "id": r["id"], "emp_name": r["emp_name"], "travel_date": r["travel_date"],
-                "from_place": r["from_place"], "to_place": r["to_place"], "travel_by": r["travel_by"],
-                "description": r["description"] or "", "expense_cost": r["expense_cost"]|float,
-                "payment_status": r["payment_status"], "approval_status": r["approval_status"]
-              }|tojson }})'>✏️ Edit</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button type="button" class="edit-btn" onclick='openEdit({{ {
+                  "id": r["id"], "emp_name": r["emp_name"], "travel_date": r["travel_date"],
+                  "from_place": r["from_place"], "to_place": r["to_place"], "travel_by": r["travel_by"],
+                  "description": r["description"] or "", "expense_cost": r["expense_cost"]|float,
+                  "payment_status": r["payment_status"], "approval_status": r["approval_status"]
+                }|tojson }})'>✏️ Edit</button>
+              {% if r['approval_status'] == 'Approved' %}
+              <a href="/ta-report/{{ r['id'] }}/pdf" target="_blank"
+                 style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;
+                        border-radius:999px;background:#EEF4FF;color:#1A3A7A;
+                        font-size:11px;font-weight:800;text-decoration:none;border:1px solid #B8D0FF">
+                🖨 PDF
+              </a>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -290,6 +308,18 @@ function submitBulk(action){
   });
   document.getElementById('bulkAction').value = action;
   document.getElementById('bulkForm').submit();
+}
+function submitBulkPdf(){
+  const ids = getChecked();
+  if(ids.length === 0){ alert('Please select at least one TA record first.'); return; }
+  const holder = document.getElementById('bulkPdfIdsHolder');
+  holder.innerHTML = '';
+  ids.forEach(id => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = id;
+    holder.appendChild(inp);
+  });
+  document.getElementById('bulkPdfForm').submit();
 }
 function openEdit(r){
   document.getElementById('m_id').value = r.id;
