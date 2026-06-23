@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10193A">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/icons/favicon.png">
+<title>Data Delete Manager — WorkReport</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* ── Topbar ── */
+.topbar{background:#10193A;padding:0 1.1rem;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,.18);gap:10px}
+#sb-toggle{width:38px;height:38px;background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#sb-toggle:hover{background:rgba(255,255,255,.16)}
+.topbar-title{font-size:14px;font-weight:800;color:#fff;flex:1}
+.tb-back{padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.06);font-size:12px;color:#fff;font-weight:600}
+.tb-back:hover{background:rgba(255,255,255,.14)}
+
+/* ── Sidebar (imported from sidebar_macro pattern) ── */
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(11,16,36,.45);z-index:200}
+.sb-overlay.open{display:block}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:260px;background:#10193A;z-index:201;transform:translateX(-100%);transition:transform .2s ease;overflow-y:auto;padding-bottom:2rem}
+.sidebar.open{transform:translateX(0)}
+@media(min-width:900px){
+  .sidebar{transform:translateX(0)}
+  .sb-overlay{display:none!important}
+  #sb-toggle{display:none}
+  .main{margin-left:260px}
+}
+.sb-logo{padding:1rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.07);font-size:15px;font-weight:900;color:#fff;display:flex;align-items:center;gap:9px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:10px 1.2rem;font-size:13px;font-weight:600;color:rgba(255,255,255,.72);border-radius:0;cursor:pointer;text-decoration:none;border-left:3px solid transparent}
+.sb-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.sb-item.active{background:rgba(255,106,31,.12);color:#FF8A3D;border-left-color:#FF8A3D}
+.sb-section{padding:8px 1.2rem 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.28);margin-top:4px}
+.sb-logout{display:flex;align-items:center;gap:9px;padding:10px 1.2rem;font-size:13px;font-weight:600;color:rgba(255,255,255,.50);cursor:pointer;text-decoration:none;margin-top:12px;border-top:1px solid rgba(255,255,255,.07)}
+.sb-logout:hover{color:#fff}
+
+/* ── Main layout ── */
+.main{max-width:960px;margin:0 auto;padding:1.4rem 1rem 3rem}
+
+/* ── Page header ── */
+.page-head{background:#fff;border:1px solid #E7E4DA;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.4rem;display:flex;align-items:center;gap:14px;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+.ph-icon{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#B22,#E03);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ph-title{font-size:17px;font-weight:800;color:#10193A}
+.ph-desc{font-size:12px;color:#696B78;font-weight:600;margin-top:3px}
+.ph-warn{margin-top:6px;padding:6px 10px;background:#FFF3CD;border:1px solid #FFDEA0;border-radius:7px;font-size:11.5px;font-weight:700;color:#7A4800;display:inline-flex;align-items:center;gap:5px}
+
+/* ── Flash ── */
+.flash{border-radius:12px;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
+.flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+
+/* ── Step tabs ── */
+.steps{display:flex;gap:6px;margin-bottom:1.2rem;flex-wrap:wrap}
+.step-btn{padding:8px 16px;border:1.5px solid #E7E4DA;border-radius:999px;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;color:#696B78;transition:all .15s;display:flex;align-items:center;gap:6px}
+.step-btn.active{background:#10193A;color:#fff;border-color:#10193A}
+.step-btn .step-num{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.15);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.step-btn:not(.active) .step-num{background:#F0EDE6;color:#696B78}
+
+/* ── Cards ── */
+.card{background:#fff;border:1px solid #E7E4DA;border-radius:14px;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(16,25,58,.04)}
+.card-hdr{padding:14px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13.5px;font-weight:800;color:#10193A;display:flex;align-items:center;gap:8px}
+.card-body{padding:1.1rem 1.2rem}
+
+/* ── Table grid ── */
+.table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.tbl-item{border:2px solid #E7E4DA;border-radius:11px;padding:12px 14px;cursor:pointer;transition:all .18s;background:#FAFAF8;position:relative}
+.tbl-item:hover{border-color:#FF7A1A;background:#FFFAF5}
+.tbl-item.selected{border-color:#FF7A1A;background:#FFF5EC;box-shadow:0 0 0 3px rgba(255,122,26,.12)}
+.tbl-name{font-size:13px;font-weight:800;color:#10193A;margin-bottom:3px}
+.tbl-count{font-size:11.5px;color:#A8A4C4;font-weight:600}
+.tbl-count b{color:#FF7A1A}
+.tbl-check{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;border:2px solid #E7E4DA;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s}
+.tbl-item.selected .tbl-check{background:#FF7A1A;border-color:#FF7A1A;color:#fff}
+.tbl-badge{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:4px;margin-top:4px;display:inline-block}
+.badge-transact{background:#EAF1FF;color:#1A4DBF}
+.badge-master{background:#EAF7EE;color:#156040}
+
+/* ── Mode selector ── */
+.mode-tabs{display:flex;gap:8px;margin-bottom:1.2rem;flex-wrap:wrap}
+.mode-tab{flex:1;min-width:130px;padding:12px 10px;border:2px solid #E7E4DA;border-radius:12px;cursor:pointer;background:#fff;text-align:center;transition:all .15s}
+.mode-tab:hover{border-color:#FF7A1A}
+.mode-tab.active{border-color:#FF7A1A;background:#FFF5EC}
+.mode-tab .mt-icon{font-size:22px;margin-bottom:5px}
+.mode-tab .mt-title{font-size:12.5px;font-weight:800;color:#10193A}
+.mode-tab .mt-desc{font-size:11px;color:#A8A4C4;font-weight:600;margin-top:2px}
+
+/* ── Form fields ── */
+.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.field{flex:1;min-width:150px}
+.field label{display:block;font-size:11px;color:#696B78;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em}
+.field input,.field select{width:100%;padding:9px 11px;font-size:13px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:inherit;outline:none;color:#14141A}
+.field input:focus,.field select:focus{border-color:#FF7A1A;background:#fff}
+
+/* ── Preview area ── */
+.preview-box{background:#F6F4EF;border:1px solid #E7E4DA;border-radius:10px;padding:1rem;margin-bottom:1.2rem;min-height:80px}
+.preview-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#A8A4C4;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.preview-count{font-size:22px;font-weight:900;color:#E03;line-height:1}
+.preview-sub{font-size:12px;color:#696B78;font-weight:600;margin-top:3px}
+.preview-table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px}
+.preview-table th{text-align:left;padding:5px 8px;background:#EAE8E0;color:#696B78;font-size:10.5px;font-weight:800;text-transform:uppercase}
+.preview-table td{padding:5px 8px;border-bottom:1px solid #F0EEE6;color:#14141A;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview-table tr:last-child td{border-bottom:none}
+.preview-note{font-size:11px;color:#A8A4C4;font-style:italic;margin-top:6px}
+
+/* ── Multi-select IDs ── */
+.ids-input{width:100%;padding:9px 11px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:9px;background:#F6F4EF;font-family:monospace;outline:none;color:#14141A;min-height:64px;resize:vertical}
+.ids-input:focus{border-color:#FF7A1A;background:#fff}
+.ids-hint{font-size:11px;color:#A8A4C4;margin-top:5px;font-weight:600}
+
+/* ── Confirm step ── */
+.confirm-box{border:2px dashed #E03;border-radius:13px;padding:1.2rem 1.4rem;background:#FFF5F5;margin-bottom:1.2rem}
+.confirm-title{font-size:14px;font-weight:900;color:#B22;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.confirm-lines{font-size:13px;color:#444;line-height:1.8}
+.confirm-lines b{color:#B22}
+.confirm-check{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13px;font-weight:700;color:#B22;cursor:pointer}
+.confirm-check input{width:17px;height:17px;accent-color:#B22;cursor:pointer}
+
+/* ── Buttons ── */
+.btn-danger{padding:11px 22px;border:none;border-radius:9px;background:#C82;color:#fff;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:800;display:inline-flex;align-items:center;gap:7px;transition:background .15s}
+.btn-danger:hover{background:#A51}
+.btn-danger:disabled{background:#CCC;cursor:not-allowed}
+.btn-danger.confirm-ready{background:#C00}
+.btn-danger.confirm-ready:hover{background:#900}
+.btn-secondary{padding:10px 20px;border:1.5px solid #E7E4DA;border-radius:9px;background:#fff;color:#14141A;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700;display:inline-flex;align-items:center;gap:7px}
+.btn-secondary:hover{background:#F6F4EF}
+.btn-preview{padding:8px 16px;border:1.5px solid #FF7A1A;border-radius:8px;background:#FFF5EC;color:#B24800;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.btn-preview:hover{background:#FFEDE0}
+
+/* ── Result panel ── */
+.result-panel{display:none;border-radius:13px;padding:1.1rem 1.4rem;margin-bottom:1.2rem;align-items:flex-start;gap:14px}
+.result-panel.success{display:flex;background:#D9F5E8;border:1.5px solid #B3EBD0}
+.result-panel.error{display:flex;background:#FBE2E2;border:1.5px solid #F5C2C2}
+.result-icon{font-size:28px;flex-shrink:0;margin-top:2px}
+.result-title{font-size:15px;font-weight:900;color:#0E6B43;margin-bottom:3px}
+.result-panel.error .result-title{color:#9A2A2D}
+.result-body{font-size:13px;color:#1A4A35;font-weight:600}
+.result-panel.error .result-body{color:#7A2222}
+
+/* ── Loading ── */
+.spinner{display:inline-block;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Log section ── */
+.log-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto}
+.log-item{padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+.log-item.log-ok{background:#D9F5E8;color:#0E6B43}
+.log-item.log-err{background:#FBE2E2;color:#9A2A2D}
+.log-time{font-size:10.5px;font-weight:700;opacity:.7;margin-left:auto;white-space:nowrap}
+.log-empty{text-align:center;color:#A8A4C4;font-size:12.5px;padding:1.5rem;font-weight:600}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .table-grid{grid-template-columns:1fr 1fr}
+  .mode-tabs{flex-direction:column}
+  .form-row{flex-direction:column}
+  .steps{gap:4px}
+  .step-btn{font-size:11.5px;padding:7px 12px}
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar overlay -->
+<div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-logo">⚙️ WorkReport</div>
+  {% from 'sidebar_macro.html' import render_sidebar %}
+  {{ render_sidebar(role, active_page) }}
+</nav>
+
+<!-- Topbar -->
+<div class="topbar">
+  <button class="btn" id="sb-toggle" onclick="toggleSidebar()">☰</button>
+  <span class="topbar-title">🗑️ Data Delete Manager</span>
+  <a href="/dashboard" class="tb-back">← Dashboard</a>
+</div>
+
+<!-- Flash -->
+{% set fmsg = request.args.get('flash','') %}
+{% set ftype = request.args.get('flash_type','success') %}
+{% if fmsg %}
+<div class="main" style="padding-bottom:0">
+  <div class="flash flash-{{ ftype }}">{{ '✅' if ftype=='success' else '❌' }} {{ fmsg }}</div>
+</div>
+{% endif %}
+
+<div class="main">
+
+  <!-- Page Header -->
+  <div class="page-head">
+    <div class="ph-icon">🗑️</div>
+    <div>
+      <div class="ph-title">Data Delete Manager</div>
+      <div class="ph-desc">Permanently delete records from any table — by date range, by ID selection, or all at once.</div>
+      <div class="ph-warn">⚠️ Deletions are permanent and cannot be undone. Super Admin only.</div>
+    </div>
+  </div>
+
+  <!-- Result panel (shown after delete) -->
+  <div class="result-panel" id="resultPanel">
+    <div class="result-icon" id="resultIcon"></div>
+    <div>
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-body" id="resultBody"></div>
+    </div>
+  </div>
+
+  <!-- ─────── STEP 1: Choose Table ─────── -->
+  <div class="card" id="step1Card">
+    <div class="card-hdr">
+      <div class="card-title">
+        <span style="background:#10193A;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">1</span>
+        Select Table to Delete From
+      </div>
+      <span id="step1Selected" style="font-size:12px;font-weight:800;color:#FF7A1A;display:none"></span>
+    </div>
+    <div class="card-body">
+      <div style="font-size:11.5px;color:#A8A4C4;font-weight:600;margin-bottom:12px">Loading record counts…</div>
+      <div class="table-grid" id="tableGrid"></div>
+    </div>
+  </div>
+
+  <!-- ─────── STEP 2: Choose Delete Mode ─────── -->
+  <div class="card" id="step2Card" style="display:none">
+    <div class="card-hdr">
+      <div class="card-title">
+        <span style="background:#10193A;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">2</span>
+        Choose Delete Method
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mode-tabs">
+        <div class="mode-tab" onclick="selectMode('date_range')" id="mode_date_range">
+          <div class="mt-icon">📅</div>
+          <div class="mt-title">Date Range</div>
+          <div class="mt-desc">Delete all records between two dates</div>
+        </div>
+        <div class="mode-tab" onclick="selectMode('multi_select')" id="mode_multi_select">
+          <div class="mt-icon">☑️</div>
+          <div class="mt-title">Select by ID</div>
+          <div class="mt-desc">Enter specific record IDs to delete</div>
+        </div>
+        <div class="mode-tab" onclick="selectMode('all')" id="mode_all">
+          <div class="mt-icon">🔥</div>
+          <div class="mt-title">Delete ALL</div>
+          <div class="mt-desc">Wipe every record in the table</div>
+        </div>
+      </div>
+
+      <!-- Date range inputs -->
+      <div id="panelDateRange" style="display:none">
+        <div class="form-row">
+          <div class="field">
+            <label>From Date</label>
+            <input type="date" id="dateFrom" onchange="clearPreview()">
+          </div>
+          <div class="field">
+            <label>To Date</label>
+            <input type="date" id="dateTo" onchange="clearPreview()">
+          </div>
+        </div>
+        <div id="noDateColWarn" style="display:none;font-size:12px;color:#9A2A2D;font-weight:700;background:#FBE2E2;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+          ⚠️ This table does not have a date column — date range deletion is not supported. Use "Select by ID" or "Delete ALL" instead.
+        </div>
+      </div>
+
+      <!-- Multi-select IDs -->
+      <div id="panelMultiSelect" style="display:none">
+        <div class="field" style="margin-bottom:10px">
+          <label>Record IDs (comma-separated)</label>
+          <textarea class="ids-input" id="idsInput" placeholder="e.g.  12, 45, 78, 102" onchange="clearPreview()"></textarea>
+          <div class="ids-hint">💡 Enter the IDs from the table's <b>id</b> column, separated by commas.</div>
+        </div>
+      </div>
+
+      <!-- Delete ALL warning -->
+      <div id="panelAll" style="display:none">
+        <div style="background:#FFF3CD;border:1.5px solid #FFDEA0;border-radius:10px;padding:1rem;margin-bottom:1rem">
+          <b style="color:#7A4800">⚠️ Delete ALL</b><br>
+          <span style="font-size:12.5px;color:#7A4800;font-weight:600">This will delete every single record in the selected table. This action is irreversible.</span>
+        </div>
+      </div>
+
+      <!-- Preview + proceed -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <button class="btn-preview" onclick="loadPreview()" id="previewBtn">
+          👁️ Preview Records to Delete
+        </button>
+        <span id="previewStatus" style="font-size:12px;color:#A8A4C4;font-weight:600"></span>
+      </div>
+
+      <!-- Preview box -->
+      <div class="preview-box" id="previewBox" style="display:none">
+        <div class="preview-title">📋 Preview <span id="previewLabel"></span></div>
+        <div id="previewContent"></div>
+      </div>
+
+      <!-- Proceed button -->
+      <button class="btn-secondary" onclick="goStep3()" id="proceedBtn" style="display:none">
+        Continue to Confirmation →
+      </button>
+    </div>
+  </div>
+
+  <!-- ─────── STEP 3: Confirm & Delete ─────── -->
+  <div class="card" id="step3Card" style="display:none">
+    <div class="card-hdr">
+      <div class="card-title">
+        <span style="background:#C00;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">3</span>
+        Confirm Deletion
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="confirm-box">
+        <div class="confirm-title">⚠️ You are about to permanently delete:</div>
+        <div class="confirm-lines" id="confirmLines"></div>
+        <label class="confirm-check">
+          <input type="checkbox" id="confirmCheck" onchange="toggleDeleteBtn()">
+          I understand this action is permanent and cannot be undone
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn-danger" id="deleteBtn" onclick="executeDelete()" disabled>
+          🗑️ Delete Now
+        </button>
+        <button class="btn-secondary" onclick="goBack()">← Go Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────── Delete Log ─────── -->
+  <div class="card" style="margin-top:1.6rem">
+    <div class="card-hdr">
+      <div class="card-title">📜 Session Delete Log</div>
+      <button class="btn-secondary" style="font-size:11.5px;padding:5px 12px" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="card-body" style="padding:.8rem 1rem">
+      <div class="log-list" id="logList">
+        <div class="log-empty">No deletions yet this session.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+let selectedTable = null;
+let selectedMode  = null;
+let previewData   = null;
+let counts        = {};
+let sessionLog    = [];
+
+// Tables that have date columns
+const DATE_COLS = {
+  reports:           "date",
+  jobs:              "created_at",
+  job_edit_requests: "submitted_at",
+  sales_visits:      "visit_date",
+  ta_reports:        "travel_date",
+  support_reports:   "report_date",
+  challans:          "challan_date",
+  stock_uploads:     "uploaded_at",
+  stock_upload_log:  "uploaded_at",
+  users:             "created_at",
+};
+
+const TABLE_META = {
+  reports:            { label:"Work Reports",      badge:"transact", icon:"📋" },
+  jobs:               { label:"Jobs",              badge:"transact", icon:"📌" },
+  job_edit_requests:  { label:"Job Edit Requests", badge:"transact", icon:"✏️" },
+  sales_visits:       { label:"Sales Visits",      badge:"transact", icon:"🤝" },
+  ta_reports:         { label:"Travel Expenses",   badge:"transact", icon:"🧾" },
+  support_reports:    { label:"Support Reports",   badge:"transact", icon:"🔧" },
+  challans:           { label:"Challans",          badge:"transact", icon:"🧾" },
+  stock_uploads:      { label:"Stock Uploads",     badge:"transact", icon:"📤" },
+  stock_upload_log:   { label:"Upload Log",        badge:"transact", icon:"📜" },
+  products:           { label:"Products",          badge:"master",   icon:"📦" },
+  product_brands:     { label:"Product Brands",    badge:"master",   icon:"🏷️" },
+  companies:          { label:"Companies",         badge:"master",   icon:"🏢" },
+  departments:        { label:"Departments",       badge:"master",   icon:"🏷️" },
+  employee_profiles:  { label:"Employee Profiles", badge:"master",   icon:"🪪" },
+  users:              { label:"Users",             badge:"master",   icon:"👤" },
+};
+
+// ─────────────────────────────────────────────
+//  Sidebar helpers
+// ─────────────────────────────────────────────
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sbOverlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sbOverlay').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────
+//  On load: fetch counts
+// ─────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/manager/delete-manager/counts');
+    counts = await res.json();
+  } catch(e) { counts = {}; }
+  renderTableGrid();
+});
+
+function renderTableGrid() {
+  const grid = document.getElementById('tableGrid');
+  grid.innerHTML = '';
+  for (const [key, meta] of Object.entries(TABLE_META)) {
+    const c = counts[key] ?? '?';
+    const badgeLabel = meta.badge === 'transact' ? 'Transaction' : 'Master Data';
+    const div = document.createElement('div');
+    div.className = 'tbl-item';
+    div.id = 'tbl_' + key;
+    div.onclick = () => selectTable(key);
+    div.innerHTML = `
+      <div class="tbl-check" id="chk_${key}">✓</div>
+      <div class="tbl-name">${meta.icon} ${meta.label}</div>
+      <div class="tbl-count"><b>${c}</b> records</div>
+      <div class="tbl-badge badge-${meta.badge}">${badgeLabel}</div>
+    `;
+    grid.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Step 1: select table
+// ─────────────────────────────────────────────
+function selectTable(key) {
+  // Deselect previous
+  if (selectedTable) {
+    document.getElementById('tbl_' + selectedTable)?.classList.remove('selected');
+  }
+  selectedTable = key;
+  document.getElementById('tbl_' + key).classList.add('selected');
+  document.getElementById('step1Selected').textContent = '✓ ' + TABLE_META[key].label;
+  document.getElementById('step1Selected').style.display = '';
+
+  // Reset step 2
+  selectedMode = null;
+  previewData  = null;
+  ['mode_date_range','mode_multi_select','mode_all'].forEach(id =>
+    document.getElementById(id)?.classList.remove('active')
+  );
+  ['panelDateRange','panelMultiSelect','panelAll','previewBox'].forEach(id =>
+    document.getElementById(id).style.display = 'none'
+  );
+  document.getElementById('proceedBtn').style.display = 'none';
+  document.getElementById('step3Card').style.display = 'none';
+  document.getElementById('resultPanel').className = 'result-panel';
+
+  // Show/hide date range mode based on whether table has date col
+  const hasDate = !!DATE_COLS[key];
+  document.getElementById('mode_date_range').style.opacity = hasDate ? '1' : '.38';
+  document.getElementById('mode_date_range').style.pointerEvents = hasDate ? '' : 'none';
+  document.getElementById('mode_date_range').title = hasDate ? '' : 'This table has no date column';
+
+  document.getElementById('step2Card').style.display = '';
+  document.getElementById('step2Card').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ─────────────────────────────────────────────
+//  Step 2: select mode
+// ─────────────────────────────────────────────
+function selectMode(mode) {
+  selectedMode = mode;
+  previewData  = null;
+  ['mode_date_range','mode_multi_select','mode_all'].forEach(id =>
+    document.getElementById(id).classList.remove('active')
+  );
+  document.getElementById('mode_' + mode).classList.add('active');
+  ['panelDateRange','panelMultiSelect','panelAll'].forEach(id =>
+    document.getElementById(id).style.display = 'none'
+  );
+  if (mode === 'date_range') document.getElementById('panelDateRange').style.display = '';
+  if (mode === 'multi_select') document.getElementById('panelMultiSelect').style.display = '';
+  if (mode === 'all') document.getElementById('panelAll').style.display = '';
+  document.getElementById('previewBox').style.display = 'none';
+  document.getElementById('proceedBtn').style.display = 'none';
+  document.getElementById('step3Card').style.display = 'none';
+  clearPreview();
+}
+
+function clearPreview() {
+  previewData = null;
+  document.getElementById('previewBox').style.display = 'none';
+  document.getElementById('proceedBtn').style.display = 'none';
+  document.getElementById('step3Card').style.display = 'none';
+  document.getElementById('previewStatus').textContent = '';
+}
+
+// ─────────────────────────────────────────────
+//  Preview
+// ─────────────────────────────────────────────
+async function loadPreview() {
+  if (!selectedTable || !selectedMode) {
+    alert('Please select a table and a delete method first.'); return;
+  }
+  const btn = document.getElementById('previewBtn');
+  const status = document.getElementById('previewStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:#B24800"></span> Loading…';
+  status.textContent = '';
+
+  let params = new URLSearchParams({ table: selectedTable, mode: selectedMode });
+  if (selectedMode === 'date_range') {
+    const df = document.getElementById('dateFrom').value;
+    const dt = document.getElementById('dateTo').value;
+    if (!df || !dt) { alert('Please enter both From and To dates.'); resetPreviewBtn(btn); return; }
+    if (df > dt)    { alert('From date must be on or before To date.'); resetPreviewBtn(btn); return; }
+    params.append('date_from', df);
+    params.append('date_to',   dt);
+  }
+  if (selectedMode === 'multi_select') {
+    const raw = document.getElementById('idsInput').value.trim();
+    if (!raw) { alert('Please enter at least one record ID.'); resetPreviewBtn(btn); return; }
+    const ids = raw.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
+    if (!ids.length) { alert('No valid numeric IDs found.'); resetPreviewBtn(btn); return; }
+    params.append('ids', ids.join(','));
+  }
+
+  try {
+    const res = await fetch('/manager/delete-manager/preview?' + params);
+    const data = await res.json();
+    if (data.error) { alert('Error: ' + data.error); resetPreviewBtn(btn); return; }
+    previewData = data;
+    renderPreview(data);
+    document.getElementById('proceedBtn').style.display = '';
+  } catch(e) {
+    alert('Network error. Please try again.');
+  }
+  resetPreviewBtn(btn);
+}
+
+function resetPreviewBtn(btn) {
+  btn.disabled = false;
+  btn.innerHTML = '👁️ Preview Records to Delete';
+}
+
+function renderPreview(data) {
+  const box = document.getElementById('previewBox');
+  box.style.display = '';
+  document.getElementById('previewLabel').textContent =
+    '— ' + (TABLE_META[selectedTable]?.label || selectedTable);
+
+  let html = `
+    <div class="preview-count">${data.total.toLocaleString()}</div>
+    <div class="preview-sub">record(s) will be deleted</div>
+  `;
+  if (data.rows && data.rows.length > 0) {
+    const cols = Object.keys(data.rows[0]).slice(0, 6); // show max 6 cols
+    html += `<table class="preview-table">
+      <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>`;
+    for (const row of data.rows) {
+      html += `<tr>${cols.map(c=>`<td title="${esc(row[c])}">${esc(row[c])}</td>`).join('')}</tr>`;
+    }
+    html += `</tbody></table>`;
+    if (data.total > data.rows.length) {
+      html += `<div class="preview-note">…and ${(data.total - data.rows.length).toLocaleString()} more records not shown</div>`;
+    }
+  } else {
+    html += `<div style="font-size:12.5px;color:#A8A4C4;font-weight:600;margin-top:10px">No matching records found — nothing to delete.</div>`;
+  }
+  document.getElementById('previewContent').innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  Step 3: confirm
+// ─────────────────────────────────────────────
+function goStep3() {
+  if (!previewData) { alert('Please preview first.'); return; }
+  if (previewData.total === 0) { alert('No records match — nothing to delete.'); return; }
+
+  // Build confirm lines
+  const tLabel = TABLE_META[selectedTable]?.label || selectedTable;
+  let lines = `Table: <b>${tLabel}</b><br>`;
+  if (selectedMode === 'date_range') {
+    lines += `Date range: <b>${document.getElementById('dateFrom').value}</b> → <b>${document.getElementById('dateTo').value}</b><br>`;
+  } else if (selectedMode === 'multi_select') {
+    const ids = document.getElementById('idsInput').value.split(',').map(s=>s.trim()).filter(Boolean);
+    lines += `Selected IDs: <b>${ids.join(', ')}</b><br>`;
+  } else {
+    lines += `Mode: <b>DELETE ALL RECORDS</b><br>`;
+  }
+  lines += `Records to delete: <b>${previewData.total.toLocaleString()}</b>`;
+  document.getElementById('confirmLines').innerHTML = lines;
+
+  document.getElementById('confirmCheck').checked = false;
+  document.getElementById('deleteBtn').disabled = true;
+  document.getElementById('deleteBtn').classList.remove('confirm-ready');
+
+  document.getElementById('step3Card').style.display = '';
+  document.getElementById('step3Card').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function goBack() {
+  document.getElementById('step3Card').style.display = 'none';
+}
+
+function toggleDeleteBtn() {
+  const checked = document.getElementById('confirmCheck').checked;
+  const btn = document.getElementById('deleteBtn');
+  btn.disabled = !checked;
+  btn.classList.toggle('confirm-ready', checked);
+}
+
+// ─────────────────────────────────────────────
+//  Execute delete
+// ─────────────────────────────────────────────
+async function executeDelete() {
+  const btn = document.getElementById('deleteBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Deleting…';
+
+  const payload = { table: selectedTable, mode: selectedMode };
+  if (selectedMode === 'date_range') {
+    payload.date_from = document.getElementById('dateFrom').value;
+    payload.date_to   = document.getElementById('dateTo').value;
+  }
+  if (selectedMode === 'multi_select') {
+    payload.ids = document.getElementById('idsInput').value
+      .split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  }
+
+  try {
+    const res = await fetch('/manager/delete-manager/execute', {
+      method: 'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    const rp = document.getElementById('resultPanel');
+    if (data.error) {
+      document.getElementById('resultIcon').textContent = '❌';
+      document.getElementById('resultTitle').textContent = 'Deletion Failed';
+      document.getElementById('resultTitle').style.color = '#9A2A2D';
+      document.getElementById('resultBody').textContent = data.error;
+      rp.className = 'result-panel error';
+      addLog(false, `${TABLE_META[selectedTable]?.label} — ${data.error}`);
+    } else {
+      document.getElementById('resultIcon').textContent = '✅';
+      document.getElementById('resultTitle').textContent = 'Deletion Successful';
+      document.getElementById('resultTitle').style.color = '#0E6B43';
+      document.getElementById('resultBody').textContent =
+        `${data.deleted.toLocaleString()} record(s) deleted from "${TABLE_META[selectedTable]?.label || selectedTable}".`;
+      rp.className = 'result-panel success';
+      addLog(true, `${data.deleted} record(s) deleted from ${TABLE_META[selectedTable]?.label} [${selectedMode}]`);
+      // Refresh counts
+      setTimeout(async ()=>{
+        const r2 = await fetch('/manager/delete-manager/counts');
+        counts = await r2.json();
+        renderTableGrid();
+        if (selectedTable) document.getElementById('tbl_'+selectedTable)?.classList.add('selected');
+      }, 400);
+    }
+
+    rp.scrollIntoView({behavior:'smooth',block:'nearest'});
+    // Reset state
+    selectedTable = null; selectedMode = null; previewData = null;
+    document.getElementById('step2Card').style.display = 'none';
+    document.getElementById('step3Card').style.display = 'none';
+    document.getElementById('step1Selected').style.display = 'none';
+
+  } catch(e) {
+    alert('Network error during deletion. Please try again.');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '🗑️ Delete Now';
+}
+
+// ─────────────────────────────────────────────
+//  Log
+// ─────────────────────────────────────────────
+function addLog(ok, msg) {
+  const now = new Date().toLocaleTimeString();
+  sessionLog.unshift({ok, msg, time: now});
+  renderLog();
+}
+function renderLog() {
+  const list = document.getElementById('logList');
+  if (!sessionLog.length) {
+    list.innerHTML = '<div class="log-empty">No deletions yet this session.</div>'; return;
+  }
+  list.innerHTML = sessionLog.map(l=>`
+    <div class="log-item ${l.ok?'log-ok':'log-err'}">
+      ${l.ok?'✅':'❌'} ${esc(l.msg)}
+      <span class="log-time">${l.time}</span>
+    </div>
+  `).join('');
+}
+function clearLog() {
+  sessionLog = []; renderLog();
+}
+
+// ─────────────────────────────────────────────
+//  Util
+// ─────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
