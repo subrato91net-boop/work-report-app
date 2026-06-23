@@ -3486,6 +3486,184 @@ with app.app_context():
     except Exception as e:
         print(f"⚠️ Refresh error: {e}")
 
+# ══════════════════════════════════════════
+#  BIOTIME — FETCH EMPLOYEE DIRECTORY
+#  Pulls the full personnel list from BioTime
+#  using the working session auth.
+# ══════════════════════════════════════════
+def get_biotime_employee_directory(company_key="imaxsol"):
+    """Return {emp_code: {"name": ..., "department": ..., "company_key": ...}} from BioTime."""
+    sess = get_biotime_web_session(company_key)
+    if not sess:
+        return {}
+    cfg      = BIOTIME_COMPANIES[company_key]
+    base_url = cfg["url"].rstrip("/")
+    directory = {}
+
+    for emp_path in ["/personnel/api/employees/", "/hr/api/employees/",
+                     "/iclock/api/employees/", "/att/api/employees/"]:
+        url    = f"{base_url}{emp_path}"
+        params = {"page_size": 500}
+        found  = False
+        try:
+            while url:
+                res = sess.get(url, params=params, timeout=20)
+                if res.status_code != 200:
+                    break
+                data = res.json()
+                for e in data.get("data", []):
+                    code = str(e.get("emp_code") or e.get("emp_no") or e.get("employee_code") or "").strip()
+                    if not code:
+                        continue
+                    first = (e.get("first_name") or "").strip()
+                    last  = (e.get("last_name")  or "").strip()
+                    name  = (f"{first} {last}".strip()
+                             or e.get("nickname") or e.get("name")
+                             or e.get("full_name") or "").strip()
+                    dept  = e.get("department")
+                    dept_name = dept.get("dept_name") if isinstance(dept, dict) else (dept or "")
+                    directory[code] = {
+                        "name": name,
+                        "department": dept_name,
+                        "company_key": company_key,
+                    }
+                    found = True
+                url    = data.get("next")
+                params = {}
+        except Exception as ex:
+            print(f"BioTime directory [{company_key}] {emp_path} error: {ex}")
+            continue
+        if found:
+            print(f"BioTime directory [{company_key}] ✅ {len(directory)} employees via {emp_path}")
+            break
+    return directory
+
+
+# ══════════════════════════════════════════
+#  BIOTIME — SYNC EMPLOYEES TO USERS TABLE
+#  Called from the "Sync from BioTime" button
+#  on the Manage Users page.
+# ══════════════════════════════════════════
+def sync_employees_from_biotime():
+    """
+    Pull all employees from every configured BioTime company.
+    For each emp_code not yet in the users table, create an account.
+    Returns (created_list, skipped_list, error_str).
+    """
+    all_employees = {}   # emp_code -> {name, department, company_key}
+    errors = []
+
+    for company_key in BIOTIME_COMPANIES:
+        try:
+            directory = get_biotime_employee_directory(company_key)
+            for code, info in directory.items():
+                if code not in all_employees:   # first company wins if same code in both
+                    all_employees[code] = info
+        except Exception as e:
+            errors.append(f"{company_key}: {e}")
+
+    if not all_employees:
+        return [], [], "Could not fetch any employees from BioTime. " + "; ".join(errors)
+
+    conn = get_db(); cur = conn.cursor()
+    created = []
+    skipped = []
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        for code, info in sorted(all_employees.items()):
+            cur.execute("SELECT 1 FROM users WHERE emp_code=%s", (code,))
+            if cur.fetchone():
+                skipped.append(code)
+                continue
+
+            company_label = BIOTIME_COMPANIES[info["company_key"]]["company"]
+            raw_name  = info["name"] or f"Employee {code}"
+            # Build a clean username from the name
+            base_un = "".join(ch for ch in raw_name.lower().replace(" ", "") if ch.isalnum()) or f"emp{code}"
+            username, suffix = base_un, 1
+            while True:
+                cur.execute("SELECT 1 FROM users WHERE username=%s", (username,))
+                if not cur.fetchone():
+                    break
+                suffix  += 1
+                username = f"{base_un}{suffix}"
+
+            # Generate a temp password: company prefix + emp_code + 6-digit pin
+            import random, string
+            pin = "".join(random.choices(string.digits, k=6))
+            temp_pass = f"{code}{pin}"
+
+            cur.execute("""
+                INSERT INTO users (emp_code, name, username, password_hash, company,
+                                   is_active, can_work_report, can_sales_visit,
+                                   can_my_jobs, can_ta, can_support,
+                                   created_at, created_by)
+                VALUES (%s,%s,%s,%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, %s, %s)
+                ON CONFLICT (emp_code) DO NOTHING
+            """, (code, raw_name, username,
+                  hash_password(temp_pass), company_label,
+                  now, "biotime-sync"))
+
+            # Store the temp password in biotime_sync_log if the table exists
+            try:
+                cur.execute("""
+                    INSERT INTO biotime_sync_log
+                        (emp_code, name, username, temp_password, company, created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT DO NOTHING
+                """, (code, raw_name, username, temp_pass, company_label, now))
+            except Exception:
+                pass   # table may not exist in older deployments
+
+            conn.commit()
+            created.append({"emp_code": code, "name": raw_name,
+                            "username": username, "password": temp_pass,
+                            "company": company_label})
+            print(f"BioTime sync: created emp_code={code} name='{raw_name}' username={username}")
+
+    except Exception as e:
+        conn.rollback()
+        errors.append(str(e))
+    finally:
+        cur.close(); conn.close()
+
+    if created:
+        refresh_employees()
+
+    return created, skipped, "; ".join(errors) if errors else None
+
+
+# ══════════════════════════════════════════
+#  ROUTE — /manager/users/sync-biotime
+# ══════════════════════════════════════════
+@app.route("/manager/users/sync-biotime", methods=["POST"])
+def sync_biotime_users():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("index"))
+
+    created, skipped, error = sync_employees_from_biotime()
+
+    if error and not created:
+        return redirect(url_for("manage_users",
+            flash=f"BioTime sync failed: {error}", flash_type="error"))
+
+    msg_parts = []
+    if created:
+        names = ", ".join(f"{u['name']} ({u['emp_code']})" for u in created[:5])
+        if len(created) > 5:
+            names += f" + {len(created)-5} more"
+        msg_parts.append(f"✅ {len(created)} new employee(s) imported: {names}")
+    if skipped:
+        msg_parts.append(f"{len(skipped)} already existed (skipped)")
+    if error:
+        msg_parts.append(f"Warning: {error}")
+
+    flash_msg = " | ".join(msg_parts) if msg_parts else "Nothing new to import — all BioTime employees already have accounts."
+    flash_type = "success" if created else "info"
+
+    return redirect(url_for("manage_users", flash=flash_msg, flash_type=flash_type))
+
 # NOTE: an old duplicate "/" route + support-perm patch used to live here.
 # It was dead code (Flask serves whichever route for a given path was
 # registered first, which is the real index() far above, the one with the

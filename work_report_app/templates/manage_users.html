@@ -38,6 +38,7 @@ a{color:inherit;text-decoration:none}
 .flash{border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
 .flash-success{background:#D9F5E8;color:#0E6B43;border:1px solid #B3EBD0}
 .flash-error{background:#FBE2E2;color:#9A2A2D;border:1px solid #F5C2C2}
+.flash-info{background:#DCEEFF;color:#1A5CCC;border:1px solid #B3D4FF}
 
 /* Password reveal */
 .pw-reveal{background:#FFF7E8;border:1.5px dashed #FF7A1A;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.1rem}
@@ -204,7 +205,7 @@ input:checked + .slider:before{transform:translateX(18px)}
 <div class="main">
 
   {% if flash %}
-  <div class="flash flash-{{ flash_type }}">{{ '✅' if flash_type == 'success' else '⚠️' }} {{ flash }}</div>
+  <div class="flash flash-{{ flash_type }}">{{ '✅' if flash_type == 'success' else ('ℹ️' if flash_type == 'info' else '⚠️') }} {{ flash }}</div>
   {% endif %}
 
   {% if temp_password %}
@@ -223,10 +224,35 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="stat"><div class="stat-label">Supervisors</div><div class="stat-val purple">{{ supervisor_count or 0 }}</div></div>
   </div>
 
+  <!-- Sync from BioTime -->
+  <div class="ccard" style="border:2px solid #10193A;margin-bottom:12px">
+    <div class="ccard-hdr" style="background:#10193A;color:#fff;border-radius:10px 10px 0 0">
+      <div class="ccard-hdr-title" style="color:#fff">🔄 Sync Employees from BioTime</div>
+    </div>
+    <div class="ccard-body" style="display:block;padding:16px 20px">
+      <p style="margin:0 0 10px;font-size:13px;color:#444;line-height:1.5">
+        Automatically import all employees from BioTime Cloud into the app.<br>
+        New employees get a <strong>username</strong> (from their BioTime name) and a
+        <strong>temp password</strong> (<em>emp_code + 6 digits</em>) which you can share with them.<br>
+        Employees already in the system are skipped — nothing is overwritten.
+      </p>
+      <form method="POST" action="/manager/users/sync-biotime"
+            onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Syncing…'">
+        <button type="submit" class="btn-primary" style="background:#10193A">
+          🔄 Sync Now
+        </button>
+      </form>
+      <p style="margin:8px 0 0;font-size:11.5px;color:#888">
+        After sync, new employee temp passwords are also visible at
+        <a href="/biotime-sync-log" target="_blank" style="color:#10193A">/biotime-sync-log</a>.
+      </p>
+    </div>
+  </div>
+
   <!-- Create User -->
   <div class="ccard">
     <div class="ccard-hdr" onclick="toggleCreate()">
-      <div class="ccard-hdr-title">➕ Create New User</div>
+      <div class="ccard-hdr-title">➕ Create New User Manually</div>
       <span class="chev" id="createChev">▾</span>
     </div>
     <div class="ccard-body" id="createBody">
