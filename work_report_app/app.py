@@ -658,11 +658,16 @@ def fetch_transactions(date_from, date_to):
     """Fetch transactions from ALL configured BioTime companies and merge."""
     all_txns = []
     for company_key, cfg in BIOTIME_COMPANIES.items():
-        cfg_company = cfg["company"]
         rows = _fetch_from_company(company_key, date_from, date_to)
-        # Tag each transaction with its source company key
         for r in rows:
-            r["_source_company"] = cfg_company
+            # Use the employee's registered company from EMPLOYEES dict.
+            # Both BioTime tenants may return overlapping records; using the
+            # emp's actual registered company ensures correct filtering/display.
+            code = str(r.get("emp_code", "")).strip()
+            if code in EMPLOYEES:
+                r["_source_company"] = EMPLOYEES[code]["company"]
+            else:
+                r["_source_company"] = cfg["company"]
         all_txns.extend(rows)
 
     # Safety net: if two configured companies happen to return the same
@@ -890,6 +895,12 @@ def biotime_sync_log_view():
         )
     html.append("</table></div>")
     return "\n".join(html)
+
+# ══════════════════════════════════════════
+#  PROCESS TRANSACTIONS → ATTENDANCE
+# ══════════════════════════════════════════
+def process_attendance(transactions, date_from, date_to):
+    from collections import defaultdict
     punch_map  = defaultdict(list)
     valid_dates = set(get_date_range(date_from, date_to))
     for t in transactions:
