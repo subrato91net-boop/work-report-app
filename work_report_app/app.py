@@ -29,7 +29,7 @@ if DATABASE_URL.startswith("postgres://"):
 # ══════════════════════════════════════════
 #  BIOTIME CLOUD 2.0 — MULTI-COMPANY CONFIG
 # ══════════════════════════════════════════
-PUNCH_START_HOUR = 6
+PUNCH_START_HOUR = 0   # IST punches at 6 AM = 00:30 UTC — must start from 0
 PUNCH_END_HOUR   = 23
 
 # Legacy single-var kept for any old references
@@ -339,14 +339,25 @@ def _fetch_from_company(company_key, date_from, date_to):
     cfg      = BIOTIME_COMPANIES[company_key]
     base_url = cfg["url"].rstrip("/")
 
+    # ── BioTime Cloud 2.0 UTC fix ──────────────────────────────────────────────
+    # punch_time in API responses is IST, but the start_time/end_time FILTER
+    # is interpreted by BioTime in UTC.  IST = UTC+5:30, so an IST morning
+    # punch at 06:00 IST = 00:30 UTC — it falls BEFORE the old "06:00 UTC"
+    # window start and is silently dropped.
+    # Fix: expand the query window to cover the full IST calendar day in UTC:
+    #   IST 00:00 = UTC prev-day 18:30  →  use prev-day 18:00 UTC as start
+    #   IST 23:59 = UTC same-day 18:29  →  use same-day 18:59 UTC as end
+    _dt_from_utc = datetime.strptime(date_from, "%Y-%m-%d") - timedelta(hours=6)
+    _dt_to_utc   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(hours=18, minutes=59, seconds=59)
+
     # Try both Authorization header formats
     for auth_prefix in ("JWT", "Token"):
         headers  = {"Authorization": f"{auth_prefix} {token}"}
         all_data = []
         url      = f"{base_url}/iclock/api/transactions/"
         params   = {
-            "start_time": f"{date_from} {PUNCH_START_HOUR:02d}:00:00",
-            "end_time":   f"{date_to} {PUNCH_END_HOUR:02d}:59:59",
+            "start_time": _dt_from_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_time":   _dt_to_utc.strftime("%Y-%m-%d %H:%M:%S"),
             "page_size":  500,
         }
         try:
@@ -421,26 +432,33 @@ def debug_biotime():
             lines.append("❌ Auth FAILED — check URL/email/password")
             continue
 
-        # Fetch employees
+        # Fetch employees — try both known endpoint paths
         lines.append("\n--- BioTime employees ---")
-        try:
-            r = req.get(f"{cfg['url'].rstrip('/')}/personnel/api/employees/",
-                        headers={"Authorization": f"JWT {token}"},
-                        params={"page_size": 50}, timeout=15)
-            if r.status_code == 200:
-                emps = r.json().get("data", [])
-                lines.append(f"✅ {len(emps)} employees found")
-                for e in emps[:20]:
-                    code = e.get("emp_no") or e.get("emp_code") or e.get("employee_code", "?")
-                    name = e.get("first_name","") + " " + e.get("last_name","")
-                    lines.append(f"   emp_code={code}  name={name.strip()}")
-            else:
-                lines.append(f"⚠️ Employees endpoint HTTP {r.status_code}")
-        except Exception as e:
-            lines.append(f"⚠️ Employees error: {e}")
+        emp_found = False
+        for emp_path in ["/personnel/api/employees/", "/hr/api/employees/"]:
+            try:
+                r = req.get(f"{cfg['url'].rstrip('/')}{emp_path}",
+                            headers={"Authorization": f"JWT {token}"},
+                            params={"page_size": 50}, timeout=15)
+                lines.append(f"   {emp_path} → HTTP {r.status_code}")
+                if r.status_code == 200:
+                    emps = r.json().get("data", [])
+                    lines.append(f"✅ {len(emps)} employees found via {emp_path}")
+                    for e in emps[:20]:
+                        code = e.get("emp_no") or e.get("emp_code") or e.get("employee_code", "?")
+                        name = e.get("first_name","") + " " + e.get("last_name","")
+                        lines.append(f"   emp_code={code}  name={name.strip()}")
+                    emp_found = True
+                    break
+            except Exception as e:
+                lines.append(f"   {emp_path} → error: {e}")
+        if not emp_found:
+            lines.append("⚠️ All employee endpoints returned non-200 (BioTime server issue)")
 
-        # Fetch today's transactions
-        lines.append(f"\n--- Transactions for {today} ---")
+        # Fetch today's transactions (using UTC-shifted window — see IST fix)
+        _dbg_from = (datetime.strptime(today, "%Y-%m-%d") - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M")
+        _dbg_to   = (datetime.strptime(today, "%Y-%m-%d") + timedelta(hours=18, minutes=59)).strftime("%Y-%m-%d %H:%M")
+        lines.append(f"\n--- Transactions for {today} IST (querying UTC {_dbg_from} → {_dbg_to}) ---")
         txns = _fetch_from_company(company_key, today, today)
         if txns:
             lines.append(f"✅ {len(txns)} transactions")
@@ -466,16 +484,20 @@ def debug_biotime():
 # ══════════════════════════════════════════
 def process_attendance(transactions, date_from, date_to):
     from collections import defaultdict
-    punch_map = defaultdict(list)
+    punch_map  = defaultdict(list)
+    valid_dates = set(get_date_range(date_from, date_to))
     for t in transactions:
         emp_code   = str(t.get("emp_code", ""))
         punch_time = t.get("punch_time", "")
         if not emp_code or not punch_time or emp_code not in EMPLOYEES:
             continue
         try:
-            dt = datetime.strptime(punch_time[:19], "%Y-%m-%d %H:%M:%S")
-            if PUNCH_START_HOUR <= dt.hour <= PUNCH_END_HOUR:
-                punch_map[(emp_code, dt.strftime("%Y-%m-%d"))].append(dt)
+            # punch_time is already IST — no timezone conversion needed.
+            # We now fetch a wider UTC window so we just filter by IST date here.
+            dt       = datetime.strptime(punch_time[:19], "%Y-%m-%d %H:%M:%S")
+            date_str = dt.strftime("%Y-%m-%d")
+            if date_str in valid_dates:
+                punch_map[(emp_code, date_str)].append(dt)
         except:
             continue
 
