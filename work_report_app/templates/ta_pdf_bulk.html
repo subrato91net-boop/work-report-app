@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TA Voucher — {{ employee_name }}</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family: Arial, Helvetica, sans-serif; background:#fff; color:#14141A; font-size:12px; }
+
+  /* ── HEADER ── */
+  .page-header{
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:3px solid #10193A; padding-bottom:10px; margin-bottom:14px;
+  }
+  .logo-wrap img{ max-height:56px; max-width:200px; object-fit:contain; }
+  .company-name{
+    font-size:17px; font-weight:900; color:#10193A; letter-spacing:-.2px;
+    text-align:right;
+  }
+  .voucher-title{
+    text-align:center; font-size:16px; font-weight:900; text-transform:uppercase;
+    letter-spacing:.08em; color:#10193A; margin-bottom:12px;
+    background:#EEF4FF; padding:7px 0; border-radius:5px;
+  }
+
+  /* ── EMPLOYEE INFO ── */
+  .info-grid{
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    gap:6px 16px; border:1px solid #D0D0D0; border-radius:6px;
+    padding:10px 14px; margin-bottom:14px; background:#FAFAFA;
+  }
+  .info-item .lbl{ font-size:9.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:#7A7A8A; margin-bottom:2px; }
+  .info-item .val{ font-size:12.5px; font-weight:800; color:#10193A; }
+
+  /* ── TABLE ── */
+  table{ width:100%; border-collapse:collapse; margin-bottom:10px; }
+  thead tr{ background:#10193A; color:#fff; }
+  thead th{
+    padding:7px 8px; font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; text-align:left;
+  }
+  tbody tr:nth-child(even){ background:#F6F7FC; }
+  tbody tr:nth-child(odd){ background:#fff; }
+  tbody td{ padding:6px 8px; font-size:11.5px; border-bottom:1px solid #E8E8EC; vertical-align:top; }
+  tfoot tr{ background:#EEF4FF; }
+  tfoot td{
+    padding:8px; font-size:12px; font-weight:900; color:#10193A;
+    border-top:2px solid #10193A;
+  }
+
+  /* ── TOTAL BOX ── */
+  .total-box{
+    border:2px solid #10193A; border-radius:6px; padding:10px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:18px; background:#EEF4FF;
+  }
+  .total-box .tl{ font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:#10193A; }
+  .total-box .tv{ font-size:22px; font-weight:900; color:#10193A; }
+
+  /* ── SIGNATURE ROW ── */
+  .sig-row{
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    gap:10px; margin-top:10px;
+  }
+  .sig-box{ text-align:center; }
+  .sig-line{ border-top:1.5px solid #10193A; margin-bottom:5px; margin-top:32px; }
+  .sig-label{ font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:#555; }
+
+  /* ── FOOTER ── */
+  .doc-footer{
+    margin-top:14px; border-top:1px solid #D0D0D0; padding-top:7px;
+    font-size:9.5px; color:#888; text-align:center;
+  }
+
+  /* ── PRINT CONTROLS (screen only) ── */
+  .print-bar{
+    position:fixed; top:0; left:0; right:0; background:#10193A;
+    padding:10px 20px; display:flex; align-items:center; justify-content:space-between;
+    gap:12px; z-index:999; box-shadow:0 2px 12px rgba(0,0,0,.25);
+  }
+  .print-bar .pb-left{ display:flex; align-items:center; gap:10px; }
+  .print-bar span{ color:#fff; font-size:13px; font-weight:700; font-family:Arial,sans-serif; }
+  .btn-print{
+    background:#1AAE6F; color:#fff; border:none; border-radius:8px;
+    padding:8px 20px; font-size:13px; font-weight:800; cursor:pointer;
+    font-family:Arial,sans-serif;
+  }
+  .btn-close{
+    background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+    border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700;
+    cursor:pointer; font-family:Arial,sans-serif; text-decoration:none;
+    display:inline-flex; align-items:center;
+  }
+  @media print{
+    .print-bar{ display:none; }
+    body{ margin:0; }
+  }
+  .content-wrap{ padding-top:60px; max-width:750px; margin:0 auto; padding-left:16px; padding-right:16px; }
+  @media print{ .content-wrap{ padding-top:0; max-width:100%; padding:0; } }
+
+  .badge-paid{ background:#D9F5E8; color:#0E6B43; padding:2px 7px; border-radius:30px; font-size:10px; font-weight:800; }
+  .badge-due{ background:#FBE2E2; color:#9A2A2D; padding:2px 7px; border-radius:30px; font-size:10px; font-weight:800; }
+  .badge-approved{ background:#D9F5E8; color:#0E6B43; padding:2px 7px; border-radius:30px; font-size:10px; font-weight:800; }
+</style>
+</head>
+<body>
+
+<!-- PRINT BAR (screen only) -->
+<div class="print-bar">
+  <div class="pb-left">
+    <span>🖨 TA Voucher — {{ employee_name }}
+      {% if company == 'conneqtor' %}| Conneqtor Technology Pvt. Ltd.{% elif company == 'imax' %}| IMAX Solutions{% endif %}
+    </span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a class="btn-close" href="/ta-report">← Back</a>
+    <button class="btn-print" onclick="window.print()">⬇ Print / Save PDF</button>
+  </div>
+</div>
+
+<div class="content-wrap">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="logo-wrap">
+      {% if company == 'conneqtor' %}
+        <img src="/static/logos/conneqtor_logo.jpg" alt="Conneqtor Technology Pvt. Ltd.">
+      {% elif company == 'imax' %}
+        <img src="/static/logos/imax_logo.jpg" alt="IMAX Solutions">
+      {% endif %}
+    </div>
+    <div class="company-name">
+      {% if company == 'conneqtor' %}
+        Conneqtor Technology Pvt. Ltd.
+      {% elif company == 'imax' %}
+        IMAX Solutions
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="voucher-title">Travel Allowance (TA) Reimbursement Voucher</div>
+
+  <!-- EMPLOYEE INFO -->
+  <div class="info-grid">
+    <div class="info-item"><div class="lbl">Employee Name</div><div class="val">{{ employee_name }}</div></div>
+    <div class="info-item"><div class="lbl">Department</div><div class="val">{{ department or '—' }}</div></div>
+    <div class="info-item"><div class="lbl">Generated On</div><div class="val">{{ generated_date }}</div></div>
+    <div class="info-item"><div class="lbl">Period</div><div class="val">{{ period }}</div></div>
+    <div class="info-item"><div class="lbl">Total Entries</div><div class="val">{{ records|length }}</div></div>
+    <div class="info-item"><div class="lbl">Total Amount</div><div class="val">₹{{ "%.2f"|format(total_amount) }}</div></div>
+  </div>
+
+  <!-- TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Date</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Travel By</th>
+        <th>Description</th>
+        <th style="text-align:right">Amount (₹)</th>
+        <th>Payment</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td style="font-weight:700;color:#888">{{ loop.index }}</td>
+        <td style="white-space:nowrap">{{ r.travel_date }}</td>
+        <td>{{ r.from_place }}</td>
+        <td>{{ r.to_place }}</td>
+        <td>{{ r.travel_by }}</td>
+        <td style="font-size:11px;color:#555;max-width:140px">{{ r.description or '—' }}</td>
+        <td style="text-align:right;font-weight:800">{{ "%.2f"|format(r.expense_cost or 0) }}</td>
+        <td>
+          {% if r.payment_status == 'Paid' %}
+            <span class="badge-paid">Paid</span>
+          {% else %}
+            <span class="badge-due">Due</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase">Grand Total</td>
+        <td style="text-align:right;font-size:14px;font-weight:900">₹{{ "%.2f"|format(total_amount) }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- TOTAL BOX -->
+  <div class="total-box">
+    <span class="tl">Total Reimbursement Amount</span>
+    <span class="tv">₹{{ "%.2f"|format(total_amount) }}</span>
+  </div>
+
+  <!-- SIGNATURE ROW -->
+  <div class="sig-row">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Employee Signature</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Approved By</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Accounts / Finance</div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    This is a computer-generated document.
+    {% if company == 'conneqtor' %}Conneqtor Technology Pvt. Ltd.
+    {% elif company == 'imax' %}IMAX Solutions{% endif %}
+    &bull; Generated: {{ generated_date }}
+  </div>
+
+</div><!-- /content-wrap -->
+</body>
+</html>
