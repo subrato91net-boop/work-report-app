@@ -3,138 +3,171 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#10193A">
-<link rel="manifest" href="/static/manifest.json">
-<link rel="icon" type="image/png" href="/static/icons/favicon.png">
-<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="WorkReport">
+  <meta name="theme-color" content="#10193A">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WorkReport">
   <title>Attendance — Manager View</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh;padding-bottom:0}
-    a{color:inherit}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F4EF;color:#14141A;min-height:100vh}
+    a{color:inherit;text-decoration:none}
 
-    .topbar{background:#10193A;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(16,25,58,0.15)}
-    .topbar-title{font-size:14.5px;font-weight:800;color:#fff}
-    .topbar-right{display:flex;gap:8px;align-items:center}
     .live-dot{width:8px;height:8px;background:#1AAE6F;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-    .live-label{font-size:12px;color:#7EE0B2;font-weight:700}
+
     .btn-sm{padding:6px 13px;border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:rgba(255,255,255,0.06);font-size:12px;cursor:pointer;color:#fff;text-decoration:none;font-family:inherit;font-weight:600}
     .btn-sm:hover{background:rgba(255,255,255,0.14)}
 
-    .main{max-width:1300px;margin:0 auto;padding:1.4rem 1rem}
-    .error-box{background:#FBE2E2;border:1px solid #F2B2B3;border-radius:9px;padding:11px 14px;font-size:13px;color:#9A2A2D;margin-bottom:1.2rem;font-weight:600}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:11px;margin-bottom:1.3rem}
-    .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.15rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-    .stat-label{font-size:10.5px;color:#A8A4C4;margin-bottom:5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
-    .stat-val{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums}
-    .stat-sub{font-size:10.5px;color:#C7C4B8;margin-top:3px;font-weight:600}
-    .blue{color:#2D7FF9}.green{color:#1AAE6F}.red{color:#E5484D}.amber{color:#FF7A1A}.purple{color:#7C5CFC}
+    .main{max-width:1350px;margin:0 auto;padding:1.4rem 1rem 3rem}
+    .error-box{background:#FBE2E2;border:1px solid #F2B2B3;border-radius:10px;padding:12px 15px;font-size:13px;color:#9A2A2D;margin-bottom:1.2rem;font-weight:600;display:flex;align-items:flex-start;gap:8px}
 
-    .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:1rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
+    /* STATS */
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:1.2rem}
+    .stat{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:.95rem 1.1rem}
+    .stat-label{font-size:10px;color:#A8A4C4;margin-bottom:4px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+    .stat-val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+    .stat-sub{font-size:10px;color:#C7C4B8;margin-top:2px;font-weight:600}
+    .blue{color:#2D7FF9}.green{color:#1AAE6F}.red{color:#E5484D}.amber{color:#FF7A1A}.purple{color:#7C5CFC}.navy{color:#10193A}
+
+    /* FILTERS */
+    .filters{background:#fff;border:1px solid #E7E4DA;border-radius:13px;padding:.95rem 1.1rem;margin-bottom:1.1rem;display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end}
     .fg{display:flex;flex-direction:column;gap:4px}
-    .fg label{font-size:11px;color:#696B78;font-weight:700}
-    .fg input,.fg select{padding:8px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
+    .fg label{font-size:10.5px;color:#696B78;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .fg input,.fg select{padding:7.5px 10px;font-size:12.5px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:128px}
     .fg input:focus,.fg select:focus{border-color:#FF7A1A}
     .view-toggle{display:flex;border:1.5px solid #E7E4DA;border-radius:8px;overflow:hidden;align-self:flex-end}
-    .vbtn{padding:8px 14px;background:#F6F4EF;border:none;border-right:1px solid #E7E4DA;font-size:12px;cursor:pointer;font-family:inherit;color:#696B78;font-weight:700;transition:all .15s}
+    .vbtn{padding:7.5px 13px;background:#F6F4EF;border:none;border-right:1px solid #E7E4DA;font-size:12px;cursor:pointer;font-family:inherit;color:#696B78;font-weight:700;transition:all .15s}
     .vbtn:last-child{border-right:none}
     .vbtn.active{background:#10193A;color:#fff}
-    .btn-apply{padding:8px 16px;border:none;border-radius:8px;background:#10193A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
-    .btn-export{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;color:#10193A;align-self:flex-end;text-decoration:none;font-weight:700}
-    .btn-clear{padding:8px 14px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12.5px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
-    /* TABLE */
-    .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-    .table-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between}
+    .btn-apply{padding:7.5px 16px;border:none;border-radius:8px;background:#FF7A1A;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;align-self:flex-end}
+    .btn-apply:hover{background:#e06c15}
+    .btn-clear{padding:7.5px 12px;border:1.5px solid #E7E4DA;border-radius:8px;background:#F6F4EF;font-size:12px;cursor:pointer;font-family:inherit;color:#696B78;align-self:flex-end;text-decoration:none;font-weight:700}
+
+    /* TAB BAR */
+    .tab-bar{display:flex;gap:4px;margin-bottom:1.1rem;background:#fff;border:1px solid #E7E4DA;border-radius:11px;padding:5px}
+    .tab-btn{padding:7px 16px;border:none;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:700;color:#696B78;background:transparent;transition:all .15s}
+    .tab-btn.active{background:#10193A;color:#fff}
+    .tab-btn:hover:not(.active){background:#F6F4EF}
+
+    /* TABLE CARD */
+    .table-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;margin-bottom:1.2rem}
+    .table-hdr{padding:12px 16px;border-bottom:1px solid #F0EEE6;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
     .table-hdr-title{font-size:13px;font-weight:800;color:#10193A}
     .rec-count{font-size:12px;color:#696B78;font-weight:600}
     .tbl-scroll{overflow-x:auto}
     table{width:100%;border-collapse:collapse;font-size:12.5px}
     thead tr{background:#F6F4EF}
-    th{padding:9px 14px;text-align:left;font-size:10.5px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
-    td{padding:10px 14px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
+    th{padding:9px 13px;text-align:left;font-size:10px;color:#A8A4C4;border-bottom:1px solid #F0EEE6;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+    td{padding:10px 13px;border-bottom:1px solid #F6F4EF;vertical-align:middle}
     tr:last-child td{border-bottom:none}
     tr:hover td{background:#FAFAF7}
-    .badge{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.02em}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:6px;font-size:10px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
     .bp{background:#D9F5E8;color:#0E6B43}
     .ba{background:#FBE2E2;color:#9A2A2D}
     .bh{background:#DCE9FF;color:#1A4FA0}
-    .avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px;flex-shrink:0}
+    .bm{background:#FFF0D9;color:#9A5800}
+    .bn{background:#F0EEE6;color:#696B78}
+
+    /* EMPLOYEE CELL */
+    .avatar{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;border-radius:8px;background:#FFE4CC;color:#9A4B0A;font-size:10px;font-weight:800;margin-right:7px;flex-shrink:0}
     .emp-cell{display:flex;align-items:center}
+
+    /* HOURS BAR */
     .hours-bar{display:flex;align-items:center;gap:8px}
-    .bar-bg{flex:1;height:6px;background:#F0EEE6;border-radius:3px;min-width:70px}
-    .bar-fill{height:6px;border-radius:3px}
-    .bar-green{background:#1AAE6F}
-    .bar-amber{background:#FF7A1A}
-    .bar-red{background:#E5484D}
-    .hours-text{font-size:12px;color:#696B78;white-space:nowrap;min-width:36px;font-weight:600}
+    .bar-bg{flex:1;height:5px;background:#F0EEE6;border-radius:3px;min-width:60px}
+    .bar-fill{height:5px;border-radius:3px}
+    .bar-green{background:#1AAE6F}.bar-amber{background:#FF7A1A}.bar-red{background:#E5484D}
+    .hours-text{font-size:12px;color:#696B78;white-space:nowrap;min-width:34px;font-weight:600}
     .co-pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:#F0EEE6;color:#696B78}
-    /* GRID */
-    .grid-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(16,25,58,0.04)}
-    .grid-hdr{padding:13px 16px;border-bottom:1px solid #F0EEE6;font-size:13px;font-weight:800;color:#10193A}
+
+    /* GRID VIEW */
+    .grid-card{background:#fff;border:1px solid #E7E4DA;border-radius:13px;overflow:hidden;margin-bottom:1.2rem}
+    .grid-hdr{padding:12px 16px;border-bottom:1px solid #F0EEE6;font-size:13px;font-weight:800;color:#10193A;display:flex;align-items:center;justify-content:space-between}
     .grid-scroll{overflow-x:auto;padding:1rem 1.2rem}
     .grid-table{border-collapse:collapse;white-space:nowrap}
-    .grid-table th{padding:5px 8px;font-size:10.5px;color:#A8A4C4;text-align:center;font-weight:800;border-bottom:1px solid #F0EEE6;text-transform:uppercase}
-    .grid-table td{padding:4px 4px;text-align:center;vertical-align:middle}
+    .grid-table th{padding:5px 7px;font-size:10px;color:#A8A4C4;text-align:center;font-weight:800;border-bottom:1px solid #F0EEE6;text-transform:uppercase}
+    .grid-table td{padding:4px 3px;text-align:center;vertical-align:middle}
     .grid-table .name-col{text-align:left;padding:4px 12px 4px 4px;font-size:12px;font-weight:700;white-space:nowrap}
     .dc{width:30px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;cursor:default}
     .dc-p{background:#D9F5E8;color:#0E6B43}
     .dc-a{background:#FBE2E2;color:#9A2A2D}
     .dc-h{background:#DCE9FF;color:#1A4FA0}
     .dc-x{background:#F0EEE6;color:#C7C4B8}
-    .empty{padding:3rem;text-align:center;color:#696B78;font-weight:500}
-    .summary-row{background:#FAFAF7}
-    .summary-row td{font-weight:700;font-size:12px;border-top:1px solid #F0EEE6}
 
-    @media(min-width:860px){
-      body{padding-bottom:0}
+    /* RAW PUNCHES TABLE */
+    .punch-time{font-family:monospace;font-size:12px;font-weight:600;color:#14141A}
+    .emp-code-tag{font-family:monospace;font-size:11px;background:#F0EEE6;color:#444;padding:1px 6px;border-radius:4px;font-weight:600}
+    .gps-cell{font-size:11px;color:#696B78;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .src-app{background:#D9F5E8;color:#0E6B43}
+    .src-dev{background:#DCE9FF;color:#1A4FA0}
+
+    .empty{padding:3rem;text-align:center;color:#A8A4C4;font-size:13px;font-weight:600}
+    .summary-row td{font-weight:700;font-size:12px;border-top:1px solid #F0EEE6;background:#FAFAF7}
+
+    /* PUNCH MODAL */
+    .punch-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center}
+    .punch-modal-overlay.open{display:flex}
+    .punch-modal{background:#fff;border-radius:14px;padding:1.5rem;max-width:440px;width:90%;max-height:80vh;overflow-y:auto}
+    .punch-modal-title{font-size:15px;font-weight:800;color:#10193A;margin-bottom:1rem}
+    .punch-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #F0EEE6;font-size:13px}
+    .punch-row:last-child{border-bottom:none}
+    .punch-num{width:22px;height:22px;border-radius:6px;background:#F0EEE6;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#696B78;flex-shrink:0}
+    .punch-in{background:#D9F5E8;color:#0E6B43}
+    .punch-out{background:#FBE2E2;color:#9A2A2D}
+
+    @media(max-width:700px){
+      .stats{grid-template-columns:repeat(3,1fr)}
+      .filters{gap:7px}
+      .tab-bar{overflow-x:auto;flex-wrap:nowrap}
     }
   </style>
 </head>
 <body>
 {% from 'sidebar_macro.html' import sidebar %}
 {{ sidebar('manager', {}, 'attendance', name|default('')) }}
+
 <div class="topbar">
   <button id="sb-toggle" onclick="openSB()">☰</button>
-  <div class="topbar-title">📊 Work Report System V3</div>
+  <div class="topbar-title">📊 Attendance</div>
   <div class="topbar-right">
     {% if last_sync %}
       <span style="font-size:11px;color:#7EE0B2;font-weight:600">⟳ {{ last_sync }}</span>
     {% else %}
-      <span class="live-dot"></span><span class="live-label">Live</span>
+      <span class="live-dot"></span>
     {% endif %}
-    &nbsp;
-    <a href="/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}&emp={{ filters.emp }}&status={{ filters.status }}&company={{ filters.company }}" class="btn-sm" title="Reload data from BioTime">↻ Sync</a>
-    <a href="/debug-biotime" class="btn-sm" title="BioTime API diagnostic" target="_blank">🔧 Debug</a>
-    <a href="/export/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}" class="btn-sm">⬇ Export</a>
-    <a href="/logout" class="btn-sm">Logout</a>
+    <a href="/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}&emp={{ filters.emp }}&status={{ filters.status }}&company={{ filters.company }}" class="btn-sm">↻ Sync</a>
+    <a href="/export/attendance?from_d={{ filters.from_d }}&to_d={{ filters.to_d }}" class="btn-sm">⬇ CSV</a>
+    <a href="/debug-biotime" class="btn-sm" target="_blank">🔧</a>
   </div>
 </div>
+
 <div class="main">
 
   {% if error %}
   <div class="error-box">
-    ⚠️ BioTime API Error: {{ error }}<br>
-    <span style="font-weight:400;font-size:12px">
-      → Click <b>🔧 Debug</b> above to run a live diagnostic and see exactly what is failing.
-    </span>
+    ⚠️ BioTime API Error: {{ error }} &nbsp;—&nbsp;
+    <a href="/debug-biotime" target="_blank" style="color:#9A2A2D;text-decoration:underline">Run diagnostic →</a>
   </div>
   {% endif %}
 
   <!-- STATS -->
   <div class="stats">
-    <div class="stat"><div class="stat-label">Total employees</div><div class="stat-val blue">{{ stats.total }}</div></div>
-    <div class="stat"><div class="stat-label">Present today</div><div class="stat-val green">{{ stats.present }}</div><div class="stat-sub">incl. half day</div></div>
-    <div class="stat"><div class="stat-label">Absent today</div><div class="stat-val red">{{ stats.absent }}</div></div>
-    <div class="stat"><div class="stat-label">Half day today</div><div class="stat-val purple">{{ stats.half }}</div></div>
-    <div class="stat"><div class="stat-label">Avg hours today</div><div class="stat-val blue">{{ stats.avg_hours }}h</div></div>
+    <div class="stat"><div class="stat-label">Total Employees</div><div class="stat-val navy">{{ stats.total }}</div></div>
+    <div class="stat"><div class="stat-label">Present Today</div><div class="stat-val green">{{ stats.present }}</div><div class="stat-sub">incl. half day</div></div>
+    <div class="stat"><div class="stat-label">Absent Today</div><div class="stat-val red">{{ stats.absent }}</div></div>
+    <div class="stat"><div class="stat-label">Half Day</div><div class="stat-val purple">{{ stats.half }}</div></div>
+    <div class="stat"><div class="stat-label">Avg Hours Today</div><div class="stat-val blue">{{ stats.avg_hours }}h</div></div>
+    <div class="stat"><div class="stat-label">Records Loaded</div><div class="stat-val amber">{{ record_count }}</div></div>
   </div>
 
   <!-- FILTERS -->
-  <form method="GET" action="/attendance">
+  <form method="GET" action="/attendance" id="filterForm">
     <div class="filters">
       <div class="fg"><label>Employee</label>
         <select name="emp">
@@ -157,9 +190,9 @@
           <option value="CONNEQTORTECHNOLOGY" {% if filters.company=='CONNEQTORTECHNOLOGY' %}selected{% endif %}>CONNEQTOR</option>
         </select>
       </div>
-      <div class="fg"><label>From date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
-      <div class="fg"><label>To date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
-      <div class="fg"><label>View</label>
+      <div class="fg"><label>From Date</label><input type="date" name="from_d" value="{{ filters.from_d }}"></div>
+      <div class="fg"><label>To Date</label><input type="date" name="to_d" value="{{ filters.to_d }}"></div>
+      <div class="fg"><label>View Mode</label>
         <div class="view-toggle">
           <button type="submit" name="view" value="daily"   class="vbtn {% if view=='daily'   %}active{% endif %}">Daily</button>
           <button type="submit" name="view" value="weekly"  class="vbtn {% if view=='weekly'  %}active{% endif %}">Weekly</button>
@@ -171,26 +204,56 @@
     </div>
   </form>
 
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-summary" onclick="showTab('summary')">📋 Summary</button>
+    <button class="tab-btn" id="tab-punches" onclick="showTab('punches')">🕐 Raw Punches</button>
+  </div>
+
+  <!-- ═══════════════ SUMMARY TAB ═══════════════ -->
+  <div id="pane-summary">
+
   {% if view == 'daily' %}
-  <!-- ══ DAILY VIEW ══ -->
+  <!-- DAILY TABLE -->
   <div class="table-card">
     <div class="table-hdr">
-      <div class="table-hdr-title">🕐 Daily Attendance — {{ filters.from_d }}{% if filters.from_d != filters.to_d %} to {{ filters.to_d }}{% endif %}</div>
+      <div class="table-hdr-title">Daily Attendance — {{ filters.from_d }}{% if filters.from_d != filters.to_d %} → {{ filters.to_d }}{% endif %}</div>
       <div class="rec-count">{{ record_count }} records</div>
     </div>
     <div class="tbl-scroll">
       {% if records %}
       <table>
-        <thead><tr><th>#</th><th>Employee</th><th>Company</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Working Hours</th><th>Punches</th><th>Status</th></tr></thead>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee</th>
+            <th>Company</th>
+            <th>Date</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>Working Hours</th>
+            <th>Punches</th>
+            <th>Status</th>
+            <th>Details</th>
+          </tr>
+        </thead>
         <tbody>
         {% for r in records %}
         <tr>
           <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
-          <td><div class="emp-cell"><span class="avatar">{{ r.emp_name[:2].upper() }}</span>{{ r.emp_name }}</div></td>
+          <td>
+            <div class="emp-cell">
+              <span class="avatar">{{ r.emp_name[:2].upper() }}</span>
+              <div>
+                <div style="font-weight:600;font-size:12.5px">{{ r.emp_name }}</div>
+                <div style="font-size:10px;color:#A8A4C4;font-weight:600">{{ r.emp_code }}</div>
+              </div>
+            </div>
+          </td>
           <td><span class="co-pill">{{ r.company }}</span></td>
-          <td style="white-space:nowrap;font-size:12px">{{ r.date }}</td>
-          <td style="font-weight:500;color:{% if r.check_in != '—' %}#3b6d11{% else %}#ccc{% endif %}">{{ r.check_in }}</td>
-          <td style="color:{% if r.check_out != '—' %}#1a1a18{% else %}#ccc{% endif %}">{{ r.check_out }}</td>
+          <td style="white-space:nowrap;font-size:12px;font-weight:600">{{ r.date }}</td>
+          <td style="font-weight:700;color:{% if r.check_in != '—' %}#0E6B43{% else %}#ccc{% endif %};font-family:monospace;font-size:12px">{{ r.check_in }}</td>
+          <td style="font-weight:600;color:{% if r.check_out != '—' %}#14141A{% else %}#ccc{% endif %};font-family:monospace;font-size:12px">{{ r.check_out }}</td>
           <td>
             {% if r.hours > 0 %}
             <div class="hours-bar">
@@ -199,11 +262,19 @@
             </div>
             {% else %}—{% endif %}
           </td>
-          <td style="font-size:12px;color:#73726c">{{ r.punch_count }}</td>
+          <td style="font-size:12px;color:#73726c;font-weight:600">{{ r.punch_count }}</td>
           <td>
             <span class="badge {% if r.status=='Present' %}bp{% elif r.status=='Absent' %}ba{% else %}bh{% endif %}">
-              {% if r.status=='Present' %}✅{% elif r.status=='Absent' %}❌{% else %}🔄{% endif %} {{ r.status }}
+              {% if r.status=='Present' %}✓{% elif r.status=='Absent' %}✗{% else %}½{% endif %} {{ r.status }}
             </span>
+          </td>
+          <td>
+            {% if r.punch_count > 0 %}
+            <button onclick="showPunches('{{ r.emp_name }}','{{ r.date }}','{{ r.emp_code }}')"
+              style="padding:3px 9px;border:1.5px solid #E7E4DA;border-radius:6px;background:#F6F4EF;font-size:11px;cursor:pointer;font-family:inherit;color:#696B78;font-weight:700">
+              View
+            </button>
+            {% else %}—{% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -214,24 +285,24 @@
   </div>
 
   {% elif view in ['weekly','monthly'] %}
-  <!-- ══ WEEKLY / MONTHLY GRID VIEW ══ -->
+  <!-- GRID VIEW -->
   <div class="grid-card">
     <div class="grid-hdr">
-      {% if view=='weekly' %}📅 Weekly{% else %}📆 Monthly{% endif %} Attendance Grid — {{ filters.from_d }} to {{ filters.to_d }}
+      {% if view=='weekly' %}Weekly{% else %}Monthly{% endif %} Grid — {{ filters.from_d }} to {{ filters.to_d }}
+      <span style="font-size:12px;color:#696B78;font-weight:600">{{ date_list|length }} days</span>
     </div>
     <div class="grid-scroll">
       <table class="grid-table">
         <thead>
           <tr>
-            <th class="name-col">Employee</th>
+            <th class="name-col" style="text-align:left">Employee</th>
             {% for d in date_list %}
-            <th>{{ d[8:] }}<br><span style="font-size:9px;font-weight:400">{{ ['Su','Mo','Tu','We','Th','Fr','Sa'][d|string|strptime('%Y-%m-%d')|weekday] if false else '' }}</span></th>
+            <th title="{{ d }}">{{ d[8:] }}</th>
             {% endfor %}
-            <th>P</th><th>A</th><th>H</th><th>Hrs</th>
+            <th title="Present">P</th><th title="Absent">A</th><th title="Half Day">H</th><th title="Total Hours">Hrs</th>
           </tr>
         </thead>
         <tbody>
-        {% set emp_names = records|map(attribute='emp_name')|unique|list %}
         {% for emp_name in emp_list %}
           {% set emp_records = records|selectattr('emp_name','eq',emp_name)|list %}
           {% if emp_records or not filters.emp %}
@@ -240,22 +311,30 @@
           {% set half_ct    = emp_records|selectattr('status','eq','Half Day')|list|length %}
           {% set total_hrs  = emp_records|sum(attribute='hours') %}
           <tr>
-            <td class="name-col"><div class="emp-cell"><span class="avatar">{{ emp_name[:2].upper() }}</span>{{ emp_name.split(' ')[0] }}</div></td>
+            <td class="name-col">
+              <div class="emp-cell">
+                <span class="avatar">{{ emp_name[:2].upper() }}</span>
+                {{ emp_name.split(' ')[0] }}
+              </div>
+            </td>
             {% for d in date_list %}
               {% set day_rec = emp_records|selectattr('date','eq',d)|list %}
               {% if day_rec %}
                 {% set s = day_rec[0].status %}
-                <td><div class="dc {% if s=='Present' %}dc-p{% elif s=='Absent' %}dc-a{% elif s=='Half Day' %}dc-h{% else %}dc-x{% endif %}" title="{{ emp_name }} — {{ d }}: {{ s }} {% if day_rec[0].check_in != '—' %}In:{{ day_rec[0].check_in }}{% endif %}">
-                  {% if s=='Present' %}✓{% elif s=='Absent' %}✗{% elif s=='Half Day' %}H{% else %}—{% endif %}
-                </div></td>
+                <td>
+                  <div class="dc {% if s=='Present' %}dc-p{% elif s=='Absent' %}dc-a{% elif s=='Half Day' %}dc-h{% else %}dc-x{% endif %}"
+                    title="{{ emp_name }} — {{ d }}: {{ s }}{% if day_rec[0].check_in != '—' %} | In: {{ day_rec[0].check_in }}{% endif %}{% if day_rec[0].check_out != '—' %} Out: {{ day_rec[0].check_out }}{% endif %}">
+                    {% if s=='Present' %}✓{% elif s=='Absent' %}✗{% elif s=='Half Day' %}H{% else %}—{% endif %}
+                  </div>
+                </td>
               {% else %}
                 <td><div class="dc dc-x">—</div></td>
               {% endif %}
             {% endfor %}
-            <td><span class="badge bp" style="padding:2px 6px">{{ present_ct }}</span></td>
-            <td><span class="badge ba" style="padding:2px 6px">{{ absent_ct }}</span></td>
-            <td><span class="badge bh" style="padding:2px 6px">{{ half_ct }}</span></td>
-            <td style="font-size:12px;font-weight:500">{{ "%.1f"|format(total_hrs) }}h</td>
+            <td><span class="badge bp" style="padding:2px 7px">{{ present_ct }}</span></td>
+            <td><span class="badge ba" style="padding:2px 7px">{{ absent_ct }}</span></td>
+            <td><span class="badge bh" style="padding:2px 7px">{{ half_ct }}</span></td>
+            <td style="font-size:12px;font-weight:600;color:#10193A">{{ "%.1f"|format(total_hrs) }}h</td>
           </tr>
           {% endif %}
         {% endfor %}
@@ -264,10 +343,12 @@
     </div>
   </div>
 
-  <!-- MONTHLY SUMMARY TABLE -->
   {% if view == 'monthly' %}
+  <!-- MONTHLY SUMMARY -->
   <div class="table-card">
-    <div class="table-hdr"><div class="table-hdr-title">📊 Monthly Summary per Employee</div></div>
+    <div class="table-hdr">
+      <div class="table-hdr-title">Monthly Summary</div>
+    </div>
     <div class="tbl-scroll">
       <table>
         <thead><tr><th>Employee</th><th>Company</th><th>Present</th><th>Absent</th><th>Half Day</th><th>Total Hours</th><th>Avg Hrs/Day</th></tr></thead>
@@ -279,14 +360,13 @@
           {% set absent_ct  = emp_records|selectattr('status','eq','Absent')|list|length %}
           {% set half_ct    = emp_records|selectattr('status','eq','Half Day')|list|length %}
           {% set total_hrs  = emp_records|sum(attribute='hours') %}
-          {% set emp_co     = emp_records[0].company %}
           <tr>
             <td><div class="emp-cell"><span class="avatar">{{ emp_name[:2].upper() }}</span>{{ emp_name }}</div></td>
-            <td><span class="co-pill">{{ emp_co }}</span></td>
+            <td><span class="co-pill">{{ emp_records[0].company }}</span></td>
             <td><span class="badge bp">{{ present_ct }}</span></td>
             <td><span class="badge ba">{{ absent_ct }}</span></td>
             <td><span class="badge bh">{{ half_ct }}</span></td>
-            <td style="font-weight:500">{{ "%.1f"|format(total_hrs) }}h</td>
+            <td style="font-weight:600">{{ "%.1f"|format(total_hrs) }}h</td>
             <td style="color:#73726c">{{ "%.1f"|format(total_hrs / present_ct) if present_ct else '—' }}h</td>
           </tr>
           {% endif %}
@@ -298,8 +378,157 @@
   {% endif %}
   {% endif %}
 
+  </div><!-- /pane-summary -->
+
+  <!-- ═══════════════ RAW PUNCHES TAB ═══════════════ -->
+  <div id="pane-punches" style="display:none">
+    <div class="table-card">
+      <div class="table-hdr">
+        <div class="table-hdr-title">Raw Punch Transactions — {{ filters.from_d }}{% if filters.from_d != filters.to_d %} → {{ filters.to_d }}{% endif %}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="punchSearch" placeholder="Search emp code / name..." oninput="filterPunches()"
+            style="padding:6px 10px;font-size:12px;border:1.5px solid #E7E4DA;border-radius:7px;background:#F6F4EF;font-family:inherit;color:#14141A;outline:none;min-width:180px">
+          <div class="rec-count" id="punchCount"></div>
+        </div>
+      </div>
+      <div class="tbl-scroll">
+        <table id="punchTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Emp Code</th>
+              <th>Employee Name</th>
+              <th>Punch Time</th>
+              <th>State</th>
+              <th>Source</th>
+              <th>Terminal</th>
+              <th>GPS Location</th>
+              <th>Lat / Lng</th>
+              <th>Upload Time</th>
+            </tr>
+          </thead>
+          <tbody id="punchBody">
+            {% if raw_transactions %}
+            {% for t in raw_transactions %}
+            <tr class="punch-data-row"
+              data-emp="{{ t.emp_code }}"
+              data-name="{{ (employees.get(t.emp_code|string, {}) or {}).get('name','') | lower }}">
+              <td style="color:#bbb;font-size:11px">{{ loop.index }}</td>
+              <td><span class="emp-code-tag">{{ t.emp_code }}</span></td>
+              <td style="font-size:12.5px;font-weight:600">{{ (employees.get(t.emp_code|string, {}) or {}).get('name','—') }}</td>
+              <td><span class="punch-time">{{ t.punch_time[:16] if t.punch_time else '—' }}</span></td>
+              <td>
+                {% set ps = t.punch_state|string %}
+                {% if ps == '0' %}<span class="badge bp">Check In</span>
+                {% elif ps == '1' %}<span class="badge ba">Check Out</span>
+                {% elif ps == '2' %}<span class="badge bm">Break Out</span>
+                {% elif ps == '3' %}<span class="badge bm">Break In</span>
+                {% elif ps == '4' %}<span class="badge bh">OT In</span>
+                {% elif ps == '5' %}<span class="badge bh">OT Out</span>
+                {% else %}<span class="badge bn">State {{ ps }}</span>{% endif %}
+              </td>
+              <td>
+                {% set sn = (t.terminal_sn or '')|lower %}
+                {% if sn == 'app' or t.source == 3 %}
+                  <span class="badge src-app">App</span>
+                {% elif sn %}
+                  <span class="badge src-dev">Device</span>
+                {% else %}
+                  <span class="badge bn">—</span>
+                {% endif %}
+              </td>
+              <td style="font-size:11.5px;color:#696B78">{{ t.terminal_alias or t.terminal_sn or '—' }}</td>
+              <td class="gps-cell" title="{{ t.gps_location or '' }}">{{ t.gps_location or '—' }}</td>
+              <td style="font-family:monospace;font-size:10.5px;color:#A8A4C4">
+                {% if t.latitude and t.longitude %}{{ "%.4f"|format(t.latitude) }}, {{ "%.4f"|format(t.longitude) }}{% else %}—{% endif %}
+              </td>
+              <td style="font-size:11px;color:#A8A4C4">{{ (t.upload_time or '')[:16] }}</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="10" class="empty">No raw punch data for selected date range.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- PUNCH DETAIL MODAL -->
+<div class="punch-modal-overlay" id="punchModal" onclick="closePunchModal(event)">
+  <div class="punch-modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div class="punch-modal-title" id="modalTitle">Punch Details</div>
+      <button onclick="document.getElementById('punchModal').classList.remove('open')"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:#A8A4C4;line-height:1">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
 </div>
 
 <script src="/static/push.js"></script>
+<script>
+// Tab switching
+function showTab(tab) {
+  document.getElementById('pane-summary').style.display = tab === 'summary' ? '' : 'none';
+  document.getElementById('pane-punches').style.display = tab === 'punches' ? '' : 'none';
+  document.getElementById('tab-summary').classList.toggle('active', tab === 'summary');
+  document.getElementById('tab-punches').classList.toggle('active', tab === 'punches');
+  if (tab === 'punches') updatePunchCount();
+}
+
+// Filter raw punches
+function filterPunches() {
+  const q = document.getElementById('punchSearch').value.toLowerCase().trim();
+  const rows = document.querySelectorAll('.punch-data-row');
+  let shown = 0;
+  rows.forEach(r => {
+    const match = !q || r.dataset.emp.includes(q) || r.dataset.name.includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  document.getElementById('punchCount').textContent = q ? `${shown} matches` : `${rows.length} records`;
+}
+
+function updatePunchCount() {
+  const rows = document.querySelectorAll('.punch-data-row');
+  document.getElementById('punchCount').textContent = `${rows.length} records`;
+}
+
+// Punch detail modal — pulls data from raw punch rows
+const RAW = {% if raw_transactions %}{{ raw_transactions | tojson }}{% else %}[]{% endif %};
+const EMP_MAP = {{ employees | tojson }};
+
+function showPunches(empName, date, empCode) {
+  const punches = RAW.filter(t => String(t.emp_code) === String(empCode) && (t.punch_time||'').startsWith(date));
+  punches.sort((a,b) => (a.punch_time||'').localeCompare(b.punch_time||''));
+  document.getElementById('modalTitle').textContent = `${empName} — ${date}`;
+  const stateLabel = {0:'Check In',1:'Check Out',2:'Break Out',3:'Break In',4:'OT In',5:'OT Out'};
+  const stateClass = {0:'punch-in',1:'punch-out',2:'',3:'',4:'',5:''};
+  let html = punches.length === 0 ? '<p style="color:#A8A4C4;font-size:13px">No punches found.</p>' :
+    punches.map((t,i) => `
+      <div class="punch-row">
+        <div class="punch-num ${stateClass[t.punch_state]||''}">${i+1}</div>
+        <div style="flex:1">
+          <div style="font-family:monospace;font-size:13px;font-weight:700">${(t.punch_time||'').slice(11,19)}</div>
+          <div style="font-size:11px;color:#696B78;margin-top:1px">
+            ${stateLabel[t.punch_state]||('State '+t.punch_state)}
+            ${t.terminal_sn ? ' · ' + t.terminal_sn : ''}
+          </div>
+          ${t.gps_location ? `<div style="font-size:10.5px;color:#A8A4C4;margin-top:1px">📍 ${t.gps_location}</div>` : ''}
+        </div>
+      </div>`).join('');
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('punchModal').classList.add('open');
+}
+
+function closePunchModal(e) {
+  if (e.target === document.getElementById('punchModal')) {
+    document.getElementById('punchModal').classList.remove('open');
+  }
+}
+</script>
 </body>
 </html>

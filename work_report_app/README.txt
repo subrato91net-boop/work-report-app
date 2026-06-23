@@ -1,100 +1,58 @@
-NEW IN THIS UPDATE (v3.5)
-- Manager Dashboard (Command Center):
-    New "🏠 Dashboard" tab — now the manager's default landing page
-    after login. One glance shows:
-      • Today's report completion (X of Y employees, with progress bar)
-      • Active jobs by status (Open / In Progress)
-      • Pending TA approvals (count + ₹ amount)
-      • Clients needing follow-up (no visit in 30+ days)
-      • Sales visits logged today
-      • Quick link into Attendance
-      • Who hasn't submitted a report today (name list)
-      • Clients going cold (clickable, links to client profile)
-      • Recent activity feed (latest reports, jobs, TA submissions)
-    Every number is pulled fresh from the database on each page load
-    (not cached), so it's always accurate. There's a manual "↻ Refresh"
-    button in the top bar. All existing tabs (Work Reports, Assign
-    Jobs, Attendance, Sales Visits, Clients, TA, Users) are unchanged
-    and still fully accessible — the dashboard is purely additive.
+NEW IN THIS UPDATE (v3.9)
+- Attendance page — fully redesigned with dual-tab layout:
+    "Summary" tab (default): same processed daily/weekly/monthly views as before,
+    now enhanced with employee code shown under name, cleaner hours bar, and
+    a "View" button per row that opens a popup showing ALL individual punch
+    timestamps for that employee on that day (time, check-in/out state, GPS,
+    terminal — no more guessing from just first/last punch).
+    "Raw Punches" tab: brand-new. Shows every single raw transaction record
+    pulled from BioTime for the selected date range — emp code, full name,
+    exact punch time, punch state badge (Check In / Check Out / Break / OT),
+    source (App vs Device badge), terminal name, GPS address, coordinates,
+    and upload time. Live search bar filters by employee code or name instantly.
+    Capped at 2000 records per page load for performance.
+- Stats row: added "Records Loaded" count card so you can immediately see
+    how many raw BioTime records were fetched for the date range.
+- Filter bar: "Apply" button is now orange (more visible), labels use
+    consistent uppercase styling.
+- All existing functionality (Daily / Weekly / Monthly views, filters,
+    CSV export, BioTime debug, sidebar navigation) unchanged.
+
+NEW IN THIS UPDATE (v3.8)
+- Manager Dashboard (Command Center): new "🏠 Dashboard" tab — now the
+    manager's default landing page after login. One glance shows today's
+    report completion, active jobs, pending TA approvals, clients needing
+    follow-up, sales visits logged today, and recent activity feed.
 
 NEW IN THIS UPDATE (v3.4)
-- Installable mobile app (PWA):
-    The app can now be installed to the home screen on phones and
-    desktops, just like a native app — no app store needed.
-    - Android/Chrome: open the site → menu (⋮) → "Install app" /
-      "Add to Home Screen"
-    - iPhone/Safari: open the site → Share button → "Add to Home
-      Screen"
-    Once installed, it opens full-screen (no browser address bar),
-    has its own icon, and shows a friendly "You're offline" page if
-    there's no internet connection instead of a browser error.
-    No backend changes — this is pure frontend (manifest, service
-    worker, icons) so nothing about your data or routes changed.
+- Installable mobile app (PWA): add to home screen on Android/iPhone.
 
 NEW IN THIS UPDATE (v3.3)
-- Mini CRM — Clients layer:
-    Every sales visit's client is now linked to a "company" record.
-    New manager tab → "Clients": see every client, total visit count,
-    last visit date, and a freshness badge (Active / 14-30 days /
-    30+ days no contact). Filter by "no visit in 30/60/90+ days" to
-    spot accounts going cold.
-    Click into any client to see its full profile (industry, contact
-    person, phone, address, notes — all editable by the manager) plus
-    a complete visit timeline pulled from every salesperson who's
-    visited them.
-    Existing sales visit data is migrated automatically on first
-    startup — every distinct client name already in your database
-    gets its own company record, no data lost, no manual SQL needed.
+- Mini CRM — Clients layer with full visit timelines and freshness tracking.
 
 NEW IN THIS UPDATE (v3.2)
-- Job assignment is now fully flexible:
-    Manager can assign a job to multiple employees AND/OR multiple
-    supervisors in one go. Either side can be left as "N/A" — a job
-    can go to employees only, supervisors only, or both.
-    Anyone listed as an employee OR a supervisor on a job can see it
-    under "My Jobs" (read-only). The page tags whether you're viewing
-    as Employee, Supervisor, or Both on each job card.
-- Brand new visual design across every page:
-    Deep navy + signal-amber color system, card-based layout,
-    "job ticket" style status badges, fully responsive —
-    bottom tab bar on mobile, top tab bar + wider tables on desktop.
-- WhatsApp notifications and AI report suggestions were requested but
-  not included in this build (they need your own WhatsApp Business API
-  account and AI API key respectively — ask whenever you're ready to
-  set those up and they can be added next).
-
-PREVIOUSLY ADDED (v3.1)
-- Manager → "Assign Jobs" tab, Employee → "My Jobs" tab
-- Employee report form: big "Job details" field, small "Remarks" field,
-  required Supervisor dropdown shown to the manager in Work Reports
+- Job assignment: multi-employee + multi-supervisor per job.
+- Brand new visual design (navy + amber, card-based, responsive).
 
 ═══════════════════════════════════════════════
-  WORK REPORT SYSTEM V3 — PostgreSQL Version
+  WORK REPORT SYSTEM V3.9 — PostgreSQL Version
   Imax Solution & Conneqtor Technology
 ═══════════════════════════════════════════════
 
-WHAT'S DIFFERENT FROM V2
-- Uses PostgreSQL instead of SQLite
-- Data is permanently stored — never lost on restart
-- Works perfectly on Render free plan
-- Real BioTime attendance data
-- No Google Sheets / Google credentials anywhere — pure PostgreSQL
-
-NEW IN THIS UPDATE
-- Manager → "Assign Jobs" tab:
-    Assign a job to any employee, with supervisor, job title,
-    description, location, company, start/end date, and status.
-    All assigned jobs are listed and filterable by employee/status.
-- Employee → "My Jobs" tab:
-    Employees can VIEW (read-only) every job assigned to them —
-    job title, description, supervisor, company, location, dates, status.
-    Employees cannot edit assigned jobs; only the manager assigns/manages them.
-- Employee → Work Report form:
-    "Job details" is now a large textarea (the main field).
-    "Remarks" is now a small, optional field.
-    Employees now pick their Supervisor from a dropdown when
-    submitting a daily report; the supervisor's name is saved with
-    the report and shown to the manager in the Work Reports table.
+WHAT'S IN THIS VERSION
+- Flask app with PostgreSQL (Render-compatible)
+- BioTime Cloud 2.0 JWT attendance integration
+- Work reports with custom form builder
+- Job assignment (multi-employee, multi-supervisor)
+- Sales visits + Mini CRM (clients)
+- TA reports with approval workflow
+- Support reports
+- Challan / delivery note PDFs
+- Stock upload (CSV/Excel)
+- Employee profiles + departments
+- Push notifications (PWA)
+- Manager accounts management
+- Data delete manager
 
 ═══════════════════════════════════════════════
   DEPLOY TO RENDER — STEP BY STEP
@@ -103,35 +61,27 @@ NEW IN THIS UPDATE
 STEP 1 — Create PostgreSQL database on Render
   → Render dashboard → New + → PostgreSQL
   → Name: work-report-db
-  → Region: Oregon (US West)  ← same as your app
+  → Region: Oregon (US West)
   → Plan: Free
-  → Click Create Database
-  → Wait 1-2 minutes
-  → Click on the database → copy "Internal Database URL"
+  → Click Create Database → copy "Internal Database URL"
 
-STEP 2 — Set Environment Variable in your Web Service
-  → Go to your work-report-app service on Render
+STEP 2 — Set Environment Variables in your Web Service
+  → Go to your web service on Render
   → Click Environment (left sidebar)
-  → Click Add Environment Variable
-  → Key:   DATABASE_URL
-  → Value: (paste the Internal Database URL you copied)
-  → Click Save Changes
+  → Add:
+      DATABASE_URL  = (Internal Database URL from step 1)
 
-STEP 3 — Upload these V3 files to GitLab
+  Optional — override BioTime credentials:
+      BIOTIME_URL_IMAXSOL    = https://imaxsol.itimedev.minervaiot.com
+      BIOTIME_EMAIL_IMAXSOL  = presales@conneqtortech.com
+      BIOTIME_PASS_IMAXSOL   = Y@jh_ro@562
+      BIOTIME_COMPANY_IMAXSOL= imaxsol
+
+STEP 3 — Upload files to GitLab / GitHub
   → Replace all old files with these new ones
   → Commit and push
 
-STEP 4 — Redeploy on Render
-  → Render will auto-detect the GitLab change
-  → OR click Manual Deploy
-  → Wait 2-3 minutes
-  → Your app is live with permanent database!
-
-NOTE: If you're upgrading an existing Render deployment (database
-already has data), this app automatically adds the new supervisor
-columns and the jobs table (with multi-assignee columns) on startup
-— no manual SQL needed. Old single-assignee job rows, if any existed
-from a previous version, are migrated automatically too.
+STEP 4 — Redeploy on Render (auto or Manual Deploy)
 
 ═══════════════════════════════════════════════
   LOGIN CREDENTIALS
@@ -152,38 +102,23 @@ EMPLOYEES
   Username : pritam    Password : 2002123456
 
 ═══════════════════════════════════════════════
-  ROUTES
+  KEY ROUTES
 ═══════════════════════════════════════════════
 
-  /form          Employee — submit daily work report (with supervisor)
-  /my-jobs       Employee — view jobs assigned to them (read-only)
-  /manager       Manager  — view/filter all work reports
-  /assign-job    Manager  — assign new jobs + view/filter all assigned jobs
-  /attendance    Manager  — BioTime attendance dashboard
-  /dashboard                     Manager — command center / landing page
-  /manager/clients               Manager — mini CRM: all clients, freshness filters
-  /manager/clients/<id>          Manager — client profile + full visit timeline
+  /              → Redirect based on role
+  /login         Employee / Manager login
+  /dashboard     Manager command centre
+  /attendance    BioTime attendance (Summary + Raw Punches tabs)
+  /manager       Work reports table
+  /assign-job    Job assignment + all jobs
+  /form          Employee: submit daily work report
+  /my-jobs       Employee: view assigned jobs
+  /manager/clients           Mini CRM
+  /manager/clients/<id>      Client profile
+  /challan                   Delivery challans
+  /manager/form-builder      Custom form fields
+  /manager/users             User management
+  /manager/admins            Admin account management
+  /manager/delete-manager    Data delete tool
+  /debug-biotime             BioTime live diagnostic
 
-═══════════════════════════════════════════════
-  FILES
-═══════════════════════════════════════════════
-
-  app.py              Main app + PostgreSQL + BioTime API
-  requirements.txt    flask, gunicorn, requests, psycopg2-binary
-  Procfile            For Render: web: gunicorn app:app
-  templates/
-    login.html
-    form.html          Employee report form (job details + remarks + supervisor)
-    my_jobs.html        Employee — view assigned jobs (read-only)
-    manager.html        Manager — work reports table
-    assign_job.html      Manager — assign jobs + all-jobs table
-    attendance.html      Manager — attendance dashboard
-    dashboard.html        Manager — command center / landing page
-    manager_clients.html       Manager — mini CRM client list
-    manager_client_detail.html  Manager — client profile + visit timeline
-  static/
-    manifest.json        PWA manifest (app name, icons, colors)
-    sw.js                 Service worker (offline fallback, asset caching)
-    offline.html           Shown when app is opened with no internet
-    icons/                 App icons in all required sizes (72px–512px)
-═══════════════════════════════════════════════

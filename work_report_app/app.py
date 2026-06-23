@@ -1517,7 +1517,7 @@ def attendance():
     company_f= request.args.get("company","")
     view     = request.args.get("view","daily")
 
-    error = None; records = []
+    error = None; records = []; txns = []
     try:
         txns    = fetch_transactions(from_d, to_d)
         records = process_attendance(txns, from_d, to_d)
@@ -1541,6 +1541,23 @@ def attendance():
     emp_list  = [e["name"] for e in EMPLOYEES.values()]
     date_list = get_date_range(from_d, to_d)
 
+    # Prepare raw transactions for the Raw Punches tab (cap at 2000 for page size)
+    # Convert any non-serialisable fields to plain types
+    safe_txns = []
+    for t in txns[:2000]:
+        safe_txns.append({
+            "emp_code":     str(t.get("emp_code","") or ""),
+            "punch_time":   str(t.get("punch_time","") or ""),
+            "punch_state":  t.get("punch_state", 0),
+            "terminal_sn":  str(t.get("terminal_sn","") or ""),
+            "terminal_alias": str(t.get("terminal_alias","") or ""),
+            "gps_location": str(t.get("gps_location","") or ""),
+            "latitude":     t.get("latitude"),
+            "longitude":    t.get("longitude"),
+            "upload_time":  str(t.get("upload_time","") or ""),
+            "source":       t.get("source"),
+        })
+
     last_sync = datetime.now().strftime("%H:%M:%S") if not error else None
     return render_template("attendance.html",
         records=filtered, stats=stats, emp_list=emp_list,
@@ -1548,6 +1565,7 @@ def attendance():
         filters={"from_d":from_d,"to_d":to_d,"emp":emp_f,"status":status_f,"company":company_f},
         view=view, error=error, record_count=len(filtered),
         last_sync=last_sync,
+        raw_transactions=safe_txns,
     )
 
 # ══════════════════════════════════════════
