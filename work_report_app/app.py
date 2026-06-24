@@ -13,6 +13,26 @@ app = Flask(__name__)
 app.secret_key = "workreport_v3_secret_2026"
 
 # ══════════════════════════════════════════
+#  WHATSAPP NOTIFICATION — CallMeBot
+#  Set these in Render Environment Variables:
+#    CALLMEBOT_PHONE  → Manager WhatsApp number with country code (e.g. 919876543210)
+#    CALLMEBOT_APIKEY → API key received from CallMeBot activation
+# ══════════════════════════════════════════
+def send_whatsapp_notification(message):
+    """Send a WhatsApp message to the manager via CallMeBot. Fails silently."""
+    phone  = os.environ.get("CALLMEBOT_PHONE", "").strip()
+    apikey = os.environ.get("CALLMEBOT_APIKEY", "").strip()
+    if not phone or not apikey:
+        return  # Not configured — skip silently
+    try:
+        import urllib.parse
+        encoded_msg = urllib.parse.quote(message)
+        url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={encoded_msg}&apikey={apikey}"
+        req.get(url, timeout=5)
+    except Exception:
+        pass  # Never crash the app due to notification failure
+
+# ══════════════════════════════════════════
 #  DATABASE URL
 #  On Render: set environment variable DATABASE_URL
 #  Locally:   paste your Render PostgreSQL URL below
@@ -824,6 +844,30 @@ def employee_form():
             conn.commit()
             report_custom_fields, _ = get_form_config("report")
             save_custom_field_values("report", new_id, report_custom_fields, request.form)
+            # ── WhatsApp Notification to Manager ──────────────────────────
+            try:
+                _emp_name    = session.get("name", "")
+                _company     = session.get("company", "")
+                _date        = request.form.get("date", "")
+                _work_type   = request.form.get("work_type", "")
+                _client      = request.form.get("client_name", "") or "N/A"
+                _location    = request.form.get("location", "") or "N/A"
+                _summary     = (request.form.get("summary", "") or "")[:80]
+                _wa_msg = (
+                    f"📋 New Work Report Submitted\n\n"
+                    f"👤 Employee: {_emp_name}\n"
+                    f"🏢 Company: {_company}\n"
+                    f"📅 Date: {_date}\n"
+                    f"🔧 Work Type: {_work_type}\n"
+                    f"🏠 Client: {_client}\n"
+                    f"📍 Location: {_location}\n"
+                    f"📝 Summary: {_summary}\n\n"
+                    f"👉 Please review on the dashboard."
+                )
+                send_whatsapp_notification(_wa_msg)
+            except Exception:
+                pass
+            # ─────────────────────────────────────────────────────────────
         conn.commit(); cur.close(); conn.close()
 
     # filters for "my reports" history (own reports only)
@@ -2557,10 +2601,10 @@ def _build_ta_voucher_pdf(employee_info, ta_rows, company_key):
 
     if 'conneqtor' in company_key.lower() or 'conn' in company_key.lower():
         company_name = "CONNEQTOR TECHNOLOGY PVT. LTD."
-        logo_path    = os.path.join("static", "logos", "conneqtor_logo.png")
+        logo_path    = os.path.join("static", "logos", "conneqtor_logo.jpg")
     else:
         company_name = "IMAX SOLUTION"
-        logo_path    = os.path.join("static", "logos", "imax_logo.png")
+        logo_path    = os.path.join("static", "logos", "imax_logo.jpg")
 
     grand_total = sum(float(r["expense_cost"] or 0) for r in ta_rows)
 
@@ -2836,6 +2880,73 @@ def ta_voucher_pdf_bulk():
     }
     pdf_buf = _build_ta_voucher_pdf(employee_info, rows, employee_info["company"])
     fname = f"TA_Voucher_{employee_info['name'].replace(' ','_')}_bulk.pdf"
+    from flask import send_file
+    return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
+
+
+# ══════════════════════════════════════════
+#  ROUTE — EMPLOYEE: TA BULK VOUCHER PDF
+#  Called by the Generate TA Voucher PDF panel in ta_report.html
+#  GET /ta-report/bulk-pdf?company=conneqtor&ids=1&ids=2
+# ══════════════════════════════════════════
+@app.route("/ta-report/bulk-pdf")
+def ta_employee_bulk_pdf():
+    if not logged_in():
+        return redirect(url_for("login"))
+    if is_manager():
+        return redirect(url_for("index"))
+
+    code    = get_emp_code()
+    company = request.args.get("company", "").strip()
+    ids_raw = request.args.getlist("ids")
+
+    allowed_companies = {"conneqtor", "imax"}
+    if company not in allowed_companies:
+        return "Invalid company selected.", 400
+
+    try:
+        ids = [int(i) for i in ids_raw if str(i).strip().isdigit()]
+    except Exception:
+        return "Invalid TA IDs.", 400
+
+    if not ids:
+        return "No TA records selected.", 400
+
+    conn = get_db(); cur = conn.cursor()
+    placeholders = ",".join(["%s"] * len(ids))
+    cur.execute(f"""
+        SELECT * FROM ta_reports
+        WHERE id IN ({placeholders})
+          AND emp_code = %s
+          AND approval_status = 'Approved'
+        ORDER BY travel_date ASC, id ASC
+    """, ids + [code])
+    rows = cur.fetchall()
+
+    if not rows:
+        cur.close(); conn.close()
+        return "No approved TA records found for the selected IDs.", 404
+
+    cur.execute("""
+        SELECT u.name, u.emp_code, u.company,
+               ep.position AS designation, ep.phone AS mobile
+        FROM users u
+        LEFT JOIN employee_profiles ep ON ep.emp_code = u.emp_code
+        WHERE u.emp_code = %s
+    """, (code,))
+    profile = cur.fetchone(); cur.close(); conn.close()
+
+    employee_info = {
+        "name":        rows[0]["emp_name"] or session.get("name", ""),
+        "emp_code":    code or "",
+        "designation": (profile["designation"] if profile and profile["designation"] else ""),
+        "mobile":      (profile["mobile"]      if profile and profile["mobile"]      else ""),
+        "company":     (profile["company"]     if profile and profile["company"]     else ""),
+    }
+
+    pdf_buf = _build_ta_voucher_pdf(employee_info, rows, company)
+    emp_name_safe = employee_info["name"].replace(" ", "_")
+    fname = f"TA_Voucher_{emp_name_safe}_bulk.pdf"
     from flask import send_file
     return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
 
