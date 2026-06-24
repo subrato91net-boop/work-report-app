@@ -1,0 +1,181 @@
+{% from "sidebar_macro.html" import sidebar, topbar_btn %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Database Backup</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;display:flex;min-height:100vh}
+    .main{flex:1;padding:28px 32px;max-width:860px}
+    h2{font-size:1.5rem;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+    .sub{color:#666;font-size:.93rem;margin-bottom:28px}
+
+    /* Cards row */
+    .cards{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+    .card{background:#fff;border-radius:12px;padding:20px 24px;flex:1;min-width:200px;
+          box-shadow:0 1px 6px rgba(0,0,0,.07);border-left:4px solid #6c63ff}
+    .card.green{border-color:#22c55e}.card.blue{border-color:#3b82f6}.card.orange{border-color:#f59e0b}
+    .card-label{font-size:.8rem;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .card-val{font-size:1.5rem;font-weight:700;color:#1a1a2e}
+    .card-sub{font-size:.78rem;color:#aaa;margin-top:3px}
+
+    /* Backup box */
+    .box{background:#fff;border-radius:12px;padding:28px;box-shadow:0 1px 6px rgba(0,0,0,.07);margin-bottom:24px}
+    .box h3{font-size:1.05rem;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+    .box p{font-size:.88rem;color:#666;margin-bottom:18px;line-height:1.6}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:8px;
+         font-size:.92rem;font-weight:600;cursor:pointer;border:none;text-decoration:none;transition:.2s}
+    .btn-primary{background:#6c63ff;color:#fff}
+    .btn-primary:hover{background:#574fd6}
+    .btn-danger{background:#ef4444;color:#fff}
+    .btn-danger:hover{background:#dc2626}
+    .btn-green{background:#22c55e;color:#fff}
+    .btn-green:hover{background:#16a34a}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* History table */
+    table{width:100%;border-collapse:collapse;font-size:.88rem}
+    th{background:#f8f9fb;color:#555;font-weight:600;padding:10px 14px;text-align:left;border-bottom:2px solid #eee}
+    td{padding:10px 14px;border-bottom:1px solid #f0f0f0;color:#333}
+    tr:hover td{background:#fafafa}
+    .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+    .badge-ok{background:#dcfce7;color:#16a34a}
+    .badge-fail{background:#fee2e2;color:#dc2626}
+
+    /* Progress */
+    .progress-wrap{display:none;margin-top:14px}
+    .progress-bar{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+    .progress-fill{height:100%;width:0;background:linear-gradient(90deg,#6c63ff,#a78bfa);border-radius:99px;transition:width .4s}
+    .progress-msg{font-size:.82rem;color:#666;margin-top:6px}
+
+    .alert{padding:12px 16px;border-radius:8px;font-size:.88rem;margin-bottom:16px}
+    .alert-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+    .alert-error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+    .alert-info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+
+    .divider{border:none;border-top:1px solid #f0f0f0;margin:20px 0}
+
+    @media(max-width:600px){.main{padding:16px}.cards{flex-direction:column}}
+  </style>
+</head>
+<body>
+{{ sidebar('db_backup') }}
+<div class="main">
+  <h2>🗄️ Database Backup</h2>
+  <p class="sub">Download a full backup of your PostgreSQL database anytime. Keep your data safe.</p>
+
+  {% if flash_msg %}
+  <div class="alert alert-{{ flash_type or 'info' }}">{{ flash_msg }}</div>
+  {% endif %}
+
+  <!-- Stats cards -->
+  <div class="cards">
+    <div class="card green">
+      <div class="card-label">Total Backups</div>
+      <div class="card-val">{{ total_backups }}</div>
+      <div class="card-sub">All time</div>
+    </div>
+    <div class="card blue">
+      <div class="card-label">Last Backup</div>
+      <div class="card-val" style="font-size:1rem">{{ last_backup or 'Never' }}</div>
+      <div class="card-sub">Date &amp; time</div>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Database Size</div>
+      <div class="card-val">{{ db_size }}</div>
+      <div class="card-sub">Approximate</div>
+    </div>
+  </div>
+
+  <!-- Download backup -->
+  <div class="box">
+    <h3>⬇️ Download Full Backup</h3>
+    <p>Exports all tables (reports, users, TA records, jobs, sales visits, support, clients, products) as a <strong>.sql</strong> file. You can restore this on any PostgreSQL server.</p>
+    <a href="/manager/database-backup/download" class="btn btn-primary" id="dlBtn" onclick="startProgress()">
+      ⬇️ Download Backup Now
+    </a>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-msg" id="progressMsg">Preparing backup...</div>
+    </div>
+  </div>
+
+  <!-- How to restore -->
+  <div class="box">
+    <h3>♻️ How to Restore This Backup</h3>
+    <p>If you ever need to restore your data (e.g. moving to Hetzner or a new server), run this command on your PC:</p>
+    <div style="background:#1a1a2e;color:#a3e635;padding:14px 18px;border-radius:8px;font-family:monospace;font-size:.85rem;line-height:1.8">
+      # Step 1 — Install PostgreSQL on your PC (if not installed)<br>
+      # Step 2 — Run this command:<br><br>
+      psql "your_new_database_url" &lt; backup_file.sql
+    </div>
+    <p style="margin-top:12px;color:#888;font-size:.82rem">💡 Replace <em>your_new_database_url</em> with the connection string of your new database.</p>
+  </div>
+
+  <!-- Backup history -->
+  <div class="box">
+    <h3>📋 Backup History</h3>
+    <p>Last 10 manual backups performed from this dashboard.</p>
+    {% if history %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date &amp; Time</th>
+          <th>Performed By</th>
+          <th>Status</th>
+          <th>File Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ h.created_at }}</td>
+          <td>{{ h.performed_by }}</td>
+          <td><span class="badge badge-ok">✅ Success</span></td>
+          <td>{{ h.file_size or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:#aaa">
+      <div style="font-size:2rem">🗄️</div>
+      <div style="margin-top:8px;font-size:.9rem">No backups yet. Download your first backup above.</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+function startProgress() {
+  const wrap = document.getElementById('progressWrap');
+  const fill = document.getElementById('progressFill');
+  const msg  = document.getElementById('progressMsg');
+  const btn  = document.getElementById('dlBtn');
+  wrap.style.display = 'block';
+  btn.style.opacity  = '0.6';
+  btn.style.pointerEvents = 'none';
+  const steps = [
+    [20,  'Connecting to database...'],
+    [45,  'Exporting tables...'],
+    [70,  'Compressing data...'],
+    [90,  'Finalising file...'],
+    [100, 'Download starting! ✅'],
+  ];
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i >= steps.length) { clearInterval(iv); setTimeout(()=>{ wrap.style.display='none'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; },2500); return; }
+    fill.style.width = steps[i][0] + '%';
+    msg.textContent  = steps[i][1];
+    i++;
+  }, 600);
+}
+</script>
+</body>
+</html>

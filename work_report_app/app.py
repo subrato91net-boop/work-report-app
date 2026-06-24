@@ -2951,6 +2951,159 @@ def ta_employee_bulk_pdf():
     return send_file(pdf_buf, mimetype="application/pdf", as_attachment=False, download_name=fname)
 
 
+# ══════════════════════════════════════════
+#  ROUTES — DATABASE BACKUP (Manager Only)
+# ══════════════════════════════════════════
+@app.route("/manager/database-backup")
+def db_backup_page():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    conn = get_db(); cur = conn.cursor()
+
+    # Ensure backup_history table exists
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS backup_history (
+            id          SERIAL PRIMARY KEY,
+            created_at  TEXT NOT NULL,
+            performed_by TEXT NOT NULL,
+            file_size   TEXT
+        )
+    """)
+    conn.commit()
+
+    # Stats
+    cur.execute("SELECT COUNT(*) AS c FROM backup_history")
+    total_backups = cur.fetchone()["c"]
+
+    cur.execute("SELECT created_at FROM backup_history ORDER BY id DESC LIMIT 1")
+    row = cur.fetchone()
+    last_backup = row["created_at"] if row else None
+
+    # DB size
+    cur.execute("SELECT pg_size_pretty(pg_database_size(current_database())) AS s")
+    db_size = cur.fetchone()["s"]
+
+    # History
+    cur.execute("SELECT * FROM backup_history ORDER BY id DESC LIMIT 10")
+    history = cur.fetchall()
+
+    cur.close(); conn.close()
+
+    flash_msg  = request.args.get("flash", "")
+    flash_type = request.args.get("flash_type", "info")
+
+    return render_template("db_backup.html",
+        total_backups=total_backups,
+        last_backup=last_backup,
+        db_size=db_size,
+        history=history,
+        flash_msg=flash_msg,
+        flash_type=flash_type,
+    )
+
+
+@app.route("/manager/database-backup/download")
+def db_backup_download():
+    if not logged_in() or not is_manager():
+        return redirect(url_for("login"))
+
+    import io as _io
+
+    conn = get_db(); cur = conn.cursor()
+
+    # Ensure backup_history table exists
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS backup_history (
+            id          SERIAL PRIMARY KEY,
+            created_at  TEXT NOT NULL,
+            performed_by TEXT NOT NULL,
+            file_size   TEXT
+        )
+    """)
+    conn.commit()
+
+    # ── Get all tables ──
+    cur.execute("""
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public'
+        ORDER BY tablename
+    """)
+    tables = [r["tablename"] for r in cur.fetchall()]
+
+    lines = []
+    lines.append("-- ══════════════════════════════════════════")
+    lines.append(f"-- Work Report System — Database Backup")
+    lines.append(f"-- Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"-- Tables    : {len(tables)}")
+    lines.append("-- ══════════════════════════════════════════")
+    lines.append("")
+    lines.append("SET client_encoding = 'UTF8';")
+    lines.append("SET standard_conforming_strings = on;")
+    lines.append("")
+
+    total_rows = 0
+
+    for table in tables:
+        try:
+            # Get column names
+            cur.execute(f"SELECT * FROM {table} LIMIT 0")
+            cols = [d[0] for d in cur.description]
+
+            # Get all rows
+            cur.execute(f"SELECT * FROM {table}")
+            rows = cur.fetchall()
+
+            lines.append(f"-- ── Table: {table} ({len(rows)} rows) ──")
+            lines.append(f"DELETE FROM {table};")
+
+            for row in rows:
+                values = []
+                for col in cols:
+                    val = row[col]
+                    if val is None:
+                        values.append("NULL")
+                    elif isinstance(val, bool):
+                        values.append("TRUE" if val else "FALSE")
+                    elif isinstance(val, (int, float)):
+                        values.append(str(val))
+                    else:
+                        escaped = str(val).replace("'", "''")
+                        values.append(f"'{escaped}'")
+                cols_str = ", ".join(cols)
+                vals_str = ", ".join(values)
+                lines.append(f"INSERT INTO {table} ({cols_str}) VALUES ({vals_str});")
+                total_rows += 1
+
+            lines.append("")
+        except Exception as e:
+            lines.append(f"-- ⚠️ Could not export table {table}: {e}")
+            lines.append("")
+
+    lines.append(f"-- ✅ Backup complete. Total rows: {total_rows}")
+
+    sql_content = "\n".join(lines)
+    file_size_kb = f"{round(len(sql_content.encode('utf-8')) / 1024, 1)} KB"
+
+    # Log to backup_history
+    cur.execute("""
+        INSERT INTO backup_history (created_at, performed_by, file_size)
+        VALUES (%s, %s, %s)
+    """, (
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        session.get("name", "Manager"),
+        file_size_kb,
+    ))
+    conn.commit()
+    cur.close(); conn.close()
+
+    buf = _io.BytesIO(sql_content.encode("utf-8"))
+    buf.seek(0)
+    fname = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
+    from flask import send_file
+    return send_file(buf, mimetype="text/plain", as_attachment=True, download_name=fname)
+
+
 @app.route("/export/ta-reports")
 def export_ta_reports():
     if not logged_in() or not is_manager():
